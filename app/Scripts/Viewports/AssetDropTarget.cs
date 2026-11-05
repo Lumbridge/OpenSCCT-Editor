@@ -3,6 +3,7 @@ using OpenScct.Editor.Core.Assets;
 using OpenScct.Editor.Core.Commands;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Geometry.Edit;
+using OpenScct.Editor.Core.Geometry.Snap;
 using OpenScct.Editor.Core.Model;
 using OpenScctEditor.Assets;
 using OpenScctEditor.Core;
@@ -46,9 +47,12 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
     private EditorContext _ctx = null!;
     private MeshDropGhost? _ghost;
+    private NeighbourDrag? _dropSnap;
+    private EditorViewport? _snapView;
     private EditorViewport? _over;
     private Vector2 _pointer;
     private ulong _frame;
+    private int _dragYaw;
     private string? _shown;
 
     /// <summary>The face a material or texture would go on (and the view it is over), for the overlay; null when the
@@ -87,9 +91,14 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     /// or texture over a brush face that takes it (the face is outlined).</summary>
     public bool CanDrop(EditorViewport view, Vector2 position, Variant data)
     {
+        if (PrefabDragData.Read(data) is { } prefab)
+        {
+            return ShowPrefab(view, Pointer(view, position), prefab);
+        }
+
         if (AssetDragData.ReadPlaceable(data) is { } placeable)
         {
-            return ShowPlaceable(view, placeable, PlaceableLanding.Find(view, Pointer(view, position), placeable, wait: false));
+            return ShowPlaceable(view, placeable, PlaceableLanding.Find(view, Pointer(view, position), placeable, wait: false, yaw: _dragYaw));
         }
 
         switch (AssetDragData.Read(data))
@@ -114,7 +123,11 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         _shown = null;
         try
         {
-            if (AssetDragData.ReadPlaceable(data) is { } placeable)
+            if (PrefabDragData.Read(data) is { } prefab)
+            {
+                prefab.Place(PrefabPoint(view, Pointer(view, position)));
+            }
+            else if (AssetDragData.ReadPlaceable(data) is { } placeable)
             {
                 PlacePlaceable(view, Pointer(view, position), placeable);
             }
@@ -139,6 +152,21 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
     public override void _Input(InputEvent e)
     {
+        if (e is InputEventKey { Pressed: true, Keycode: Key.R } key && GetViewport().GuiIsDragging()
+            && (AssetDragData.ReadPlaceable(GetViewport().GuiGetDragData()) is not null
+                || AssetDragData.Read(GetViewport().GuiGetDragData()) is { IsMesh: true }))
+        {
+            if (!key.Echo && !key.CtrlPressed && !key.AltPressed && !key.MetaPressed)
+            {
+                _dragYaw = Rot.Wrap(_dragYaw + Rot.UnitsPerTurn / 8);
+                if (_over is { } view)
+                {
+                    CanDrop(view, EditorPointer.Local(view), GetViewport().GuiGetDragData());
+                }
+            }
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (e is InputEventKey { Pressed: true, Keycode: Key.Escape } && GetViewport().GuiIsDragging()
             && DragName(GetViewport().GuiGetDragData()) is { } name)
         {
@@ -167,6 +195,11 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         {
             OverControls(pointer);
         }
+        else if (pointer == _pointer && _shown?.StartsWith(NotHere, StringComparison.Ordinal) != true
+            && AssetDragData.ReadPlaceable(GetViewport().GuiGetDragData()) is { } entry)
+        {
+            ShowPlaceable(_over, entry, PlaceableLanding.Find(_over, EditorPointer.Local(_over), entry, wait: false, yaw: _dragYaw));
+        }
     }
 
     /// <summary>The pointer is over a control on top of the view: nothing would land, and the status bar says so (also
@@ -190,7 +223,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         EditorViewport? view = _over;
         HideGhost();
         _over = view;
-        _refused = (AssetDragData.ReadPlaceable(data) is not null ? "Not placed: " : "Not applied: ") + why;
+        _refused = (AssetDragData.ReadPlaceable(data) is not null || PrefabDragData.Read(data) is not null ? "Not placed: " : "Not applied: ") + why;
         _shown = NotHere + why;
         _ctx.SetStatus(_shown);
     }
@@ -210,7 +243,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     }
 
     /// <summary>The name of what an asset or palette drag carries, or null for any other drag.</summary>
-    private static string? DragName(Variant data) => AssetDragData.Read(data)?.Name ?? AssetDragData.ReadPlaceable(data)?.Title;
+    private static string? DragName(Variant data) => AssetDragData.Read(data)?.Name ?? AssetDragData.ReadPlaceable(data)?.Title ?? PrefabDragData.Read(data)?.Title;
 
     // ---- a palette placeable ----------------------------------------------------------------------------------------
 
@@ -250,7 +283,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         _frame = Engine.GetProcessFrames();
         // While the collision world is still being built the drop is taken (it waits for it); only the preview waits.
         bool pending = at.Spot is null && at.Why == PlaceableLanding.Pending;
-        string status = at.Spot is { } s ? $"Drop to place {entry.Title} on {s.On} at {s.Location}"
+        string status = at.Spot is { } s ? $"Drop to place {entry.Title} on {s.On} at {s.Location} · Shift: free placement · R: rotate 45°"
             : pending ? $"Drop to place {entry.Title}: {at.Why}\u2026" : NotHere + at.Why;
         _refused = at.Spot is null && !pending ? "Not placed: " + at.Why : null;
         if (status != _shown)
@@ -266,7 +299,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     /// built), as one undo step with its wiring; where it cannot go, the status bar says why.</summary>
     private void PlacePlaceable(EditorViewport view, Vector2 at, Placeable entry)
     {
-        (PlaceableSpot? spot, string why) = PlaceableLanding.Find(view, at, entry, wait: true);
+        (PlaceableSpot? spot, string why) = PlaceableLanding.Find(view, at, entry, wait: true, yaw: _dragYaw);
         if (spot is not { } s)
         {
             _ctx.SetStatus("Not placed: " + why);
@@ -295,7 +328,8 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         if (hit is { } h)
         {
             // Snapped along the surface only, so the mesh stays on it.
-            (Vec3 location, Rot rotation) = MeshDrop.OnSurface(h.Point, h.Normal, min, max, SnapExcept(Placement.DominantAxis(h.Normal)));
+            (Vec3 location, Rot rotation) = MeshDrop.OnSurface(h.Point, h.Normal, min, max, SnapExcept(Placement.DominantAxis(h.Normal)), _dragYaw);
+            location = SnapMesh(view, location, rotation, min, max, h.Normal);
             return new Land(location, rotation, min, max, h.Object is { } on ? on.Id : "the map's collision");
         }
 
@@ -313,8 +347,30 @@ public sealed partial class AssetDropTarget : Node, IShellPart
             free = o + d * FallbackDistance;
         }
 
-        (Vec3 loc, Rot rot) = MeshDrop.OnSurface(free, Vec3.UnitZ, min, max, SnapExcept(fixedAxis));
+        (Vec3 loc, Rot rot) = MeshDrop.OnSurface(free, Vec3.UnitZ, min, max, SnapExcept(fixedAxis), _dragYaw);
+        loc = SnapMesh(view, loc, rot, min, max, Vec3.Zero.With(fixedAxis, 1));
         return new Land(loc, rot, min, max, null);
+    }
+
+    private Vec3 SnapMesh(EditorViewport view, Vec3 location, Rot rotation, Vec3 min, Vec3 max, Vec3 normal)
+    {
+        if (ToolManager.Instance is not { } tools)
+        {
+            return location;
+        }
+        if (_dropSnap is null || _snapView != view)
+        {
+            _snapView = view;
+            _dropSnap = new NeighbourDrag(tools, view, SnapUse.Move, [], () => null);
+        }
+        var box = OrientedBox.FromLocal(min, max, c => location + rotation.Rotate(c));
+        MovingShape? shape = SnapFaces.Shape(box.Faces(null, SnapSource.Mesh, false), null);
+        if (shape is null)
+        {
+            return location;
+        }
+        MoveSnap snap = _dropSnap.Move(shape, Vec3.Zero, [.. new[] { 0, 1, 2 }.Where(a => Math.Abs(normal[a]) < 1e-5)]);
+        return location + snap.Offset;
     }
 
     /// <summary>Snaps a point to the grid (when grid snap is on) on every axis but <paramref name="axis"/>.</summary>
@@ -649,6 +705,13 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     /// the picked faces' own blue.</summary>
     public void Draw(EditorViewport view, Control canvas)
     {
+        if (_prefabTarget is { } targetPoint && targetPoint.View == view && view.Cam.ToScreen(targetPoint.Point) is { } screen)
+        {
+            canvas.DrawCircle(screen, 7, SceneStyle.DropTarget, filled: false, width: 2);
+            canvas.DrawLine(screen - new Vector2(12, 0), screen + new Vector2(12, 0), SceneStyle.DropTarget);
+            canvas.DrawLine(screen - new Vector2(0, 12), screen + new Vector2(0, 12), SceneStyle.DropTarget);
+        }
+
         if (_placeable is { } placing && placing.View == view)
         {
             PlaceableLanding.Draw(view.Cam, canvas, placing.Entry, placing.Spot);
@@ -718,6 +781,12 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
     private void HideGhost()
     {
+        if (_prefabTarget is { } prefabTarget)
+        {
+            _prefabTarget = null;
+            if (IsInstanceValid(prefabTarget.View)) prefabTarget.View.Redraw();
+        }
+
         if (_ghost is not null && IsInstanceValid(_ghost))
         {
             _ghost.Visible = false;
@@ -765,6 +834,9 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     /// afresh.</summary>
     private void End()
     {
+        _dropSnap = null;
+        _snapView = null;
+        _dragYaw = 0;
         HideGhost();
         _ghost?.Clear();
         _world = null;

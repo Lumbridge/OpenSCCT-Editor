@@ -189,7 +189,7 @@ public sealed class Workspace
 
     public double GridSize { get; set; } = 16;
 
-    public int RotationGrid { get; set; } = 1024;
+    public int RotationGrid { get; set; } = 4551;
 
     public Vec3 CameraLocation { get; set; } = new(-512, -512, 512);
 

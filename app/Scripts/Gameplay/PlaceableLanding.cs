@@ -14,30 +14,16 @@ namespace OpenScctEditor.Gameplay;
 
 /// <summary>Where a palette placeable goes: its location and rotation, and what it is on ("the wall"), for the status
 /// bar.</summary>
-public readonly record struct PlaceableSpot(Vec3 Location, Rot Rotation, string On);
+public readonly record struct PlaceableSpot(Vec3 Location, Rot Rotation, string On, Vec3 Normal = default);
 
 /// <summary>
 /// Where a placeable of the palette (<see cref="Placeables"/>) lands for a point of a view, by its class's placement
 /// rule, over the level's collision (<see cref="GameplayState.World"/>: brushes and an imported map's baked collision,
 /// meshes included), and the one-step placement with its wiring (<see cref="PlaceableWiring"/>). Both the views' drop
 /// pipeline (<see cref="AssetDropTarget"/>) and the place tool use it.
-/// <list type="bullet">
-/// <item>A surface placeable (cameras, lasers, sensors, alarms, switches, stations) goes on the wall or ceiling under
-/// the pointer, its back to it and facing out, with the security tool's gaps and pitch
-/// (<see cref="SecurityDevices.OnWall"/>): a camera 24 units off the wall, where the game's 200-unit trace back finds
-/// the wall for its mount. Only a few (lasers, presence triggers, ammo crates: <see cref="Placeable.OnFloors"/>) also go
-/// on a floor, facing up; for the others a floor is refused.</item>
-/// <item>A floor placeable (objectives, disks, missions, movers) stands on the floor under the pointer; over a wall or
-/// a ceiling it drops to the floor below it. Its mesh's bottom (else its collision cylinder's) rests on the floor, its
-/// pivot snapped to the grid along the floor where the floor is still there, facing the viewer in the perspective
-/// view.</item>
-/// </list>
-/// Traces meet the level's collision and the static meshes the views draw (<see cref="Trace"/>). The perspective view
-/// traces along the pointer's ray. The top view finds the first floor below the pointer (on the
-/// storey shown, on the level's collision only, so a mesh roof does not stop it); a surface placeable then goes on the nearest wall around that point at its
-/// <see cref="Placeable.WallHeight"/>, else on the ceiling above. The front and side views take the point on the view
-/// plane at the depth of the selection (else of what the view is centred on), as a mesh drop does: a floor placeable
-/// stands on the floor below it, a surface placeable goes on the nearest wall or ceiling within reach of it.
+/// Mount rules choose an initial orientation, never forbid a surface. Shift bypasses surface placement entirely;
+/// logical markers always use free placement. Empty space falls back to the working plane. Preview and drop use
+/// the same rules, including the optional 45-degree drag rotation.
 /// </summary>
 public static class PlaceableLanding
 {
@@ -84,8 +70,12 @@ public static class PlaceableLanding
     /// A hover (<paramref name="wait"/> false) never waits for the collision world, it starts building it; a drop or a
     /// click waits.
     /// </summary>
-    public static (PlaceableSpot? Spot, string Why) Find(EditorViewport view, Vector2 at, Placeable entry, bool wait)
+    public static (PlaceableSpot? Spot, string Why) Find(EditorViewport view, Vector2 at, Placeable entry, bool wait, int yaw = 0, bool free = false)
     {
+        if (free || Godot.Input.IsKeyPressed(Key.Shift) || entry.Mount == PlaceableMount.Free)
+        {
+            return (Free(view.Cam, at, yaw), "");
+        }
         GameplayState state = GameplayState.Instance;
         TraversalWorld? world = wait ? state.World : state.WorldIfBuilt;
         if (world is null)
@@ -96,16 +86,67 @@ public static class PlaceableLanding
 
         if (!world.HasGeometry)
         {
-            return (null, $"the map has no geometry to put {entry.InSentence} on yet");
+            return (Free(view.Cam, at, yaw), "");
         }
 
         ViewCamera cam = view.Cam;
-        return cam.Kind switch
+        (PlaceableSpot? spot, _) = cam.Kind switch
         {
             ViewKind.Perspective => Aimed(world, cam, at, entry),
             ViewKind.Top => FromAbove(world, cam, at, entry),
             _ => OnPlane(world, cam, at, entry),
         };
+        return (spot is { } s ? yaw != 0 ? Turn(entry, s, yaw) : s : Free(cam, at, yaw), "");
+    }
+
+    private static PlaceableSpot Free(ViewCamera cam, Vector2 at, int yaw)
+    {
+        Vec3 point;
+        int[] axes;
+        if (cam.IsOrtho)
+        {
+            int depth = ViewAxes.DepthAxis(cam.Kind);
+            point = cam.PlanePoint(at, PlaneDepth(cam, depth));
+            axes = [.. new[] { 0, 1, 2 }.Where(a => a != depth)];
+        }
+        else
+        {
+            (Vec3 origin, Vec3 direction) = cam.Ray(at);
+            Vec3 centre = new(PlaneDepth(cam, 0), PlaneDepth(cam, 1), PlaneDepth(cam, 2));
+            if (Vec3.Dot(centre - origin, cam.Axes.Forward) < 1)
+            {
+                centre = origin + cam.Axes.Forward * 512;
+            }
+            point = DragMath.PlaneHit(centre, cam.Axes.Forward, origin, direction) ?? origin + direction * 512;
+            axes = [0, 1, 2];
+        }
+        return new PlaceableSpot(ToolManager.Instance?.Snap(point, axes) ?? point,
+            new Rot(0, Rot.Wrap(yaw), 0), "the working plane (free placement)");
+    }
+
+    private static PlaceableSpot Turn(Placeable entry, PlaceableSpot spot, int yaw)
+    {
+        Rot rotation = spot.Rotation with { Yaw = Rot.Wrap(spot.Rotation.Yaw + yaw) };
+        if (spot.Normal == Vec3.Zero)
+        {
+            return spot with { Rotation = rotation };
+        }
+        var before = new Actor("ghost", entry.Class) { Rotation = spot.Rotation };
+        var after = new Actor("ghost", entry.Class) { Rotation = rotation };
+        // Keep the same footprint centre and support plane after turning.
+        if (StaticMeshDrawing.Loaded(before) is { } mesh)
+        {
+            Vec3[] corners = ObjectGeometry.Corners(mesh.Min, mesh.Max).ToArray();
+            Vec3[] oldPoints = corners.Select(c => StaticMeshDrawing.MeshToWorld(before, c)).ToArray();
+            Vec3[] newPoints = corners.Select(c => StaticMeshDrawing.MeshToWorld(after, c)).ToArray();
+            Vec3 delta = oldPoints.Aggregate(Vec3.Zero, (sum, p) => sum + p) / 8
+                - newPoints.Aggregate(Vec3.Zero, (sum, p) => sum + p) / 8;
+            Vec3 n = spot.Normal;
+            delta -= n * Vec3.Dot(delta, n);
+            delta += n * (oldPoints.Min(p => Vec3.Dot(p, n)) - newPoints.Min(p => Vec3.Dot(p, n)));
+            return spot with { Location = spot.Location + delta, Rotation = rotation };
+        }
+        return spot with { Rotation = rotation };
     }
 
     /// <summary>The perspective view: on the surface the pointer's ray meets.</summary>
@@ -122,9 +163,15 @@ public static class PlaceableLanding
         Vec3 n = h.Normal.Normalized();
         if (entry.Mount == PlaceableMount.Surface)
         {
-            return n.Z >= 0.7 && !entry.OnFloors
-                ? (null, $"{entry.InSentence} goes on a wall or ceiling, not on the floor")
-                : (OnSurface(entry, h.Point, n, Surface(n)), "");
+            if (n.Z >= 0.7 && ToolManager.Instance is { NeighbourSnap: true } tools)
+            {
+                double reach = Math.Clamp(cam.UnitsPerPixelAt(h.Point) * tools.NeighbourSnapPx, 4, 64);
+                if (NearestWall(world, h.Point + Vec3.UnitZ * Math.Min(entry.WallHeight, 96), reach) is { } wall)
+                {
+                    return (OnSurface(entry, wall.Point, Flat(wall.Normal), "the nearby wall"), "");
+                }
+            }
+            return (OnSurface(entry, h.Point, n, Surface(n)), "");
         }
 
         if (n.Z >= 0.7)
@@ -132,14 +179,7 @@ public static class PlaceableLanding
             return (Stand(world, cam, entry, h.Point, "the floor"), "");
         }
 
-        // A wall or a ceiling: the floor below the point, a little out from the surface.
-        Vec3 off = h.Point + n * 24;
-        if (Trace(world, off, off - Vec3.UnitZ * 8192) is not { } below || below.Normal.Z < 0.7)
-        {
-            return (null, $"no floor below the {Surface(n)[4..]} under the pointer to stand {entry.InSentence} on");
-        }
-
-        return (Stand(world, cam, entry, below.Point, $"the floor below the {Surface(n)[4..]}"), "");
+        return (OnSurface(entry, h.Point, n, Surface(n)), "");
     }
 
     /// <summary>The top view: the first floor below the pointer; a surface placeable on the nearest wall around it,
@@ -160,19 +200,23 @@ public static class PlaceableLanding
         TraceHit? ceiling = Trace(world, start, start + Vec3.UnitZ * FloorReach) is { } up && up.Normal.Z <= -0.7 && up.Distance >= 1 ? up : null;
         double room = ceiling?.Distance ?? 512;
         double height = Math.Max(16, Math.Min(entry.WallHeight, room - 24));
-        if (NearestWall(world, floor.Point + Vec3.UnitZ * height, NearReach) is { } wall)
+        double wallReach = entry.OnFloors ? Math.Clamp(cam.UnitsPerPixelAt(floor.Point) * (ToolManager.Instance?.NeighbourSnapPx ?? 8), 4, 64) : NearReach;
+        if ((!entry.OnFloors || ToolManager.Instance?.NeighbourSnap == true)
+            && NearestWall(world, floor.Point + Vec3.UnitZ * height, wallReach) is { } wall)
         {
             return (OnSurface(entry, wall.Point, Flat(wall.Normal), "the nearest wall"), "");
         }
 
+        if (entry.OnFloors)
+        {
+            return (OnSurface(entry, floor.Point, Vec3.UnitZ, "the floor"), "");
+        }
         if (ceiling is { } c)
         {
             return (OnSurface(entry, c.Point, c.Normal.Normalized(), "the ceiling above"), "");
         }
 
-        return entry.OnFloors
-            ? (OnSurface(entry, floor.Point, Vec3.UnitZ, "the floor"), "")
-            : (null, $"no wall within {NearReach:0} units of the pointer and no ceiling above it for {entry.InSentence}: drop it nearer a wall, or in the perspective view");
+        return (OnSurface(entry, floor.Point, Vec3.UnitZ, "the floor"), "");
     }
 
     /// <summary>The front and side views: the point on the view plane at the selection's depth (else the view's centre);
@@ -192,9 +236,7 @@ public static class PlaceableLanding
         TraceHit? floor = Trace(world, p, p - Vec3.UnitZ * FloorReach) is { Distance: >= 1 } down && down.Normal.Z >= 0.7 ? down : null;
         if (entry.Mount == PlaceableMount.Floor)
         {
-            return floor is { } f
-                ? (Stand(world, cam, entry, f.Point, "the floor"), "")
-                : (null, $"no floor below the point {where} to stand {entry.InSentence} on");
+            return (Free(cam, at, 0), "");
         }
 
         var candidates = new List<(TraceHit Hit, Vec3 Normal, string On)>();
@@ -208,7 +250,7 @@ public static class PlaceableLanding
             candidates.Add((up, up.Normal.Normalized(), "the ceiling above"));
         }
 
-        if (entry.OnFloors && floor is { } below && below.Distance <= NearReach)
+        if (floor is { } below && below.Distance <= NearReach)
         {
             candidates.Add((below, Vec3.UnitZ, "the floor below"));
         }
@@ -225,12 +267,36 @@ public static class PlaceableLanding
     /// <summary>A surface placeable on a surface: the security tool's gap and pitch.</summary>
     private static PlaceableSpot OnSurface(Placeable entry, Vec3 point, Vec3 normal, string on)
     {
-        (Vec3 location, Rot rotation) = SecurityDevices.OnWall(entry.Device, point, normal);
-        return new PlaceableSpot(location, rotation, on);
+        Vec3 location = point + normal * entry.Device.WallGap;
+        Rot rotation = entry.RotationOn(normal);
+        if (entry.Group != PlaceableGroup.Security || entry.Mount != PlaceableMount.Surface)
+        {
+            var probe = new Actor("ghost", entry.Class) { Rotation = rotation };
+            if (StaticMeshDrawing.Loaded(probe) is { } mesh)
+            {
+                Vec3[] corners = ObjectGeometry.Corners(mesh.Min, mesh.Max)
+                    .Select(c => StaticMeshDrawing.MeshToWorld(probe, c)).ToArray();
+                double back = corners.Min(c => Vec3.Dot(c, normal));
+                Vec3 centre = corners.Aggregate(Vec3.Zero, (sum, c) => sum + c) / corners.Length;
+                location = point - (centre - normal * Vec3.Dot(centre, normal)) + normal * ((normal.Z >= 0.7 ? 0 : Math.Max(0.5, entry.Gap)) - back);
+            }
+            else
+            {
+                if (StaticMeshDrawing.MeshPath(probe) is { } path)
+                {
+                    StaticMeshes.Request(path, _ => { });
+                }
+                if (normal.Z >= 0.7)
+                {
+                    location = point + normal * Lift(probe);
+                }
+            }
+        }
+        return new PlaceableSpot(location, rotation, on, normal);
     }
 
     /// <summary>A floor placeable standing on a floor point: its pivot snapped to the grid along the floor (kept where
-    /// it is when the snapped point is off this floor: over a ledge, in a wall, on a step), facing the viewer.</summary>
+    /// it is when the snapped point is off this floor: over a ledge, in a wall, on a step), aligned to the map.</summary>
     private static PlaceableSpot Stand(TraversalWorld world, ViewCamera cam, Placeable entry, Vec3 floor, string on)
     {
         ToolManager? tools = ToolManager.Instance;
@@ -245,10 +311,10 @@ public static class PlaceableLanding
             }
         }
 
-        int yaw = cam.IsOrtho ? 0 : tools?.SnapRotation(cam.Yaw + Rot.UnitsPerTurn / 2) ?? (int)cam.Yaw + Rot.UnitsPerTurn / 2;
+        int yaw = 0; // A new prop starts square to the map, independent of the viewing angle.
         var rotation = new Rot(0, yaw, 0).Normalized();
         var probe = new Actor("ghost", entry.Class) { Location = standOn with { Z = 0 }, Rotation = rotation };
-        return new PlaceableSpot(standOn with { Z = standOn.Z + Lift(probe) }, rotation, on);
+        return new PlaceableSpot(standOn with { Z = standOn.Z + Lift(probe) }, rotation, on, Vec3.UnitZ);
     }
 
     /// <summary>The nearest wall facing a point (horizontal rays in 16 directions within <paramref name="reach"/>; a ray
@@ -363,7 +429,7 @@ public static class PlaceableLanding
 
         // No mesh to show (an alarm, a switch, or a device whose mesh ships nowhere): the class's icon marks the spot,
         // as the dot alone is easily missed.
-        if (!StaticMeshDrawing.DrawsMesh(ghost) && cam.ToScreen(spot.Location) is { } at)
+        if (StaticMeshDrawing.Loaded(ghost) is null && cam.ToScreen(spot.Location) is { } at)
         {
             const int Size = EditorTheme.IconSizeTile;
             canvas.DrawTextureRect(ActorIcons.For(Placeables.Kind(entry, EditorServices.Classes), colour, Size),

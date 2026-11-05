@@ -1,5 +1,7 @@
 using OpenScct.Editor.Core.Classes;
 using OpenScct.Editor.Core.Services;
+using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Scripting;
 
 namespace OpenScct.Editor.Core.Gameplay;
 
@@ -19,9 +21,11 @@ public enum PlaceableMount
     /// security tool's wall placement (<see cref="SecurityDevices.OnWall"/>), with the device's gap and pitch.</summary>
     Surface,
 
-    /// <summary>Standing on the floor under the pointer (from a wall or ceiling, on the floor below it), facing the
-    /// viewer.</summary>
+    /// <summary>Upright on the aimed surface; in side views, at the view plane's depth.</summary>
     Floor,
+
+    /// <summary>A logical marker placed at the view's working depth, without requiring geometry.</summary>
+    Free,
 }
 
 /// <summary>
@@ -30,13 +34,15 @@ public enum PlaceableMount
 /// </summary>
 /// <param name="Gap">How far off the surface a <see cref="PlaceableMount.Surface"/> placeable sits.</param>
 /// <param name="Pitch">The pitch a surface placeable gets on a wall (rotator units; cameras look down a little).</param>
-/// <param name="OnFloors">A surface placeable that may also go on a floor, facing up (a laser shining up, a presence
-/// trigger, an ammo crate); the others go on walls and ceilings only.</param>
+/// <param name="OnFloors">Prefer the floor in top view instead of searching farther for a wall or ceiling.
+/// Every surface is allowed regardless of this preference.</param>
+/// <param name="AlignToSurface">Align the authored mounting plane to floors and ceilings as well as walls.</param>
 /// <param name="WallHeight">How high above the floor a surface placeable goes on a wall found for it in the top, front
 /// or side view (below the ceiling there); <see cref="double.PositiveInfinity"/> puts it just under the ceiling.</param>
+/// <param name="WallYaw">Yaw correction for a model whose authored facing differs from the security devices' +X.</param>
 /// <param name="Icon">The tile's icon kind when it is not the class's own (a plain mover tile shown as a door).</param>
 public sealed record Placeable(string Class, string Title, PlaceableGroup Group, PlaceableMount Mount, string Summary, int StockMaps,
-    double Gap = 8, int Pitch = 0, bool OnFloors = false, double WallHeight = 112, ActorKind? Icon = null)
+    double Gap = 8, int Pitch = 0, bool OnFloors = false, double WallHeight = 112, ActorKind? Icon = null, int WallYaw = 0, bool AlignToSurface = false)
 {
     public string ShortClass => Class[(Class.LastIndexOf('.') + 1)..];
 
@@ -48,9 +54,25 @@ public sealed record Placeable(string Class, string Title, PlaceableGroup Group,
         ?? new DeviceSpec(SecurityDevices.KindOf(Class) ?? DeviceKind.Other, Class, Title, Gap, Pitch);
 
     /// <summary>How it is placed, in words for tooltips.</summary>
-    public string MountWords => Mount == PlaceableMount.Floor ? "standing on the floor under the pointer, facing you"
-        : OnFloors ? "on the wall, ceiling or floor under the pointer, facing out of it"
-        : "on the wall or ceiling under the pointer, facing out of it (the nearest wall in the top, front and side views)";
+    public string MountWords => (Mount == PlaceableMount.Free
+        ? "freely at the view's working depth"
+        : "on any aimed surface; " + (AlignToSurface ? "aligned to that surface" : Mount == PlaceableMount.Floor ? "upright" : "using its usual mounting orientation"))
+        + "; hold Shift for free placement without surface snapping";
+
+    /// <summary>Default surface orientation, independent of whether the surface is a preferred mount.</summary>
+    public Rot RotationOn(Vec3 normal)
+    {
+        Rot facing = SecurityDevices.OnWall(Device, Vec3.Zero, normal).Rotation;
+        if (AlignToSurface)
+        {
+            return RotatorMath.Compose(new Rot(0, WallYaw, 0), facing);
+        }
+        if (Group == PlaceableGroup.Security && Mount == PlaceableMount.Surface)
+        {
+            return facing;
+        }
+        return Math.Abs(normal.Z) >= 0.7 ? Rot.Zero : facing with { Yaw = Rot.Wrap(facing.Yaw + WallYaw) };
+    }
 
     /// <summary>True when every word of <paramref name="query"/> is in its name, class, group or description.</summary>
     public bool Matches(string query)
@@ -88,7 +110,7 @@ public static class Placeables
             "Fires its Event when a player comes within its radius.", 77, 48, OnFloors: true, WallHeight: 48),
         new("SBase.SAlarm", "Alarm", PlaceableGroup.Security, PlaceableMount.Surface,
             "Goes off when a sender fires it: locks the movers and objectives in its lists, fires its Events and shows on the HUD.", 73, 16, WallHeight: 192),
-        new("SBase.SGPOControl", "Security zone", PlaceableGroup.Security, PlaceableMount.Floor,
+        new("SBase.SGPOControl", "Security zone", PlaceableGroup.Security, PlaceableMount.Free,
             "A named area (“Library”) grouping security devices: a device that names it in its ERControl passes "
             + "a jam (chaff, sticky shocker) on to the zone.", 15),
         new("SBase.SProjoFixe", "Searchlight", PlaceableGroup.Security, PlaceableMount.Floor,
@@ -97,17 +119,17 @@ public static class Placeables
         // Objectives.
         new("SBase.SComputerObjectiveTrigger", "Computer", PlaceableGroup.Objectives, PlaceableMount.Floor,
             "A laptop or terminal the spies hack to complete its objective.", 76),
-        new("SBase.SBombTargetObjectiveTrigger", "Bomb target", PlaceableGroup.Objectives, PlaceableMount.Floor,
-            "A spot the spies plant a bomb on to complete its objective.", 41),
+        new("SBase.SBombTargetObjectiveTrigger", "Bomb target", PlaceableGroup.Objectives, PlaceableMount.Surface,
+            "A spot the spies plant a bomb on to complete its objective.", 41, OnFloors: true),
         new("SBase.SFlag", "Disk to carry", PlaceableGroup.Objectives, PlaceableMount.Floor,
             "A hard disk in a server rack: a spy takes it and carries it to one of its drop zones (DropZone) to complete its objective.", 49),
         new("SBase.SFlagDropZone", "Disk drop zone", PlaceableGroup.Objectives, PlaceableMount.Floor,
             "A case a spy carrying a disk drops it in; the disk lists the zones it can be delivered to.", 48),
         new("SBase.SDisk", "Hunt disk", PlaceableGroup.Objectives, PlaceableMount.Floor,
             "A disk to pick up in a disk hunt: the disk hunt mission counts them (its Triggers).", 70),
-        new("SBase.SObjective", "Objective", PlaceableGroup.Objectives, PlaceableMount.Floor,
+        new("SBase.SObjective", "Objective", PlaceableGroup.Objectives, PlaceableMount.Free,
             "An objective of a mission: done when one of its Triggers (computers, bomb targets, disks) is; then fires its Event.", 80),
-        new("SBase.SMission", "Mission", PlaceableGroup.Objectives, PlaceableMount.Floor,
+        new("SBase.SMission", "Mission", PlaceableGroup.Objectives, PlaceableMount.Free,
             "A game mode's mission: its Objectives, and how many of them win it (MinimumObjectives).", 80),
 
         // Pickups and stations.
@@ -118,7 +140,7 @@ public static class Placeables
 
         // Interactive.
         new("SBase.SInterrupteur", "Switch", PlaceableGroup.Interactive, PlaceableMount.Surface,
-            "A switch players use: it fires its Event (a door, a light, a lift).", 72, 4, WallHeight: 96),
+            "A switch players use: it fires its Event (a door, a light, a lift).", 72, 4, OnFloors: true, WallHeight: 96, AlignToSurface: true),
         new("Engine.Mover", "Door", PlaceableGroup.Interactive, PlaceableMount.Floor,
             "A mover: a mesh that moves between its keys when triggered or bumped (doors, gates, shutters).", 77, Icon: ActorKind.Door),
         new("SBase.SLiftDoor", "Lift door", PlaceableGroup.Interactive, PlaceableMount.Floor,
@@ -128,9 +150,9 @@ public static class Placeables
         new("Engine.MoverRotating", "Rotating mover", PlaceableGroup.Interactive, PlaceableMount.Floor,
             "A mover that turns on and on (fans, wheels).", 5),
         new("SBase.SExtincteur", "Fire extinguisher", PlaceableGroup.Interactive, PlaceableMount.Surface,
-            "A wall extinguisher that sprays a cloud and makes a bang when shot, then re-arms.", 39, WallHeight: 64),
+            "A wall extinguisher that sprays a cloud and makes a bang when shot, then re-arms.", 39, OnFloors: true, WallHeight: 64),
         new("SBase.SVitre", "Window", PlaceableGroup.Interactive, PlaceableMount.Surface,
-            "Breakable glass: it shatters when shot or crashed through.", 47, 0, WallHeight: 96),
+            "Breakable glass: it shatters when shot or crashed through.", 47, 0, OnFloors: true, WallHeight: 96, WallYaw: 16384, AlignToSurface: true),
         new("SBase.SSprinkler", "Sprinkler", PlaceableGroup.Interactive, PlaceableMount.Surface,
             "A ceiling sprinkler that rains and leaves puddles when its Tag is fired.", 5, 4, WallHeight: double.PositiveInfinity),
     ];

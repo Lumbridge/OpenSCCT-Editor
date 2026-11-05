@@ -20,8 +20,9 @@ public static class MeshDrop
 
     /// <summary>The location and rotation of a mesh with local box <paramref name="min"/>..<paramref name="max"/> dropped
     /// at <paramref name="point"/> on a surface with outward <paramref name="normal"/>. <paramref name="snap"/> moves
-    /// the pivot to the grid, kept to the surface's plane, before it is stood off the surface.</summary>
-    public static (Vec3 Location, Rot Rotation) OnSurface(Vec3 point, Vec3 normal, Vec3 min, Vec3 max, Func<Vec3, Vec3>? snap = null)
+    /// the pivot to the grid, kept to the surface's plane, before it is stood off the surface. <paramref name="yaw"/>
+    /// adds a turn about world up before computing contact and footprint.</summary>
+    public static (Vec3 Location, Rot Rotation) OnSurface(Vec3 point, Vec3 normal, Vec3 min, Vec3 max, Func<Vec3, Vec3>? snap = null, int yaw = 0)
     {
         Vec3 n = normal.Normalized();
         if (n == Vec3.Zero)
@@ -32,6 +33,7 @@ public static class MeshDrop
         Rot rotation = n.Z >= LevelZ || n.Z <= -FloorZ ? Rot.Zero
             : n.Z >= FloorZ ? Orientation.AlignUp(Rot.Zero, n)
             : new Rot(0, Rot.Wrap((int)Math.Round(Math.Atan2(n.Y, n.X) * Rot.UnitsPerTurn / (2 * Math.PI))), 0);
+        rotation = rotation with { Yaw = Rot.Wrap(rotation.Yaw + yaw) };
         Vec3 centre = rotation.Rotate((min + max) * 0.5);
         Vec3 pivot = point - (centre - n * Vec3.Dot(centre, n));
         if (snap is not null)

@@ -1,5 +1,6 @@
 using OpenScct.Content.Json;
 using OpenScct.Editor.Core.Geometry.Builders;
+using OpenScct.Editor.Core.Geometry.Edit;
 using OpenScct.Editor.Core.Model;
 
 namespace OpenScct.Editor.Core.Geometry;
@@ -17,11 +18,13 @@ public static class Starter
         room.Location = new Vec3(0, 0, 256);
         p.Brushes.Add(room);
 
-        Actor spy = new(p.NewId("PlayerStart"), "Engine.PlayerStart") { Location = new Vec3(-384, 0, 48) };
+        Actor spy = new(p.NewId("PlayerStart"), "Engine.PlayerStart");
+        spy.Location = new Vec3(-384, 0, ActorPlacement.HalfHeight(spy, p.Workspace.Movement.StandHeight / 2));
         spy.Props.Set("TeamNumber", SvJsonNode.Integer(0));
         p.Actors.Add(spy);
 
-        Actor merc = new(p.NewId("PlayerStart"), "Engine.PlayerStart") { Location = new Vec3(384, 0, 48), Rotation = new Rot(0, 32768, 0) };
+        Actor merc = new(p.NewId("PlayerStart"), "Engine.PlayerStart") { Rotation = new Rot(0, 32768, 0) };
+        merc.Location = new Vec3(384, 0, ActorPlacement.HalfHeight(merc, p.Workspace.Movement.StandHeight / 2));
         merc.Props.Set("TeamNumber", SvJsonNode.Integer(1));
         p.Actors.Add(merc);
 

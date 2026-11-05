@@ -88,6 +88,17 @@ public sealed class TransformTool : IViewportTool
                 }
 
                 return true;
+            case InputEventKey { Keycode: Key.R, Pressed: true } key when Mode == TransformMode.Move && _drag is { } moving:
+                if (!key.Echo && !key.CtrlPressed && !key.AltPressed && !key.MetaPressed)
+                {
+                    moving.Moving = true;
+                    moving.TurnUnits = Rot.Wrap(moving.TurnUnits + Rot.UnitsPerTurn / 8);
+                    moving.MoveSnapshot = moving.Snapshot.Turned(Project, moving.Pivot, moving.TurnUnits);
+                    moving.Snap = new NeighbourDrag(_tools, view, SnapUse.Move, moving.Snapshot.Refs.Select(r => r.Id),
+                        () => NeighbourDrag.ShapeOf(moving.MoveSnapshot, _tools.Context.Selection.Primary));
+                    UpdateDrag(moving, moving.Mouse, force: true);
+                }
+                return true;
             case InputEventKey { Keycode: Key.Alt } alt when _drag is { } drag:
                 // Holding Alt inverts neighbour snap for this drag: show it without waiting for the mouse to move.
                 if (drag.Snap.AltHeld != alt.Pressed)
@@ -192,7 +203,8 @@ public sealed class TransformTool : IViewportTool
     private static Color Highlight(Color c, bool on) => on ? SceneStyle.Selection : c;
 
     private Vec3? Pivot() =>
-        _tools.Context.Selection.Primary is { } r ? ObjectGeometry.Pivot(Project, r) : null;
+        ObjectGeometry.Bounds(Project, _tools.Context.Selection.Items) is { } bounds
+            ? (bounds.Min + bounds.Max) / 2 : null;
 
     private Gizmo? Handles(EditorViewport view, Vec3 pivot)
     {
@@ -311,6 +323,7 @@ public sealed class TransformTool : IViewportTool
         var drag = new Drag(view, handle, mouse, pivot, snap, $"gizmo:{++s_dragCounter}", neighbours)
         {
             Mode = Mode,
+            Mouse = mouse,
             StartRotation = primary is { } pr ? snap.Start(pr)?.Rotation : null,
             ScaleBlocker = Mode == TransformMode.Scale ? NeighbourDrag.ScaleBlocker(snap) : null,
         };
@@ -434,7 +447,7 @@ public sealed class TransformTool : IViewportTool
 
                 drag.Snap.Moved(offset);
                 drag.Readout = ViewTags.Axes(offset);
-                cmd = drag.Changes(offset) ? drag.Snapshot.Translate(Project, offset, drag.Key) : null;
+                cmd = drag.Changes((offset, drag.TurnUnits)) ? drag.MoveSnapshot.Translate(Project, offset, drag.Key) : null;
                 break;
             }
 
@@ -565,7 +578,11 @@ public sealed class TransformTool : IViewportTool
         NeighbourDrag snap)
     {
         /// <summary>Neighbour snap for this drag.</summary>
-        public NeighbourDrag Snap { get; } = snap;
+        public NeighbourDrag Snap { get; set; } = snap;
+
+        public int TurnUnits { get; set; }
+
+        public TransformSnapshot MoveSnapshot { get; set; } = snapshot;
 
         /// <summary>The primary object's rotation at the start (a turn can match a neighbour's rotation exactly).</summary>
         public Rot? StartRotation { get; init; }
@@ -615,7 +632,7 @@ public sealed class TransformTool : IViewportTool
         /// (a click that does not move adds no undo step). Records it as applied.</summary>
         public bool Changes(object value)
         {
-            object current = _applied ?? Mode switch { TransformMode.Move => Vec3.Zero, TransformMode.Rotate => 0, _ => 1.0 };
+            object current = _applied ?? Mode switch { TransformMode.Move => (Vec3.Zero, 0), TransformMode.Rotate => 0, _ => 1.0 };
             if (Equals(current, value))
             {
                 return false;

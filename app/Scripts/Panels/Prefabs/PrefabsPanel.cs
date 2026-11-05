@@ -37,7 +37,6 @@ public partial class PrefabsPanel : EditorPanel
     private DeferredAction _refill = null!;
     private DeferredAction _refreshInstance = null!;
     private string _filter = "";
-    private PrefabDefinition? _dragging;
 
     /// <summary>A prefab to pick once the list is read (<c>-- --prefab=name</c>, so scripts can place it with --run).</summary>
     private string? _argPrefab = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--prefab=", StringComparison.Ordinal))?["--prefab=".Length..];
@@ -325,9 +324,12 @@ public partial class PrefabsPanel : EditorPanel
             return;
         }
 
-        Vec3 point = at ?? Context.PlacementPoint?.Invoke() ?? Context.Project.Workspace.CameraLocation;
+        Place(def, Params(def), at ?? Context.PlacementPoint?.Invoke() ?? Context.Project.Workspace.CameraLocation);
+    }
+
+    private void Place(PrefabDefinition def, SvJsonObject given, Vec3 point)
+    {
         SvJsonObject op = Op("prefab.place", ("name", ApiJson.Str(def.Name)), ("at", ApiJson.Vec(point)));
-        SvJsonObject given = Params(def);
         if (given.Count > 0)
         {
             op.Add("params", given);
@@ -567,7 +569,7 @@ public partial class PrefabsPanel : EditorPanel
 
     // ---- drag and drop ----------------------------------------------------------------------------------------------
 
-    /// <summary>Starts dragging a prefab. The views take no drops themselves: the drop is read when the drag ends.</summary>
+    /// <summary>Captures the prefab and parameters for a real viewport drop.</summary>
     private Variant DragData(Vector2 at)
     {
         int index = _list.GetItemAtPosition(at, exact: true);
@@ -576,27 +578,23 @@ public partial class PrefabsPanel : EditorPanel
             return default;
         }
 
-        _list.Select(index);
-        ShowDetails();
-        _dragging = _shown[index];
-        SetDragPreview(new Label { Text = _dragging.Title ?? _dragging.Name });
-        return _dragging.Name;
-    }
-
-    public override void _Notification(int what)
-    {
-        base._Notification(what);
-        if (what != NotificationDragEnd || _dragging is null)
+        // Preserve edited parameters when dragging the already selected tile.
+        if (Selected != _shown[index])
         {
-            return;
+            _list.Select(index);
+            ShowDetails();
         }
-
-        _dragging = null;
-        EditorViewport? view = ViewportLayout.Instance?.Views.FirstOrDefault(v => v.IsVisibleInTree() && v.GetGlobalRect().HasPoint(v.GetGlobalMousePosition()));
-        if (!GetViewport().GuiIsDragSuccessful() && view?.CursorPoint(view.GetLocalMousePosition()) is { } point)
+        PrefabDefinition def = _shown[index];
+        SvJsonObject given = Params(def);
+        var session = Context.Session;
+        _list.SetDragPreview(new Label { Text = def.Title ?? def.Name, MouseFilter = MouseFilterEnum.Ignore });
+        return Variant.From(new PrefabDragData(def.Title ?? def.Name, point =>
         {
-            PlaceSelected(point);
-        }
+            if (Context.Session == session)
+            {
+                Place(def, given, point);
+            }
+        }));
     }
 
     private void RegisterActions()

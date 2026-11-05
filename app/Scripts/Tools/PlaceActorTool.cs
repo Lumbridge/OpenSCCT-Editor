@@ -104,6 +104,10 @@ public sealed class PlaceActorTool : IViewportTool
 
     public void Draw(EditorViewport view, Control canvas)
     {
+        if (view == _view && Palette is { } entry)
+        {
+            SetGhost(entry, PlaceableLanding.Find(view, _mouse, entry, wait: false).Spot);
+        }
         if (view == _view && _ghost is { } g)
         {
             PlaceableLanding.Draw(view.Cam, canvas, g.Entry, g.Spot);
@@ -236,11 +240,11 @@ public sealed class PlaceActorTool : IViewportTool
             string wiring = PlaceableWiring.Hint(entry, EditorServices.Classes);
             if (wiring.Length > 0)
             {
-                ToolOptions.Hint(bar, $"Click in a view to place {entry.InSentence}", wiring, "The new actor is selected");
+                ToolOptions.Hint(bar, $"Click in a view to place {entry.InSentence}", wiring, "Shift: free placement; W/E/R adjust after placing");
             }
             else
             {
-                ToolOptions.Hint(bar, $"Click in a view to place {entry.InSentence}", "The new actor is selected");
+                ToolOptions.Hint(bar, $"Click in a view to place {entry.InSentence}", "Shift: free placement; W/E/R adjust after placing");
             }
             return;
         }

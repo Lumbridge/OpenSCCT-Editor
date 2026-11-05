@@ -24,7 +24,7 @@ public enum SnapUse
 public sealed class ToolManager : IShellPart
 {
     public static readonly double[] GridSizes = [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096];
-    public static readonly int[] RotationGrids = [512, 1024, 2048, 4096, 8192, 16384];
+    public static readonly int[] RotationGrids = [512, 1024, 2048, 4096, 4551, 8192, 16384];
 
     private readonly List<IViewportTool> _tools = new();
     private EditorContext _ctx = null!;
@@ -69,10 +69,10 @@ public sealed class ToolManager : IShellPart
     }
 
     /// <summary>Neighbour snap: moving, resizing and turning objects sticks their faces to nearby neighbour faces
-    /// (<see cref="NeighbourDrag"/>). Per user, like grid snap; off until turned on.</summary>
+    /// (<see cref="NeighbourDrag"/>). Per user, like grid snap; on by default.</summary>
     public bool NeighbourSnap
     {
-        get => AppSettings.GetBool("tools", "neighbour_snap", false);
+        get => AppSettings.GetBool("tools", "neighbour_snap", true);
         set
         {
             AppSettings.Set("tools", "neighbour_snap", value);
@@ -166,7 +166,7 @@ public sealed class ToolManager : IShellPart
     /// <summary>The rotation snap in rotator units (1024 = 5.625 degrees, 8192 = 45, 16384 = 90).</summary>
     public int RotationGrid
     {
-        get => _ctx.Project.Workspace.RotationGrid > 0 ? _ctx.Project.Workspace.RotationGrid : 1024;
+        get => _ctx.Project.Workspace.RotationGrid > 0 ? _ctx.Project.Workspace.RotationGrid : 4551;
         set
         {
             int units = Math.Clamp(value, 1, 32768);
@@ -344,8 +344,10 @@ public sealed class ToolManager : IShellPart
 
     public double SnapValue(double v) => GridSnap ? Math.Round(v / GridSize) * GridSize : v;
 
+    private double RotationStep => RotationGrid == 4551 ? 25.0 * Rot.UnitsPerTurn / 360 : RotationGrid;
+
     public int SnapRotation(double units) =>
-        (int)Math.Round(RotationSnap ? Math.Round(units / RotationGrid) * RotationGrid : units);
+        (int)Math.Round(RotationSnap ? Math.Round(units / RotationStep) * RotationStep : units);
 
     private void RebuildOptions()
     {
@@ -399,7 +401,7 @@ public sealed class ToolManager : IShellPart
         foreach (int units in RotationGrids)
         {
             int u = units;
-            string degrees = Rot.ToDegrees(u).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+            string degrees = (u == 4551 ? 25 : Rot.ToDegrees(u)).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
             _ctx.AddAction(new EditorAction("view.rotgrid." + u.ToString(System.Globalization.CultureInfo.InvariantCulture),
                 $"{degrees}° ({u})", "View/Rotation Snap Size", () => RotationGrid = u)
             {

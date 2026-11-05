@@ -53,10 +53,39 @@ public sealed class TransformSnapshot
     /// <summary>An actor as it was when the snapshot was taken (do not change it), or null.</summary>
     public Actor? StartActor(string id) => _actors.GetValueOrDefault(id);
 
+    /// <summary>A fresh move baseline rotated about the selection pivot, without touching the map.</summary>
+    public TransformSnapshot Turned(MapProject p, Vec3 pivot, int units)
+    {
+        var copy = new TransformSnapshot(p, Refs);
+        Rot turn = RotationMath.About(2, units);
+        Vec3 Orbit(Vec3 v) => pivot + turn.Rotate(v - pivot);
+        foreach ((string id, Brush original) in _brushes)
+        {
+            Brush b = original.Clone();
+            b.Location = Orbit(original.Location);
+            b.Rotation = RotationMath.TurnAbout(original.Rotation, 2, units);
+            copy._brushes[id] = b;
+        }
+        foreach ((string id, Actor original) in _actors)
+        {
+            Actor a = original.Clone();
+            a.Location = Orbit(original.Location);
+            a.Rotation = RotationMath.TurnAbout(original.Rotation, 2, units);
+            copy._actors[id] = a;
+        }
+        foreach ((string id, Ge original) in _ges)
+        {
+            Ge g = original.Clone();
+            g.Points = original.Points.Select(Orbit).ToList();
+            copy._ges[id] = g;
+        }
+        return copy;
+    }
+
     public ReplaceObjectsCommand Translate(MapProject p, Vec3 offset, string? mergeKey) =>
         ReplaceObjectsCommand.Edit(p, Refs, Name("Move"),
-            brush: b => b.Location = _brushes[b.Id].Location + offset,
-            actor: a => a.Location = _actors[a.Id].Location + offset,
+            brush: b => { b.Location = _brushes[b.Id].Location + offset; b.Rotation = _brushes[b.Id].Rotation; },
+            actor: a => { a.Location = _actors[a.Id].Location + offset; a.Rotation = _actors[a.Id].Rotation; },
             ge: g => g.Points = _ges[g.Id].Points.Select(x => x + offset).ToList(),
             mergeKey: mergeKey);
 

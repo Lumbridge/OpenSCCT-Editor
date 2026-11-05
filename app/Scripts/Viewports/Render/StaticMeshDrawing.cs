@@ -254,39 +254,72 @@ public static class StaticMeshDrawing
     /// has loaded): see-through in the solid views and its bounds in every view. Nothing for actors without a mesh.</summary>
     public static void AttachGhost(Node3D root, Actor a, Color color)
     {
-        if (MeshPath(a) is not { } path)
-        {
-            return;
-        }
+        var bounds = new LineBuilder();
+        (Vec3 min, Vec3 max) = ObjectGeometry.ActorBounds(a);
+        bounds.Box(ObjectGeometry.Corners(min, max).Select(c => Space.ToGodot(c - a.Location)).ToList(), color);
+        MeshInstance3D? wire = WorldScene.AddMesh(root, bounds.Build(), SceneStyle.Lines, VisualLayers.Common);
 
-        StaticMeshes.Request(path, mesh =>
+        void Ready(LoadedMesh mesh, Transform3D transform)
         {
             if (!GodotObject.IsInstanceValid(root) || root.IsQueuedForDeletion())
             {
                 return;
             }
 
-            var holder = new Node3D { Name = "Ghost", Transform = Local(a) };
-            foreach ((bool lit, uint layer) in new[] { (false, VisualLayers.Unlit), (true, VisualLayers.Lit) })
+            var holder = new Node3D { Name = "Ghost", Transform = transform };
+            // Unshaded, tinted geometry remains legible even for glass or dark source textures.
+            var material = new StandardMaterial3D
             {
-                MeshInstance3D copy = TexturedSurfaces.Instance(mesh.Mesh, mesh.Materials, lit, layer);
-                copy.Transparency = 0.7f;
-                holder.AddChild(copy);
-            }
-
+                AlbedoColor = new Color(color.R, color.G, color.B, 0.65f),
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            };
+            holder.AddChild(new MeshInstance3D { Mesh = mesh.Mesh, MaterialOverride = material,
+                Layers = VisualLayers.Unlit | VisualLayers.Lit });
             root.AddChild(holder);
             var lines = new LineBuilder();
-            lines.Box(ObjectGeometry.Corners(mesh.Min, mesh.Max).Select(c => Space.ToGodot(MeshToWorld(a, c) - a.Location)).ToList(), color);
-            WorldScene.AddMesh(root, lines.Build(), SceneStyle.Lines, VisualLayers.Common);
-        });
+            lines.Box(ObjectGeometry.Corners(mesh.Min, mesh.Max).Select(c => transform * Space.ToGodot(c)).ToList(), color);
+            if (wire is not null)
+            {
+                wire.Mesh = lines.Build();
+            }
+        }
+
+        if (MeshPath(a) is { } path)
+        {
+            StaticMeshes.Request(path, mesh => Ready(mesh, Local(a)));
+        }
+        else if (SkeletalPath(a) is { } skeletal)
+        {
+            StaticMeshes.RequestSkeletal(skeletal, mesh =>
+            {
+                if (SkeletalLocal(a, skeletal) is { } transform)
+                {
+                    Ready(mesh, transform);
+                }
+            });
+        }
     }
 
     /// <summary>The mesh a static mesh actor draws with once it has loaded, else null.</summary>
     public static LoadedMesh? Loaded(Actor a) => MeshPath(a) is { } path ? StaticMeshes.Loaded(path) : null;
 
     /// <summary>World bounds of a static mesh actor whose mesh has loaded, or null (the caller uses its box).</summary>
-    public static (Vec3 Min, Vec3 Max)? WorldBounds(Actor a) =>
-        Loaded(a) is { } mesh ? ObjectGeometry.BoundsOf(ObjectGeometry.Corners(mesh.Min, mesh.Max).Select(c => MeshToWorld(a, c))) : null;
+    public static (Vec3 Min, Vec3 Max)? WorldBounds(Actor a)
+    {
+        if (Loaded(a) is { } mesh)
+        {
+            return ObjectGeometry.BoundsOf(ObjectGeometry.Corners(mesh.Min, mesh.Max).Select(c => MeshToWorld(a, c)));
+        }
+        if (SkeletalPath(a) is { } skeletal && StaticMeshes.LoadedSkeletal(skeletal) is { } posed
+            && SkeletalLocal(a, skeletal) is { } transform)
+        {
+            return ObjectGeometry.BoundsOf(ObjectGeometry.Corners(posed.Min, posed.Max)
+                .Select(c => a.Location + Space.ToUe(transform * Space.ToGodot(c))));
+        }
+        return null;
+    }
 
     /// <summary>A point of the actor's mesh (UE units, mesh space) in the world, with the scale and PrePivot it is
     /// drawn with (the actor's own, else its class defaults).</summary>

@@ -75,7 +75,7 @@ public sealed class StatusBarPart : IShellPart
         if (ToolManager.Instance is { } t)
         {
             string grid = string.Create(CultureInfo.InvariantCulture, $"Grid {t.GridSize:0.##}{(t.GridSnap ? "" : " off")}");
-            string rot = string.Create(CultureInfo.InvariantCulture, $"Rot {Rot.ToDegrees(t.RotationGrid):0.###}°{(t.RotationSnap ? "" : " off")}");
+            string rot = string.Create(CultureInfo.InvariantCulture, $"Rot {(t.RotationGrid == 4551 ? 25 : Rot.ToDegrees(t.RotationGrid)):0.###}°{(t.RotationSnap ? "" : " off")}");
             string neighbours = t.NeighbourSnap
                 ? string.Create(CultureInfo.InvariantCulture, $"Neighbours {t.NeighbourSnapPx:0.#} px")
                 : "Neighbours off";
