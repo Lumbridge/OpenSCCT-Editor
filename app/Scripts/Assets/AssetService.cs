@@ -1,4 +1,5 @@
 using OpenScct.Editor.Core.Assets;
+using OpenScct.Editor.Core.Compile;
 using OpenScct.Editor.Core.Services;
 using OpenScctEditor.Core;
 using OpenScctEditor.Shell;
@@ -14,6 +15,7 @@ public sealed class AssetService
     private readonly HashSet<string> _favourites;
     private AssetResolver? _resolver;
     private string? _resolverFolder;
+    private string? _resolverSource;
     private int _generation;
 
     private AssetService() => _favourites = new HashSet<string>(AppSettings.GetStrings("assets", "favourites"), StringComparer.OrdinalIgnoreCase);
@@ -37,16 +39,25 @@ public sealed class AssetService
     /// <summary>The project folder assets resolve against (null for an unsaved map).</summary>
     public static string? ProjectFolder => EditorContext.Instance.Session.Folder;
 
-    /// <summary>How material and mesh paths resolve for the open map (the compiler's own rules).</summary>
+    /// <summary>The source map of the open map's baked world (an imported map), or null.</summary>
+    public static string? BakedSourceMap => EditorContext.Instance.Project.Baked?.SourceMap;
+
+    /// <summary>How material and mesh paths resolve for the open map (the compiler's own rules): for a map imported
+    /// with its baked world, the source map's own meshes and materials come last, so an actor drawing a mesh of the
+    /// map's own package (an editor copy's glass panes and lit signs) shows it as the build does.</summary>
     public AssetResolver Resolver
     {
         get
         {
             string? folder = ProjectFolder;
-            if (_resolver is null || !string.Equals(folder, _resolverFolder, StringComparison.OrdinalIgnoreCase))
+            string? source = BakedSourceMap;
+            if (_resolver is null || !string.Equals(folder, _resolverFolder, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(source, _resolverSource, StringComparison.OrdinalIgnoreCase))
             {
-                _resolver = AssetResolver.For(EditorServices.ContentRoot, folder);
+                AssetResolver resolver = AssetResolver.For(EditorServices.ContentRoot, folder);
+                _resolver = source is not null && BakedSource.FolderOf(source, resolver, folder) is { } map ? resolver.WithSource(map) : resolver;
                 _resolverFolder = folder;
+                _resolverSource = source;
             }
 
             return _resolver;

@@ -4,7 +4,8 @@ namespace OpenScct.Editor.Core.Assets;
 
 /// <summary>
 /// How a material or static mesh path becomes files: the project's own assets first (<c>assets/assets.json</c>),
-/// then the converted maps' render libraries in map-name order, and for a compile of a baked project its source map.
+/// then the converted maps' render libraries in map-name order, and for a baked project (a compile, and the views) its
+/// source map.
 /// The compiler, the asset catalogue and the viewport all resolve through this, so what the browser offers is exactly
 /// what builds. The views also draw gameplay actors' class-default meshes from OpenSCCT's gameplay pack
 /// (<see cref="FindViewMesh"/>), which the game draws from its own copy, so a build takes only their collision from
