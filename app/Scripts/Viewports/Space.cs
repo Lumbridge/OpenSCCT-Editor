@@ -83,6 +83,14 @@ public static class VisualLayers
     /// (the 2D views outline them on their overlay).</summary>
     public const uint PickedFaces = 1u << 7;
 
+    /// <summary>Actor icons and the direction arrows drawn with them: in the perspective view only, while View > Show >
+    /// Actor Icons is on (<see cref="ForView"/>).</summary>
+    public const uint ActorIcons = 1u << 8;
+
+    /// <summary>The box and arrow of an actor drawn as an icon: in the 2D views, and in the perspective view while icons
+    /// are off. Selected, they join <see cref="Selected"/> and show in every view.</summary>
+    public const uint ActorBoxes = 1u << 9;
+
     /// <summary>The grid of one view (each view's grid differs, so each has its own layer).</summary>
     public static uint Grid(ViewKind view) => 1u << (10 + (int)view);
 
@@ -94,6 +102,12 @@ public static class VisualLayers
         RenderMode.LightmapDensity => Density,
         _ => Lit,
     };
+
+    /// <summary>What a view draws: its mode's layers, its grid, and the perspective view's own layers (picked faces,
+    /// and actor icons or, with icons off, the boxes they stand for).</summary>
+    public static uint ForView(ViewKind view, RenderMode mode, bool actorIcons) => ForMode(mode) | Grid(view) | (view == ViewKind.Perspective
+        ? PickedFaces | (actorIcons ? ActorIcons : ActorBoxes)
+        : ActorBoxes);
 }
 
 /// <summary>Screen axes of the orthographic views, in UE axes (the stock editor's Top XY, Front XZ, Side YZ).</summary>

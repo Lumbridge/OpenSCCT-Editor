@@ -169,11 +169,14 @@ public sealed partial class EditorViewport : Control
         set
         {
             _mode = value;
-            Cam.Camera.CullMask = VisualLayers.ForMode(value) | VisualLayers.Grid(Kind) | (Kind == ViewKind.Perspective ? VisualLayers.PickedFaces : 0);
+            ApplyCullMask();
             Cam.Camera.Environment = MakeEnvironment(value);
             UpdateMenuText();
         }
     }
+
+    /// <summary>Sets what the view's camera draws from its render mode and View > Show > Actor Icons.</summary>
+    public void ApplyCullMask() => Cam.Camera.CullMask = VisualLayers.ForView(Kind, _mode, Render.ActorIconBatch.Shown);
 
     /// <summary>Asks the overlay to redraw (tools call this when their handles change).</summary>
     public void Redraw() => _overlay.QueueRedraw();
@@ -364,6 +367,15 @@ public sealed partial class EditorViewport : Control
         }
     }
 
+    /// <summary>The pointer left the view: the active tool drops its hover preview.</summary>
+    public override void _Notification(int what)
+    {
+        if (what == NotificationMouseExit && ToolManager.Instance?.Active is { } tool)
+        {
+            tool.PointerLeft(this);
+        }
+    }
+
     /// <summary>Assets dragged over the view (a mesh shows its ghost where it would land): <see cref="AssetDropTarget"/>.</summary>
     public override bool _CanDropData(Vector2 atPosition, Variant data) => AssetDropTarget.Instance?.CanDrop(this, atPosition, data) ?? false;
 
@@ -477,6 +489,11 @@ public sealed partial class EditorViewport : Control
         _container.Scale = Vector2.One / scale;
         _container.Size = (Size * scale).Round();
         Cam.PixelScale = scale;
+        if (Kind == ViewKind.Perspective)
+        {
+            Render.ActorIconBatch.SetPixelScale(scale);
+        }
+
         Cam.Resize(Size);
         ApplyCamera();
     }

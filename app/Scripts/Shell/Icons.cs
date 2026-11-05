@@ -119,6 +119,31 @@ public static class Icons
         ["type-group"] = """<path d="M1.5 4a1 1 0 0 1 1-1h3.5l1.5 1.5h5.5a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1h-10.5a1 1 0 0 1-1-1z"/>""",
         ["type-layer"] = """<path d="M8 2l6.5 3.25-6.5 3.25-6.5-3.25z"/><path d="M1.5 8.25l6.5 3.25 6.5-3.25"/><path d="M1.5 11.25l6.5 3.25 6.5-3.25"/>""",
 
+        // Actor kinds (ActorIcons: the views' actor icons, and the class lists'). Kinds without an entry here use the
+        // type icons above.
+        ["type-light-spot"] = """<path d="M8 1.5v1.75"/><path d="M3.5 7.75a4.5 4.5 0 0 1 9 0z" fill="C"/><path d="M5.5 10.25l-1.75 4.25M8 10.25v4.25M10.5 10.25l1.75 4.25"/>""",
+        ["type-light-sun"] = """<circle cx="8" cy="8" r="3"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>""",
+        ["type-light-trigger"] = """<path d="M3.5 10c-1-.8-1.5-1.9-1.5-3.2a3.75 3.75 0 0 1 7.5 0c0 1.3-.5 2.4-1.5 3.2v1.5h-4.5z"/><path d="M4 14h3.5"/><path d="M13.5 4.5l-2.5 4h3l-2.5 4"/>""",
+        ["type-start-spy"] = """<circle cx="6.5" cy="4.75" r="2.75" fill="C" stroke="none"/><path d="M3 4.5h7"/><path d="M1.5 15v-1.5a5 5 0 0 1 10 0v1.5z" fill="C"/><path d="M14 15v-13"/><path d="M14 2.25l-2.5 1.5 2.5 1.5z" fill="C"/>""",
+        ["type-start-merc"] = """<path d="M3.25 5.5a3.25 3.25 0 0 1 6.5 0z" fill="C"/><path d="M2.25 5.75h8.5"/><path d="M4.75 6.25v.75a1.75 1.75 0 0 0 3.5 0v-.75"/><path d="M1.5 15v-1.5a5 5 0 0 1 10 0v1.5z" fill="C"/><path d="M14 15v-13"/><path d="M14 2.25l-2.5 1.5 2.5 1.5z" fill="C"/>""",
+        ["type-camnet"] = """<rect x="2.5" y="2" width="7" height="5" rx="1"/><path d="M9.5 3.75l3-1.25v4l-3-1.25"/><path d="M6 7v5.5M3.5 12.5h7"/><circle cx="2.75" cy="12.5" r="1.25"/><circle cx="12" cy="12.5" r="1.25"/>""",
+        ["type-sensor-motion"] = """<path d="M3 14h10"/><path d="M5.25 14a2.75 2.75 0 0 1 5.5 0"/><path d="M4.25 9.5a5 5 0 0 1 7.5 0M2 6.75a8.25 8.25 0 0 1 12 0"/>""",
+        ["type-sensor-presence"] = """<circle cx="8" cy="8" r="6.5" stroke-dasharray="2 1.6"/><circle cx="8" cy="6" r="1.75"/><path d="M4.75 11.75a3.25 3.25 0 0 1 6.5 0"/>""",
+        ["type-mine"] = """<circle cx="8" cy="9" r="3.5"/><path d="M8 2v2.5M8 13.5v1M1.75 9h2.75M11.5 9h2.75M3.6 4.6l1.9 1.9M12.4 4.6l-1.9 1.9"/>""",
+        ["type-laptop"] = """<path d="M3.5 3h9v7h-9z"/><path d="M1.5 13h13l-1.5-3h-10z"/>""",
+        ["type-bomb"] = """<circle cx="7" cy="9.5" r="4.5"/><path d="M10.25 6.25l1.5-1.5"/><path d="M11.75 4.75c.25-1.5 1.25-2.5 2.75-2.25"/>""",
+        ["type-disk"] = """<circle cx="8" cy="8" r="6.5"/><circle cx="8" cy="8" r="1.75"/><path d="M8 3.75a4.25 4.25 0 0 1 4.25 4.25"/>""",
+        ["type-flag"] = """<path d="M4 14.5v-13"/><path d="M4 2h8.5l-2 3 2 3h-8.5"/>""",
+        ["type-flag-zone"] = """<ellipse cx="8" cy="12.5" rx="6.5" ry="2" stroke-dasharray="2 1.6"/><path d="M6 12.5v-11"/><path d="M6 1.5h6.5l-1.5 2.25 1.5 2.25h-6.5"/>""",
+        ["type-mission"] = """<path d="M5.5 3h-1.5a1 1 0 0 0-1 1v9.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-9.5a1 1 0 0 0-1-1h-1.5"/><rect x="5.5" y="1.75" width="5" height="2.5" rx="0.75"/><path d="M5.5 9.25l1.75 1.75 3.25-3.5"/>""",
+        ["type-ammo"] = """<path d="M2 14v-6.5c0-1.8.6-3.3 1.5-4.5.9 1.2 1.5 2.7 1.5 4.5v6.5z"/><path d="M6.5 14v-6.5c0-1.8.6-3.3 1.5-4.5.9 1.2 1.5 2.7 1.5 4.5v6.5z"/><path d="M11 14v-6.5c0-1.8.6-3.3 1.5-4.5.9 1.2 1.5 2.7 1.5 4.5v6.5z"/>""",
+        ["type-health"] = """<rect x="1.5" y="1.5" width="13" height="13" rx="2.5"/><path d="M8 4.5v7M4.5 8h7"/>""",
+        ["type-switch"] = """<rect x="4" y="1.5" width="8" height="13" rx="1.5"/><path d="M8 9l2-4.5"/><circle cx="8" cy="9.5" r="1.25" fill="C" stroke="none"/>""",
+        ["type-lift"] = """<rect x="2.5" y="1.5" width="11" height="13" rx="1"/><path d="M5.5 6.5l2.5-2.5 2.5 2.5M5.5 9.5l2.5 2.5 2.5-2.5"/>""",
+        ["type-message"] = """<path d="M2.5 3.5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1h-5.5l-3 2.5v-2.5h-.5a1 1 0 0 1-1-1z"/><path d="M5 5.5h6M5 8h4"/>""",
+        ["type-glass"] = """<rect x="2.5" y="1.5" width="11" height="13" rx="1"/><path d="M5 7.5l3.5-3.5M5 11.5l6-6"/>""",
+        ["type-gameplay"] = """<path d="M8 1.5l6 3.25v6.5l-6 3.25-6-3.25v-6.5z"/><circle cx="8" cy="8" r="2" fill="C" stroke="none"/>""",
+
         // Panels (dock tabs).
         ["outliner"] = """<path d="M2 3.5h2.5M3.25 3.5v8.75M3.25 8h2.5M3.25 12.25h2.5"/><path d="M7 3.5h7M8 8h6M8 12.25h6"/>""",
         ["inspector"] = """<path d="M2 4h12M2 8h12M2 12h12"/><g fill="C" stroke="none"><circle cx="10.5" cy="4" r="1.9"/><circle cx="5.5" cy="8" r="1.9"/><circle cx="9" cy="12" r="1.9"/></g>""",
@@ -133,6 +158,8 @@ public static class Icons
         ["property-sets"] = """<rect x="1.5" y="4.5" width="9.5" height="10" rx="1.25"/><path d="M4.5 4.5v-2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1h-2.5"/><path d="M4 8h4.5M4 11h4.5"/>""",
         ["storeys"] = """<path d="M3 14.5v-10l5-3 5 3v10z"/><path d="M3 8h10M3 11.25h10"/><path d="M1.5 14.5h13"/>""",
         ["grid"] = """<rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/>""",
+        // Three tiles and a pointer dragging the fourth away: the placeables palette.
+        ["palette"] = """<rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><path d="M9.25 9.25l5.25 2-2.25.9-.9 2.35z"/>""",
     };
 
     /// <summary>Names that draw another icon.</summary>
@@ -148,6 +175,10 @@ public static class Icons
 
     /// <summary>Whether <paramref name="name"/> is a known icon.</summary>
     public static bool Has(string name) => s_drawings.ContainsKey(name) || s_aliases.ContainsKey(name);
+
+    /// <summary>The SVG drawing of a named icon (the elements inside the 16-unit <c>svg</c>, "C" for its colour), or
+    /// null; for pictures made from the same drawings (the views' actor icon atlas).</summary>
+    public static string? Body(string name) => s_drawings.GetValueOrDefault(s_aliases.GetValueOrDefault(name, name));
 
     /// <summary>A named icon in a colour, <paramref name="size"/> UI pixels square; null for an unknown name.</summary>
     public static Texture2D? Get(string name, Color color, int size = EditorTheme.IconSize)

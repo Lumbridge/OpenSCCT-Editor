@@ -186,8 +186,21 @@ public sealed class ToolManager : IShellPart
         set
         {
             AppSettings.Set("tools", "place_class", value);
+            PlaceFromPalette = false;
             Changed?.Invoke();
         }
+    }
+
+    /// <summary>True when a placeables palette tile armed the place tool (and its class was not changed since): the tool
+    /// then places by the palette's rule and wires the new actor (<see cref="Gameplay.PlaceableLanding"/>); a class typed
+    /// or picked in the tool places the plain way.</summary>
+    public bool PlaceFromPalette { get; private set; }
+
+    /// <summary>Arms the place tool with a palette class (a tile's click).</summary>
+    public void ArmPalette(string className)
+    {
+        PlaceClass = className;
+        PlaceFromPalette = true;
     }
 
     /// <summary>The GE kind the GE tool draws (LG, ZL, PIPE, LADDER, HOH, POLE, FENCE).</summary>
@@ -304,6 +317,10 @@ public sealed class ToolManager : IShellPart
         _ctx.SetStatus(tool.Title);
         Changed?.Invoke();
     }
+
+    /// <summary>Builds the active tool's options bar again after this frame (its state changed from outside: the place
+    /// tool's class picked in the placeables palette).</summary>
+    public void RefreshOptions() => EditorLifetime.Defer(RebuildOptions);
 
     /// <summary>Tells views and the toolbar that tool state changed (tools call this after edits to their state).</summary>
     public void NotifyChanged() => Changed?.Invoke();

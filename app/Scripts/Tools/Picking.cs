@@ -1,6 +1,7 @@
 using Godot;
 using OpenScct.Editor.Core.Geometry;
 using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Session;
 using OpenScctEditor.Core;
 using OpenScctEditor.Viewports;
 using OpenScctEditor.Viewports.Render;
@@ -8,16 +9,19 @@ using WorldGeometry = OpenScct.Editor.Core.Scripting.WorldGeometry;
 
 namespace OpenScctEditor.Tools;
 
-/// <summary>A surface the cursor ray hit: where, its outward normal, and what it belongs to (null for an imported
-/// map's baked world).</summary>
-public readonly record struct SurfaceHit(ObjectRef? Object, double Distance, Vec3 Point, Vec3 Normal);
+/// <summary>A surface the cursor ray hit: where, its outward normal, what it belongs to (null for an imported map's
+/// baked world), and whether it is drawn from both sides (a two-sided, non-solid or portal sheet).</summary>
+public readonly record struct SurfaceHit(ObjectRef? Object, double Distance, Vec3 Point, Vec3 Normal, bool TwoSided = false);
 
 /// <summary>
 /// Click picking and box selection. Orthographic views pick like the stock editor's wireframe views: the nearest
 /// brush edge, actor outline or GE line within a few pixels. The perspective view casts a ray against brush faces,
-/// static meshes' triangles and other actors' drawn boxes (GE lines by screen distance). Volumes are see-through
-/// there: they are hit by their faces from outside only, and actors and GEs seen through them win. An actor box is
-/// not hit from inside either. Hidden and locked objects are never picked.
+/// static meshes' triangles and other actors' drawn boxes (GE lines by screen distance, at their depth where they pass
+/// the cursor), and the icons it draws for actors without a mesh (<see cref="ActorIconBatch"/>): an icon is hit
+/// anywhere on its square, and wins over whatever it is drawn over (lines, boxes, the surface it sits on or is buried
+/// just behind); an actor drawn as an icon has no box to hit until it is selected. Volumes are see-through there: they
+/// are hit by their faces from outside only, and actors and GEs seen through them win. An actor box is not hit from
+/// inside either. Hidden and locked objects, and kinds View > Show hides, are never picked.
 /// </summary>
 public static class Picking
 {
@@ -48,12 +52,14 @@ public static class Picking
             }
 
             bool inward = b.Oper == CsgOper.Subtract;
+            bool sheet = b.IsNotSolid || b.IsPortal;
             foreach (WorldFace f in world.Faces)
             {
                 if (RayPolygon(o, d, f.Vertices, f.Normal, out double t) && (best is null || t < best.Value.Distance))
                 {
                     // A subtractive brush's faces bound empty space: the surface you stand on faces into the brush.
-                    best = new SurfaceHit(ObjectRef.Brush(b.Id), t, o + d * t, inward ? -f.Normal : f.Normal);
+                    best = new SurfaceHit(ObjectRef.Brush(b.Id), t, o + d * t, inward ? -f.Normal : f.Normal,
+                        sheet || (f.Flags & PolyFlags.TwoSided) != 0);
                 }
             }
         }
@@ -77,7 +83,7 @@ public static class Picking
         bool BoxInside((Vec3 Min, Vec3 Max) b) => ObjectGeometry.Corners(b.Min, b.Max).All(Inside);
         foreach (Actor a in p.Actors)
         {
-            if (ObjectFilter.IsPickable(p, a.Editor) && Inside(a.Location))
+            if (IsShown(ObjectKind.Actor) && ObjectFilter.IsPickable(p, a.Editor) && Inside(a.Location))
             {
                 result.Add(ObjectRef.Actor(a.Id));
             }
@@ -85,7 +91,7 @@ public static class Picking
 
         foreach (Ge g in p.Ges)
         {
-            if (ObjectFilter.IsPickable(p, g.Editor) && g.Points.Count > 0 && g.Points.All(Inside))
+            if (IsShown(ObjectKind.Ge) && ObjectFilter.IsPickable(p, g.Editor) && g.Points.Count > 0 && g.Points.All(Inside))
             {
                 result.Add(ObjectRef.Ge(g.Id));
             }
@@ -93,7 +99,7 @@ public static class Picking
 
         foreach (Brush b in p.Brushes)
         {
-            if (ObjectFilter.IsPickable(p, b.Editor) && b.Shape.Faces.Count > 0 && BoxInside(ObjectGeometry.BrushBounds(b)))
+            if (IsShown(ObjectKind.Brush) && ObjectFilter.IsPickable(p, b.Editor) && b.Shape.Faces.Count > 0 && BoxInside(ObjectGeometry.BrushBounds(b)))
             {
                 result.Add(ObjectRef.Brush(b.Id));
             }
@@ -120,7 +126,7 @@ public static class Picking
         // Actors first and slightly favoured: they are small and usually what a click near them means.
         foreach (Actor a in p.Actors)
         {
-            if (!ObjectFilter.IsPickable(p, a.Editor))
+            if (!IsShown(ObjectKind.Actor) || !ObjectFilter.IsPickable(p, a.Editor))
             {
                 continue;
             }
@@ -152,7 +158,7 @@ public static class Picking
 
         foreach (Ge g in p.Ges)
         {
-            if (ObjectFilter.IsPickable(p, g.Editor))
+            if (IsShown(ObjectKind.Ge) && ObjectFilter.IsPickable(p, g.Editor))
             {
                 Consider(ObjectRef.Ge(g.Id), PolylineDistance(cam, g.Points, mouse, closed: false) - 1);
             }
@@ -160,7 +166,7 @@ public static class Picking
 
         foreach (Brush b in p.Brushes)
         {
-            if (!ObjectFilter.IsPickable(p, b.Editor))
+            if (!IsShown(ObjectKind.Brush) || !ObjectFilter.IsPickable(p, b.Editor))
             {
                 continue;
             }
@@ -187,67 +193,128 @@ public static class Picking
         double bestT = double.MaxValue;
         ObjectRef? volume = null;
         double volumeT = double.MaxValue;
-        foreach (Actor a in p.Actors)
+        bool icons = ActorIconBatch.Shown;
+        Selection selection = EditorContext.Instance.Selection;
+        // Icons under the cursor, and the nearest surface or mesh that could hide one (lines and boxes do not).
+        List<IconCandidate>? iconHits = null;
+        double solidT = double.MaxValue;
+        if (IsShown(ObjectKind.Actor))
         {
-            if (!ObjectFilter.IsPickable(p, a.Editor))
+            foreach (Actor a in p.Actors)
             {
-                continue;
-            }
-
-            if (a.Shape is { Faces.Count: > 0 })
-            {
-                if (RayVolume(o, d, a, out double tv) && tv < volumeT)
+                if (!ObjectFilter.IsPickable(p, a.Editor))
                 {
-                    volumeT = tv;
-                    volume = ObjectRef.Actor(a.Id);
+                    continue;
                 }
 
-                continue;
-            }
-
-            (Vec3 min, Vec3 max) = ObjectGeometry.ActorBounds(a);
-            double pixel = cam.UnitsPerPixelAt(a.Location);
-            if (StaticMeshDrawing.Loaded(a) is { } mesh && (max - min).Length > pixel * 12)
-            {
-                // A static mesh by its triangles: a big one (a help path, a floor) takes only the clicks on itself.
-                if (RayBox(o, d, min, max, out double entry) && entry < bestT && RayMesh(o, d, a, mesh, 0, out double tm) && tm < bestT)
+                if (a.Shape is { Faces.Count: > 0 })
                 {
-                    bestT = tm - 1;
-                    best = ObjectRef.Actor(a.Id);
+                    if (RayVolume(o, d, a, out double tv) && tv < volumeT)
+                    {
+                        volumeT = tv;
+                        volume = ObjectRef.Actor(a.Id);
+                    }
+
+                    continue;
                 }
 
-                continue;
-            }
+                var r = ObjectRef.Actor(a.Id);
+                IconUse use = icons ? ActorIconBatch.Use(a) : IconUse.None;
+                bool selected = use != IconUse.None && selection.Contains(r);
+                if ((use == IconUse.Always || (use == IconUse.WhenSelected && selected)) &&
+                    IconHit(cam, a, mouse, o, d, use, selected) is { } ih)
+                {
+                    (iconHits ??= []).Add(new IconCandidate(r, ih.Front, ih.Hidden, selected));
+                }
 
-            // Others by the box the view draws, grown a little so small ones are easy to hit from afar.
-            Vec3 grow = Vec3.One * (pixel * 3);
-            if (RayBox(o, d, min - grow, max + grow, out double t) && t > 0 && t < bestT)
-            {
-                bestT = t - 1;
-                best = ObjectRef.Actor(a.Id);
+                // An actor drawn as an icon has no box on show until it is selected: until then only its icon is hit.
+                if (use == IconUse.Always && !selected)
+                {
+                    continue;
+                }
+
+                (Vec3 min, Vec3 max) = ObjectGeometry.ActorBounds(a);
+                double pixel = cam.UnitsPerPixelAt(a.Location);
+                if (StaticMeshDrawing.Loaded(a) is { } mesh && (max - min).Length > pixel * 12)
+                {
+                    // A static mesh by its triangles: a big one (a help path, a floor) takes only the clicks on itself.
+                    if (RayBox(o, d, min, max, out _) && RayMesh(o, d, a, mesh, 0, out double tm))
+                    {
+                        solidT = Math.Min(solidT, tm);
+                        if (tm < bestT)
+                        {
+                            bestT = tm - 1;
+                            best = r;
+                        }
+                    }
+
+                    continue;
+                }
+
+                // Others by the box the view draws, grown a little so small ones are easy to hit from afar.
+                Vec3 grow = Vec3.One * (pixel * 3);
+                if (RayBox(o, d, min - grow, max + grow, out double t) && t > 0 && t < bestT)
+                {
+                    bestT = t - 1;
+                    best = r;
+                }
             }
         }
 
-        foreach (Ge g in p.Ges)
+        if (IsShown(ObjectKind.Ge))
         {
-            if (ObjectFilter.IsPickable(p, g.Editor) && PolylineDistance(cam, g.Points, mouse, closed: false) < Tolerance
-                && g.Points.Count > 0)
+            foreach (Ge g in p.Ges)
             {
-                double t = Math.Max(Vec3.Dot(g.Points[0] - o, d), 0);
-                if (t < bestT)
+                if (ObjectFilter.IsPickable(p, g.Editor) && g.Points.Count > 0 &&
+                    PolylineDistance(cam, g.Points, mouse, closed: false) < Tolerance)
                 {
-                    bestT = t - 1;
-                    best = ObjectRef.Ge(g.Id);
+                    // Its depth where it passes the cursor, not at its first point: a long line reaches far either way.
+                    double t = RayPolylineDepth(o, d, g.Points);
+                    if (t < bestT)
+                    {
+                        bestT = t - 1;
+                        best = ObjectRef.Ge(g.Id);
+                    }
                 }
             }
         }
 
         bool seeThrough = best is not null;
-        if (Surface(cam, p, mouse, pickableOnly: true) is { } hit && hit.Distance < bestT)
+        if (Surface(cam, p, mouse, pickableOnly: true) is { } hit && (hit.Object is not { } owner || IsShown(owner.Kind)))
         {
-            best = hit.Object;
-            bestT = hit.Distance;
-            seeThrough = false;
+            // A one-sided surface seen from behind (a room's ceiling from above) is not drawn and hides no icon.
+            if (hit.TwoSided || Vec3.Dot(hit.Normal, d) < 0)
+            {
+                solidT = Math.Min(solidT, hit.Distance);
+            }
+
+            if (hit.Distance < bestT)
+            {
+                best = hit.Object;
+                bestT = hit.Distance;
+                seeThrough = false;
+            }
+        }
+
+        // Icons are drawn over lines, boxes and whatever in front of them does not hide them (the surface they sit on,
+        // or one they are buried just behind, where they show faint), so an icon on show wins: a selected one (drawn
+        // over everything) first, else the nearest.
+        if (iconHits is not null)
+        {
+            IconCandidate? icon = null;
+            foreach (IconCandidate c in iconHits)
+            {
+                if ((c.Selected || solidT >= c.Hidden) && (icon is not { } sofar || (c.Selected && !sofar.Selected) ||
+                    (c.Selected == sofar.Selected && c.Front < sofar.Front)))
+                {
+                    icon = c;
+                }
+            }
+
+            if (icon is { } shown)
+            {
+                return shown.Ref;
+            }
         }
 
         // A volume wins only over the brush surface behind it.
@@ -257,6 +324,65 @@ public static class Picking
         }
 
         return best;
+    }
+
+    /// <summary>Whether the views show a kind of object (View > Show > Brushes, Actors, Geometric Events); a kind not
+    /// on show is not picked. The viewports set it.</summary>
+    public static Func<ObjectKind, bool> IsShown { get; set; } = _ => true;
+
+    /// <summary>An icon under the cursor: its actor, the distance along the ray to the icon as drawn, the distance a
+    /// surface or mesh must be nearer than to hide it, and whether its actor is selected (drawn over everything).</summary>
+    private readonly record struct IconCandidate(ObjectRef Ref, double Front, double Hidden, bool Selected);
+
+    /// <summary>When the cursor is on an actor's icon (the square the perspective view draws, a pick tolerance around
+    /// it): the distance along the ray to the icon as drawn (pulled towards the camera) and the distance a surface must
+    /// be nearer than to hide it (<see cref="ActorIconBatch.HiddenBy"/>); else null.</summary>
+    private static (double Front, double Hidden)? IconHit(ViewCamera cam, Actor a, Vector2 mouse, Vec3 o, Vec3 d, IconUse use, bool selected)
+    {
+        if (cam.ToScreen(a.Location) is not { } centre)
+        {
+            return null;
+        }
+
+        double pixels = ActorIconBatch.ScreenPixels(cam, a.Location, use, selected);
+        double reach = (pixels / 2) + (Tolerance / 2);
+        if (Math.Abs(mouse.X - centre.X) > reach || Math.Abs(mouse.Y - centre.Y) > reach)
+        {
+            return null;
+        }
+
+        double along = Vec3.Dot(a.Location - o, d);
+        double pull = ActorIconBatch.Pull(cam, a.Location, pixels);
+        return along - pull > 0 ? (along - pull, along - ActorIconBatch.HiddenBy(pull)) : null;
+    }
+
+    /// <summary>The distance along a ray to where a polyline passes nearest to it (by angle, as the cursor sees it).</summary>
+    private static double RayPolylineDepth(Vec3 o, Vec3 d, IReadOnlyList<Vec3> pts)
+    {
+        if (pts.Count == 1)
+        {
+            return Math.Max(Vec3.Dot(pts[0] - o, d), 0);
+        }
+
+        double bestGap = double.MaxValue, bestT = double.MaxValue;
+        for (int i = 0; i + 1 < pts.Count; i++)
+        {
+            // Closest points of the ray (o + d*t, d of unit length) and the segment (a + e*s, s in 0..1).
+            Vec3 a = pts[i], e = pts[i + 1] - a, w = o - a;
+            double ee = Vec3.Dot(e, e), de = Vec3.Dot(d, e), dw = Vec3.Dot(d, w), ew = Vec3.Dot(e, w);
+            double denom = ee - (de * de);
+            double s = ee < 1e-9 ? 0 : denom < 1e-9 ? Math.Clamp(ew / ee, 0, 1) : Math.Clamp((ew - (de * dw)) / denom, 0, 1);
+            Vec3 q = a + (e * s);
+            double t = Math.Max(Vec3.Dot(q - o, d), 0);
+            double gap = (o + (d * t) - q).Length / Math.Max(t, 1);
+            if (gap < bestGap)
+            {
+                bestGap = gap;
+                bestT = t;
+            }
+        }
+
+        return bestT;
     }
 
     /// <summary>The nearest face of a shaped actor (volume) the ray hits. From inside its box nothing is hit: a

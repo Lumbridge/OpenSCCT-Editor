@@ -367,6 +367,20 @@ meshes on a `Hover`-coloured backdrop; one or two caption lines that break only 
 after `_` and `.`), then "…"; full name in the item tooltip. Prefabs without geometry show their main actor's type
 icon at 48 px in `TextDim` with a count badge.
 
+**Palette tiles (Placeables).** A palette of classes to place is a flow of borderless tiles, not a thumbnail grid:
+each tile is the class's mesh picture at thumbnail size with its kind icon in a badge at the top-left, or the kind icon
+alone at `IconSizeTile` in `Text` when the class has no mesh, over a centred name of at most two lines (every tile
+two lines tall, so a row lines up). A tile lights with `RowHover` under the pointer and shows the pointing hand; it
+is a `PanelContainer`, not a button, so it can be dragged as well as clicked. A favourite has a `star` in `Accent` at
+the picture's top-right, comes first in its group and is listed on the Favourites tab; its name stays in `Text` (an
+accent-coloured name reads as a link). The tabs are named as the group headings are. The tooltip is the name, the class
+and group, then what it does, how it is placed and how many stock maps and this map use it, wrapped at 80 characters.
+Group headings (`PanelUi.Header`) only when more than one group shows; a group's tab needs none. One footer line: a
+flat `pin` button (Keep Wiring To Selection) or, while actors are pinned, "Wiring to: ..." in `Accent` with a `close`
+button, then one line of `Caption` help, ellipsised, the whole of it in its tooltip. While a tile is dragged over a
+view, a class with no mesh shows its kind icon at `IconSizeTile` in `DropTarget` where it would land, as the faint
+copy of a mesh would.
+
 **Tabs and docks.** Dock tabs: `Panel` selected with 2 px `Accent` top line (existing), quieter padding, visible hover.
 Every dock has an overflow menu (`TabContainer.SetPopup`) listing all its panels. Nested tabs use `SubTabs`.
 A dock's width and height belong to the splitter; panels clamp their minimum width to 0 and clip or wrap.
@@ -477,6 +491,7 @@ New UI icons:
 | `settings` | Gear (Preferences) |
 | `help` | Circle with "?" |
 | `keyboard` | Keyboard outline (Shortcuts page) |
+| `palette` | Three rounded tiles and a pointer over the fourth corner (Placeables panel, its command and the tools' Palette button) |
 
 Object type icons (outliner, classes, inspector title, prefab placeholders, place picker):
 
@@ -506,6 +521,59 @@ Object type icons (outliner, classes, inspector title, prefab placeholders, plac
 | `type-actor` | Generic: circle with a dot (fallback) |
 | `type-group` | Folder (outliner groups) |
 | `type-layer` | Stacked sheets |
+
+Actor kind icons (`ActorIcons`: the perspective view's actor icons, and any list of actors or classes). Each kind of
+actor (`ActorKinds` in Core, the one class → kind mapping, by class inheritance) draws one of the type icons above or
+one of these:
+
+| Name | Drawing | Kinds |
+|---|---|---|
+| `type-light` | Bulb | Point light |
+| `type-light-spot` | Filled lamp shade on a stem, three rays fanning down | Spot light (LightEffect spot), SProjoFixe |
+| `type-light-sun` | Circle with eight rays | Sun light (LightEffect sun) |
+| `type-light-trigger` | Small bulb with a lightning bolt beside it | STriggerLight |
+| `type-start-spy` | Solid figure with a goggle band across the head, pennant on a pole | Spy start (TeamNumber 0) |
+| `type-start-merc` | Solid figure in a helmet (dome and brim), pennant on a pole | Mercenary start (TeamNumber 1) |
+| `type-camnet` | Camera body with a lens, wired to two nodes below | SCamNetwork |
+| `type-sensor-motion` | Dome with two waves over it | SVolumetricSensor, motion tracking |
+| `type-sensor-presence` | Person in a dashed circle | SPresenceTrigger, SPresDetector |
+| `type-mine` | Circle with spikes | SMines and subclasses, SBallTrap |
+| `type-laptop` | Open laptop | SComputerObjectiveTrigger |
+| `type-bomb` | Round bomb with a fuse | SBombTargetObjectiveTrigger |
+| `type-disk` | Disc with a hole and a shine arc | SDisk |
+| `type-flag` | Pole with a swallow-tail flag | SFlag |
+| `type-flag-zone` | Flag standing in a dashed ground ellipse | SFlagDropZone |
+| `type-mission` | Clipboard with a tick (as `check-list`) | SMission |
+| `type-ammo` | Three cartridges | SAmmoStock |
+| `type-health` | Cross in a rounded square | SInfirmary |
+| `type-switch` | Wall plate with a lever | SInterrupteur, SGPOControl |
+| `type-lift` | Car with up and down chevrons | SLift |
+| `type-message` | Speech bubble with two text lines | SMessageTrigger |
+| `type-glass` | Pane with two shine strokes | SVitre |
+| `type-gameplay` | Hexagon with a dot | Other gameplay objects (SBasicGamePlayObject) |
+
+The other kinds use `type-camera` (cameras), `type-laser`, `type-alarm`, `type-objective` (SObjective, objective
+triggers), `type-door`, `type-mover`, `type-trigger`, `type-volume`, `type-zone` (ZoneInfo), `type-sound`,
+`type-emitter`, `type-projector`, `type-event` (SMagicEvent, SShaker), `pin` (keypoints), `type-note`, `type-tip`,
+`type-path`, `type-conveyor`, `type-mesh`, `type-pawn`, and `type-actor` for anything else. `ActorIcons.For(className)`
+gives a class's icon (16 px, `TextDim`); `ActorIcons.For(actor, colour)` refines it by the actor's own values.
+
+**In the perspective view** (`ActorIconBatch`), an actor with nothing else to draw shows its kind icon instead of its
+box: the drawing in white with a dark halo (so it reads on light and dark surfaces), tinted by the actor's category
+colour (`ActorLook`), as a screen-facing billboard. It is `Preferences.ActorIconSize` UI pixels (default 26, 12–64,
+Edit > Preferences > Views) while near and shrinks with distance to no less than 55 % of that (and never below 10 px).
+It shows whole while the world leaves its actor in view and hides whole behind a wall; an actor buried just behind a
+surface (less than 320 units along the view: a start inside a crate) shows faint through it, as does an actor greyed
+out of the match. Icons sort among themselves. Selected: the selection colour, full size however far, drawn over
+everything, with the actor's box and arrow. Actors whose facing matters (starts, cameras, lasers, spot and sun lights,
+switches, stations, emitters…) keep their direction arrow, long enough to reach out from under the icon. Volumes and
+other brush-shaped actors keep their shape and get no icon; actors drawn with a mesh keep it and show a small icon
+(75 %) only while selected. The 2D views and the camera monitor keep the boxes. View > Show > Actor Icons turns the icons
+off (boxes again); it is greyed out while View > Show > Actors is off.
+
+Clicking follows what is drawn: an icon on show takes the click over the lines, boxes and surfaces it is drawn over
+(the surface it sits on, or a faint one it is buried behind), and an actor drawn as an icon has no box to click until
+it is selected. What View > Show hides is not picked.
 
 Toolbar icons (`ToolbarIcons.cs`, size 16): existing set kept; `brush.add` and `brush.subtract` redrawn as a cube with
 a +/− badge in `CsgAdd`/`CsgSubtract`; `tools.face` with a clearly filled top face (Accent fill α 0.6) so it differs

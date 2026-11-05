@@ -190,6 +190,13 @@ public sealed partial class PreferencesWindow : AcceptDialog
                 Preferences.FieldOfView = v;
                 Preferences.ApplyViews();
             });
+        Number(page, "Actor icon size", "How big the icons of lights, starts, triggers and other actors without a mesh are " +
+            "drawn when near; far ones shrink to about half. View > Show > Actor Icons turns them off.",
+            Preferences.MinActorIconSize, Preferences.MaxActorIconSize, 1, Preferences.ActorIconSize, v =>
+            {
+                Preferences.ActorIconSize = (int)v;
+                Preferences.ApplyViews();
+            }, "px");
         PanelUi.Header(page, "Grid");
         Number(page, "New map grid", "The snap grid a new map starts with (each map keeps its own).",
             1, 4096, 1, Preferences.DefaultGrid, v => Preferences.DefaultGrid = (int)v, "u");
