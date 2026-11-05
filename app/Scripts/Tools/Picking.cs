@@ -15,7 +15,8 @@ public readonly record struct SurfaceHit(ObjectRef? Object, double Distance, Vec
 /// <summary>
 /// Click picking and box selection. Orthographic views pick like the stock editor's wireframe views: the nearest
 /// brush edge, actor outline or GE line within a few pixels. The perspective view casts a ray against brush faces,
-/// static meshes' triangles and other actors' drawn boxes (GE lines by screen distance). Volumes are see-through
+/// static meshes' triangles and other actors' drawn boxes (GE lines by screen distance), and the icons it draws for
+/// actors without a mesh (<see cref="ActorIconBatch"/>): an icon is hit anywhere on its square. Volumes are see-through
 /// there: they are hit by their faces from outside only, and actors and GEs seen through them win. An actor box is
 /// not hit from inside either. Hidden and locked objects are never picked.
 /// </summary>
@@ -187,6 +188,10 @@ public static class Picking
         double bestT = double.MaxValue;
         ObjectRef? volume = null;
         double volumeT = double.MaxValue;
+        bool icons = ActorIconBatch.Shown;
+        // The best hit so far is an icon: a surface seen from behind (a room's ceiling from above, which the view does
+        // not draw and which does not hide the icon) does not take the click from it.
+        bool iconBest = false;
         foreach (Actor a in p.Actors)
         {
             if (!ObjectFilter.IsPickable(p, a.Editor))
@@ -205,6 +210,14 @@ public static class Picking
                 continue;
             }
 
+            if (icons && IconHit(cam, a, mouse, o, d) is { } ti && ti < bestT)
+            {
+                bestT = ti - 1;
+                best = ObjectRef.Actor(a.Id);
+                iconBest = true;
+                continue;
+            }
+
             (Vec3 min, Vec3 max) = ObjectGeometry.ActorBounds(a);
             double pixel = cam.UnitsPerPixelAt(a.Location);
             if (StaticMeshDrawing.Loaded(a) is { } mesh && (max - min).Length > pixel * 12)
@@ -214,6 +227,7 @@ public static class Picking
                 {
                     bestT = tm - 1;
                     best = ObjectRef.Actor(a.Id);
+                    iconBest = false;
                 }
 
                 continue;
@@ -225,6 +239,7 @@ public static class Picking
             {
                 bestT = t - 1;
                 best = ObjectRef.Actor(a.Id);
+                iconBest = false;
             }
         }
 
@@ -238,12 +253,13 @@ public static class Picking
                 {
                     bestT = t - 1;
                     best = ObjectRef.Ge(g.Id);
+                    iconBest = false;
                 }
             }
         }
 
         bool seeThrough = best is not null;
-        if (Surface(cam, p, mouse, pickableOnly: true) is { } hit && hit.Distance < bestT)
+        if (Surface(cam, p, mouse, pickableOnly: true) is { } hit && hit.Distance < bestT && !(iconBest && Vec3.Dot(hit.Normal, d) >= 0))
         {
             best = hit.Object;
             bestT = hit.Distance;
@@ -257,6 +273,27 @@ public static class Picking
         }
 
         return best;
+    }
+
+    /// <summary>The distance along the ray to an actor's icon when the cursor is on it (the square the perspective view
+    /// draws, a pick tolerance around it), else null. Icons are drawn pulled towards the camera, so they are hit there.
+    /// Only actors drawn as icons count; a mesh actor's icon shows only once it is selected.</summary>
+    private static double? IconHit(ViewCamera cam, Actor a, Vector2 mouse, Vec3 o, Vec3 d)
+    {
+        if (cam.ToScreen(a.Location) is not { } centre)
+        {
+            return null;
+        }
+
+        double pixels = ActorIconBatch.ScreenPixels(cam, a.Location);
+        double reach = (pixels / 2) + (Tolerance / 2);
+        if (Math.Abs(mouse.X - centre.X) > reach || Math.Abs(mouse.Y - centre.Y) > reach || ActorIconBatch.Use(a) != IconUse.Always)
+        {
+            return null;
+        }
+
+        double t = Vec3.Dot(a.Location - o, d) - ActorIconBatch.Pull(cam, a.Location, pixels);
+        return t > 0 ? t : null;
     }
 
     /// <summary>The nearest face of a shaped actor (volume) the ray hits. From inside its box nothing is hit: a

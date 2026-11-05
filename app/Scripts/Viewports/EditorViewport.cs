@@ -169,11 +169,14 @@ public sealed partial class EditorViewport : Control
         set
         {
             _mode = value;
-            Cam.Camera.CullMask = VisualLayers.ForMode(value) | VisualLayers.Grid(Kind) | (Kind == ViewKind.Perspective ? VisualLayers.PickedFaces : 0);
+            ApplyCullMask();
             Cam.Camera.Environment = MakeEnvironment(value);
             UpdateMenuText();
         }
     }
+
+    /// <summary>Sets what the view's camera draws from its render mode and View > Show > Actor Icons.</summary>
+    public void ApplyCullMask() => Cam.Camera.CullMask = VisualLayers.ForView(Kind, _mode, Render.ActorIconBatch.Shown);
 
     /// <summary>Asks the overlay to redraw (tools call this when their handles change).</summary>
     public void Redraw() => _overlay.QueueRedraw();
@@ -477,6 +480,11 @@ public sealed partial class EditorViewport : Control
         _container.Scale = Vector2.One / scale;
         _container.Size = (Size * scale).Round();
         Cam.PixelScale = scale;
+        if (Kind == ViewKind.Perspective)
+        {
+            Render.ActorIconBatch.SetView(_container.Size, scale);
+        }
+
         Cam.Resize(Size);
         ApplyCamera();
     }

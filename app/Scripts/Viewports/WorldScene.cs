@@ -1,9 +1,11 @@
 using Godot;
+using OpenScct.Editor.Core.Classes;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Lightmaps;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
 using OpenScctEditor.Shell;
+using OpenScctEditor.Viewports.Render;
 
 namespace OpenScctEditor.Viewports;
 
@@ -24,6 +26,10 @@ public sealed partial class WorldScene : Node3D
     private MeshInstance3D? _previewBaked;
     private MeshInstance3D? _previewDensity;
     private BakedWorldNode? _baked;
+    private ActorIconBatch _icons = null!;
+
+    /// <summary>The actor icons need writing again (something drawn, moved, shown, hidden or selected changed).</summary>
+    private bool _iconsDirty;
 
     /// <summary>The baked world layers kept when it was last loaded: changing them (Map Settings) reloads it and
     /// redoes the CSG preview, which then builds the brushes the baked world held.</summary>
@@ -93,7 +99,12 @@ public sealed partial class WorldScene : Node3D
         AddChild(_builder);
         _baked = new BakedWorldNode { Name = "BakedWorld" };
         AddChild(_baked);
+        _icons = new ActorIconBatch();
+        AddChild(_icons);
     }
+
+    /// <summary>Writes the actor icons again before the next frame (View > Show > Actor Icons changed).</summary>
+    public void RefreshIcons() => _iconsDirty = true;
 
     /// <summary>Drops everything and draws <paramref name="p"/> from scratch (a new map was opened);
     /// <paramref name="folder"/> is the project folder (relative baked-world paths resolve against it).</summary>
@@ -129,6 +140,7 @@ public sealed partial class WorldScene : Node3D
         _entries.Clear();
         _selected.Clear();
         _drawnBrushes.Clear();
+        _iconsDirty = true;
         _previewDirty = true;
         _previewInput = new MapProject();
         _previewUnlit?.QueueFree();
@@ -348,11 +360,13 @@ public sealed partial class WorldScene : Node3D
         e.Root.Transform = _posed.TryGetValue(id, out (Vec3 Location, Rot Rotation) pose)
             ? new Transform3D(Space.RotationToGodot(pose.Rotation) * Space.RotationToGodot(a.Rotation).Inverse(), Space.ToGodot(pose.Location))
             : new Transform3D(Basis.Identity, Space.ToGodot(a.Location));
+        _iconsDirty = true;
     }
 
     /// <summary>Re-applies hidden flags, layers and show flags (cheap; runs after every sync).</summary>
     public void ApplyVisibility(MapProject p)
     {
+        _iconsDirty = true;
         var hidden = new HashSet<string>(StringComparer.Ordinal);
         foreach ((ObjectRef r, Entry e) in _entries)
         {
@@ -462,6 +476,11 @@ public sealed partial class WorldScene : Node3D
 
     public override void _Process(double delta)
     {
+        if (_iconsDirty)
+        {
+            WriteIcons();
+        }
+
         ProcessLightBake(delta);
         if (!_previewDirty || _previewRunning || !SurfacesNeeded || _project is null || EditorServices.Preview is not { } preview)
         {
@@ -677,6 +696,7 @@ public sealed partial class WorldScene : Node3D
 
             e.Wire = null;
             e.Light = null;
+            e.Icon = IconUse.None;
         }
         else
         {
@@ -756,13 +776,18 @@ public sealed partial class WorldScene : Node3D
         }
 
         // Direction arrow along the actor's facing (UE forward = rotation X axis).
+        BuildArrow(lines, a, look.Color, Math.Max(look.HalfExtent.X * 2, 48));
+    }
+
+    /// <summary>An arrow of <paramref name="len"/> units from the actor's location along its facing.</summary>
+    private static void BuildArrow(LineBuilder lines, Actor a, Color color, double len)
+    {
         (Vec3 fwd, Vec3 right, Vec3 _) = a.Rotation.Axes();
-        double len = Math.Max(look.HalfExtent.X * 2, 48);
         Vec3 tip = fwd * len;
         double head = Math.Min(16, len * 0.3);
-        lines.Line(Vector3.Zero, Space.ToGodot(tip), look.Color);
-        lines.Line(Space.ToGodot(tip), Space.ToGodot(tip - fwd * head + right * head * 0.6), look.Color);
-        lines.Line(Space.ToGodot(tip), Space.ToGodot(tip - fwd * head - right * head * 0.6), look.Color);
+        lines.Line(Vector3.Zero, Space.ToGodot(tip), color);
+        lines.Line(Space.ToGodot(tip), Space.ToGodot(tip - fwd * head + right * head * 0.6), color);
+        lines.Line(Space.ToGodot(tip), Space.ToGodot(tip - fwd * head - right * head * 0.6), color);
     }
 
     private void BuildActor(Entry e, Actor a, MapProject p)
@@ -770,7 +795,24 @@ public sealed partial class WorldScene : Node3D
         ActorLook look = ActorLook.For(a);
         var lines = new LineBuilder();
         BuildActorLines(lines, a, look);
-        e.Wire = AddMesh(e.Root, lines.Build(), SceneStyle.Lines, VisualLayers.Common);
+        // An actor drawn as an icon in the perspective view keeps its box in the 2D views (and when selected).
+        IconUse use = ActorIconBatch.Use(a);
+        e.Wire = AddMesh(e.Root, lines.Build(), SceneStyle.Lines, use == IconUse.Always ? VisualLayers.ActorBoxes : VisualLayers.Common);
+        if (use != IconUse.None)
+        {
+            ActorKind kind = ActorIcons.KindOf(a);
+            e.Icon = use;
+            e.IconCell = ActorIcons.Cell(kind);
+            e.IconTint = look.Color;
+            if (use == IconUse.Always && ActorKinds.ShowsDirection(kind, a, ClassDefaults.Catalog))
+            {
+                // Longer than the icon is wide in the world, so it reaches out from under it.
+                var arrow = new LineBuilder();
+                BuildArrow(arrow, a, look.Color, Math.Max(look.HalfExtent.X * 2, ActorIconBatch.WorldSize * 1.25));
+                AddMesh(e.Root, arrow.Build(), SceneStyle.Lines, VisualLayers.ActorIcons);
+            }
+        }
+
         if (e.Wire is not null)
         {
             Render.StaticMeshDrawing.Attach(e.Root, a, e.Wire, look.Color, () => _meshLight.GetValueOrDefault(a.Id));
@@ -908,8 +950,13 @@ public sealed partial class WorldScene : Node3D
         }
     }
 
-    private static void SetSelected(Entry e, bool selected)
+    private void SetSelected(Entry e, bool selected)
     {
+        if (e.Selected != selected && e.Icon != IconUse.None)
+        {
+            _iconsDirty = true;
+        }
+
         e.Selected = selected;
         if (e.Wire is null)
         {
@@ -919,6 +966,30 @@ public sealed partial class WorldScene : Node3D
         e.Wire.MaterialOverride = selected ? SceneStyle.SelectedLines : null;
         e.Wire.Layers = selected ? e.WireLayers | VisualLayers.Selected : e.WireLayers;
         KeepSelectionLit(e);
+    }
+
+    /// <summary>Writes every shown actor icon into the batch: the actors drawn as icons, and selected mesh actors (a
+    /// smaller icon). A selected icon takes the selection colour, a greyed one (left out of the match) is dimmed.</summary>
+    private void WriteIcons()
+    {
+        _iconsDirty = false;
+        _icons.Begin();
+        if (ActorIconBatch.Shown && ShowActors)
+        {
+            foreach (Entry e in _entries.Values)
+            {
+                if (e.Icon == IconUse.None || !e.Root.Visible || (e.Icon == IconUse.WhenSelected && !e.Selected))
+                {
+                    continue;
+                }
+
+                Color tint = e.Selected ? SceneStyle.Selection : e.Greyed ? e.IconTint.Darkened(0.6f) : e.IconTint;
+                float scale = e.Icon == IconUse.WhenSelected ? ActorIconBatch.SelectedMeshScale : 1;
+                _icons.Add(e.Root.Position, tint, e.IconCell, scale, e.Selected);
+            }
+        }
+
+        _icons.Commit();
     }
 
     /// <summary>Adds an instance of <paramref name="mesh"/> with its own material (one mesh can back several instances,
@@ -1010,6 +1081,13 @@ public sealed partial class WorldScene : Node3D
 
         /// <summary>The light the lit view draws for a light actor.</summary>
         public OmniLight3D? Light { get; set; }
+
+        /// <summary>When the actor shows an icon in the perspective view, which (its atlas cell) and in what colour.</summary>
+        public IconUse Icon { get; set; }
+
+        public Vector2I IconCell { get; set; }
+
+        public Color IconTint { get; set; }
 
         public bool Greyed { get; set; }
 

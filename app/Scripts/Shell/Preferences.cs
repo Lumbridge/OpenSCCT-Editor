@@ -28,6 +28,24 @@ public sealed class Preferences : IShellPart
         set => AppSettings.Set(Views, "fov", Math.Clamp(value, MinFov, MaxFov));
     }
 
+    /// <summary>Whether the perspective view draws actors without a mesh as icons (View > Show > Actor Icons); off,
+    /// it draws their boxes as the 2D views do.</summary>
+    public static bool ActorIcons
+    {
+        get => AppSettings.GetBool(Views, "actor_icons", true);
+        set => AppSettings.Set(Views, "actor_icons", value);
+    }
+
+    public const int MinActorIconSize = 12, MaxActorIconSize = 64;
+
+    /// <summary>The size of an actor icon in the perspective view, in UI pixels, when it is near (far ones shrink to
+    /// about half, <see cref="Viewports.Render.ActorIconBatch"/>).</summary>
+    public static int ActorIconSize
+    {
+        get => Math.Clamp(AppSettings.GetInt(Views, "actor_icon_size", 26), MinActorIconSize, MaxActorIconSize);
+        set => AppSettings.Set(Views, "actor_icon_size", Math.Clamp(value, MinActorIconSize, MaxActorIconSize));
+    }
+
     /// <summary>The snap grid a new map starts with, in units.</summary>
     public static int DefaultGrid
     {
@@ -101,6 +119,8 @@ public sealed class Preferences : IShellPart
     {
         ViewCamera.FieldOfView = FieldOfView;
         ViewGrid.MajorEvery = GridMajorEvery;
+        Viewports.Render.ActorIconBatch.Shown = ActorIcons;
+        Viewports.Render.ActorIconBatch.SizePx = ActorIconSize;
         foreach ((string key, _, _) in SceneStyle.Defaults)
         {
             SceneStyle.Set(key, Colour(key));
