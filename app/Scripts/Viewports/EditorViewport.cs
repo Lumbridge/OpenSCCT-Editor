@@ -482,7 +482,7 @@ public sealed partial class EditorViewport : Control
         Cam.PixelScale = scale;
         if (Kind == ViewKind.Perspective)
         {
-            Render.ActorIconBatch.SetView(_container.Size, scale);
+            Render.ActorIconBatch.SetPixelScale(scale);
         }
 
         Cam.Resize(Size);

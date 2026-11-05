@@ -121,11 +121,11 @@ public static class Icons
 
         // Actor kinds (ActorIcons: the views' actor icons, and the class lists'). Kinds without an entry here use the
         // type icons above.
-        ["type-light-spot"] = """<path d="M6 1.5h4v3.5h-4z"/><path d="M6 5l-3.5 8M10 5l3.5 8"/><path d="M2.5 13a5.5 1.5 0 0 0 11 0"/>""",
+        ["type-light-spot"] = """<path d="M8 1.5v1.75"/><path d="M3.5 7.75a4.5 4.5 0 0 1 9 0z" fill="C"/><path d="M5.5 10.25l-1.75 4.25M8 10.25v4.25M10.5 10.25l1.75 4.25"/>""",
         ["type-light-sun"] = """<circle cx="8" cy="8" r="3"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"/>""",
         ["type-light-trigger"] = """<path d="M3.5 10c-1-.8-1.5-1.9-1.5-3.2a3.75 3.75 0 0 1 7.5 0c0 1.3-.5 2.4-1.5 3.2v1.5h-4.5z"/><path d="M4 14h3.5"/><path d="M13.5 4.5l-2.5 4h3l-2.5 4"/>""",
-        ["type-start-spy"] = """<circle cx="6" cy="4.25" r="2.25"/><path d="M3.5 4h5"/><path d="M2.5 14.5v-2.5a3.5 3.5 0 0 1 7 0v2.5"/><path d="M11.5 14.5v-12.5l3 1.5-3 1.5"/>""",
-        ["type-start-merc"] = """<path d="M3.5 5a2.5 2.5 0 0 1 5 0z"/><path d="M2.5 5h7"/><path d="M2.5 14.5v-2.5a3.5 3.5 0 0 1 7 0v2.5"/><path d="M11.5 14.5v-12.5l3 1.5-3 1.5"/>""",
+        ["type-start-spy"] = """<circle cx="6.5" cy="4.75" r="2.75" fill="C" stroke="none"/><path d="M3 4.5h7"/><path d="M1.5 15v-1.5a5 5 0 0 1 10 0v1.5z" fill="C"/><path d="M14 15v-13"/><path d="M14 2.25l-2.5 1.5 2.5 1.5z" fill="C"/>""",
+        ["type-start-merc"] = """<path d="M3.25 5.5a3.25 3.25 0 0 1 6.5 0z" fill="C"/><path d="M2.25 5.75h8.5"/><path d="M4.75 6.25v.75a1.75 1.75 0 0 0 3.5 0v-.75"/><path d="M1.5 15v-1.5a5 5 0 0 1 10 0v1.5z" fill="C"/><path d="M14 15v-13"/><path d="M14 2.25l-2.5 1.5 2.5 1.5z" fill="C"/>""",
         ["type-camnet"] = """<rect x="2.5" y="2" width="7" height="5" rx="1"/><path d="M9.5 3.75l3-1.25v4l-3-1.25"/><path d="M6 7v5.5M3.5 12.5h7"/><circle cx="2.75" cy="12.5" r="1.25"/><circle cx="12" cy="12.5" r="1.25"/>""",
         ["type-sensor-motion"] = """<path d="M3 14h10"/><path d="M5.25 14a2.75 2.75 0 0 1 5.5 0"/><path d="M4.25 9.5a5 5 0 0 1 7.5 0M2 6.75a8.25 8.25 0 0 1 12 0"/>""",
         ["type-sensor-presence"] = """<circle cx="8" cy="8" r="6.5" stroke-dasharray="2 1.6"/><circle cx="8" cy="6" r="1.75"/><path d="M4.75 11.75a3.25 3.25 0 0 1 6.5 0"/>""",

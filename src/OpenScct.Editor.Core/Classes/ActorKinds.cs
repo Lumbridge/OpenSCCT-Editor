@@ -223,20 +223,28 @@ public static class ActorKinds
         (["Pawn"], ActorKind.Pawn),
     ];
 
-    private static readonly ConcurrentDictionary<string, ActorKind> s_cache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Lock s_cacheLock = new();
+    private static ConcurrentDictionary<string, ActorKind> s_cache = new(StringComparer.OrdinalIgnoreCase);
     private static IClassCatalog? s_cachedFor;
 
     /// <summary>The kind of a class ("Engine.Light", "SBase.SCamera" or a short name), following its super chain in
-    /// <paramref name="catalog"/>; by its name when the catalog does not know it.</summary>
+    /// <paramref name="catalog"/>; by its name when the catalog does not know it. Safe to call from any thread: the
+    /// kinds are remembered for the last catalog asked about.</summary>
     public static ActorKind OfClass(string className, IClassCatalog? catalog)
     {
-        if (!ReferenceEquals(catalog, s_cachedFor))
+        ConcurrentDictionary<string, ActorKind> cache;
+        lock (s_cacheLock)
         {
-            s_cache.Clear();
-            s_cachedFor = catalog;
+            if (!ReferenceEquals(catalog, s_cachedFor))
+            {
+                s_cache = new ConcurrentDictionary<string, ActorKind>(StringComparer.OrdinalIgnoreCase);
+                s_cachedFor = catalog;
+            }
+
+            cache = s_cache;
         }
 
-        return s_cache.GetOrAdd(className ?? "", c => Find(c, catalog));
+        return cache.GetOrAdd(className ?? "", c => Find(c, catalog));
     }
 
     /// <summary>The kind of an actor: its class's, refined by its own values (stored, else the class defaults): a

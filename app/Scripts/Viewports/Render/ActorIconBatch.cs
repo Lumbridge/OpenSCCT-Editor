@@ -22,13 +22,15 @@ public enum IconUse
 /// The perspective view's actor icons (<see cref="ActorIcons"/>), all in one <see cref="MultiMesh"/> drawn in one call
 /// with one material. Each icon is a screen-facing quad the vertex shader sizes in pixels: an icon has
 /// <see cref="WorldSize"/> units in the world, but is never drawn larger than <see cref="SizePx"/> (near) nor smaller
-/// than <see cref="MinFraction"/> of it (far). Depth is judged at the actor, not per pixel: the shader reads the
-/// opaque pass's depth at the actor and at four points close around it, and shows the whole icon when any of them is
-/// open, or hides the whole icon when the world stands in front (a wall). A surface less than about the icon's half
-/// size in front of the actor (<see cref="Pull"/>) does not count, so a light set into a ceiling or a start standing on
-/// the floor shows whole and is never cut by the surface it sits on. Icons sort among themselves by depth, carry a dark
-/// halo that keeps them readable on any surface, and a selected icon is drawn in the selection colour over everything.
-/// The instance buffer is written only when the scene changes (<see cref="WorldScene"/> marks it), never per frame.
+/// than <see cref="MinFraction"/> of it, or <see cref="MinPixels"/> (far). Depth is judged at the actor, not per pixel:
+/// the shader reads the opaque pass's depth at the actor and at four points close around it, and shows the whole icon
+/// when any of them is open, or hides the whole icon when the world stands in front (a wall). A surface less than about
+/// the icon's half size in front of the actor (<see cref="Pull"/>) does not count, so a light set into a ceiling or a
+/// start standing on the floor shows whole and is never cut by the surface it sits on; an actor buried less than
+/// <see cref="BuriedDepth"/> behind a surface (a start inside a crate) shows faint through it. Icons sort among
+/// themselves by depth and carry a dark halo that keeps them readable on any surface. A selected icon is drawn in the
+/// selection colour over everything, at full size however far; an actor greyed out of the match shows faint. The
+/// instance buffer is written only when the drawn icons change (<see cref="WorldScene"/> marks it), never per frame.
 /// </summary>
 public sealed partial class ActorIconBatch : MultiMeshInstance3D
 {
@@ -38,8 +40,18 @@ public sealed partial class ActorIconBatch : MultiMeshInstance3D
     /// <summary>The smallest an icon is drawn, as a part of <see cref="SizePx"/>.</summary>
     public const float MinFraction = 0.55f;
 
+    /// <summary>The smallest a far icon is drawn, in UI pixels (or <see cref="SizePx"/> when that is smaller).</summary>
+    public const float MinPixels = 10;
+
     /// <summary>The size of the icon of a selected mesh actor, as a part of a full icon.</summary>
     public const float SelectedMeshScale = 0.75f;
+
+    /// <summary>How far behind a surface an actor may be and still show its icon, faint, in units: a start inside a
+    /// crate or a light just behind a thin wall. Deeper (another room), the icon is hidden.</summary>
+    public const double BuriedDepth = 320;
+
+    /// <summary>The opacity of a faint icon: buried, or of an actor greyed out of the match.</summary>
+    public const float FaintAlpha = 0.4f;
 
     /// <summary>Floats per instance: a 3×4 transform, a colour and the custom data (atlas cell, scale, on top).</summary>
     private const int Stride = 20;
@@ -50,11 +62,9 @@ public sealed partial class ActorIconBatch : MultiMeshInstance3D
 
     private static readonly StringName s_sizeParam = "size_px";
     private static readonly StringName s_minParam = "min_px";
-    private static readonly StringName s_viewportParam = "viewport_px";
     private static ShaderMaterial? s_material;
     private static int s_size = 26;
     private static float s_pixelScale = 1;
-    private static Vector2 s_viewport = new(1280, 720);
     private float[] _buffer = [];
     private int _count;
 
@@ -97,9 +107,20 @@ public sealed partial class ActorIconBatch : MultiMeshInstance3D
         : ConveyorDesign.Is(a) || StaticMeshDrawing.MeshPath(a) is not null || StaticMeshDrawing.SkeletalPath(a) is not null ? IconUse.WhenSelected
         : IconUse.Always;
 
-    /// <summary>The size an icon is drawn at <paramref name="at"/>, in the view's UI pixels (picking uses it).</summary>
-    public static double ScreenPixels(ViewCamera cam, Vec3 at, float scale = 1) =>
-        Math.Clamp(WorldSize / cam.UnitsPerPixelAt(at), s_size * MinFraction, s_size) * scale;
+    /// <summary>The size an icon is drawn at <paramref name="at"/>, in the view's UI pixels (picking uses it): a
+    /// selected one at full size, a mesh actor's smaller.</summary>
+    public static double ScreenPixels(ViewCamera cam, Vec3 at, IconUse use = IconUse.Always, bool selected = false)
+    {
+        double scale = use == IconUse.WhenSelected ? SelectedMeshScale : 1;
+        return (selected ? s_size : Math.Clamp(WorldSize / cam.UnitsPerPixelAt(at), SmallestPx, s_size)) * scale;
+    }
+
+    /// <summary>How far in front of its actor a surface hides an icon drawn with <paramref name="pull"/>, in units (a
+    /// nearer surface hides it, a farther one leaves it faint or whole).</summary>
+    public static double HiddenBy(double pull) => pull + BuriedDepth;
+
+    /// <summary>The smallest a far icon is drawn, in UI pixels.</summary>
+    private static float SmallestPx => Math.Max(s_size * MinFraction, Math.Min(MinPixels, s_size));
 
     /// <summary>How far in front of its actor a surface may be without hiding an icon of <paramref name="pixels"/> at
     /// <paramref name="at"/>, in units, as the shader judges it (picking takes the icon there).</summary>
@@ -109,24 +130,21 @@ public sealed partial class ActorIconBatch : MultiMeshInstance3D
         return Math.Min(Math.Clamp(0.5 * pixels * cam.UnitsPerPixelAt(at), MinPull, MaxPull), depth * 0.5);
     }
 
-    /// <summary>Takes the perspective view's size in rendered pixels and its rendered pixels per UI pixel (the UI
-    /// scale), which the icons are sized in.</summary>
-    public static void SetView(Vector2 renderedSize, float pixelScale)
+    /// <summary>Takes the perspective view's rendered pixels per UI pixel (the UI scale), which icons are sized in.</summary>
+    public static void SetPixelScale(float pixelScale)
     {
-        if (renderedSize == s_viewport && Mathf.IsEqualApprox(pixelScale, s_pixelScale))
+        pixelScale = pixelScale > 0 ? pixelScale : 1;
+        if (!Mathf.IsEqualApprox(pixelScale, s_pixelScale))
         {
-            return;
+            s_pixelScale = pixelScale;
+            ApplySize();
         }
-
-        s_viewport = renderedSize;
-        s_pixelScale = pixelScale > 0 ? pixelScale : 1;
-        ApplySize();
     }
 
     /// <summary>Starts a new set of icons (the old ones stay drawn until <see cref="Commit"/>).</summary>
     public void Begin() => _count = 0;
 
-    /// <summary>Adds an icon at <paramref name="position"/> (Godot space).</summary>
+    /// <summary>Adds an icon at <paramref name="position"/> (Godot space); a tint alpha below 1 draws it faint.</summary>
     public void Add(Vector3 position, Color tint, Vector2I cell, float scale, bool onTop)
     {
         int at = _count * Stride;
@@ -185,8 +203,7 @@ public sealed partial class ActorIconBatch : MultiMeshInstance3D
         }
 
         s_material.SetShaderParameter(s_sizeParam, s_size * s_pixelScale);
-        s_material.SetShaderParameter(s_minParam, s_size * MinFraction * s_pixelScale);
-        s_material.SetShaderParameter(s_viewportParam, new Vector2(Math.Max(s_viewport.X, 1), Math.Max(s_viewport.Y, 1)));
+        s_material.SetShaderParameter(s_minParam, SmallestPx * s_pixelScale);
     }
 
     private static ShaderMaterial Material
@@ -205,6 +222,8 @@ public sealed partial class ActorIconBatch : MultiMeshInstance3D
             s_material.SetShaderParameter("world_size", (float)(WorldSize / Space.UnitsPerMetre));
             s_material.SetShaderParameter("min_pull", (float)(MinPull / Space.UnitsPerMetre));
             s_material.SetShaderParameter("max_pull", (float)(MaxPull / Space.UnitsPerMetre));
+            s_material.SetShaderParameter("buried", (float)(BuriedDepth / Space.UnitsPerMetre));
+            s_material.SetShaderParameter("faint", FaintAlpha);
             ApplySize();
             return s_material;
         }
@@ -232,8 +251,6 @@ public sealed partial class ActorIconBatch : MultiMeshInstance3D
         // The world as drawn so far (the opaque pass): an icon shows when the world does not hide its actor.
         uniform sampler2D depth_view : hint_depth_texture, filter_nearest, repeat_disable;
         uniform vec2 cells = vec2(8.0, 6.0);
-        // The perspective view's size in rendered pixels.
-        uniform vec2 viewport_px = vec2(1280.0, 720.0);
         // Rendered pixels: the largest and smallest an icon is drawn.
         uniform float size_px = 26.0;
         uniform float min_px = 14.0;
@@ -241,6 +258,9 @@ public sealed partial class ActorIconBatch : MultiMeshInstance3D
         uniform float world_size = 0.8;
         uniform float min_pull = 0.12;
         uniform float max_pull = 0.4;
+        // Metres: how far behind a surface an actor may be and still show its icon, faint; and how faint.
+        uniform float buried = 3.2;
+        uniform float faint = 0.4;
         varying vec2 icon_uv;
         varying vec4 tint;
         // xy: the actor's screen position (as SCREEN_UV); z: the distance a surface must be nearer than to hide it;
@@ -258,53 +278,63 @@ public sealed partial class ActorIconBatch : MultiMeshInstance3D
             float depth = max(-centre.z, 0.01);
             // The projection flips Y (its [1][1] is negative): use its size, and its sign for screen up.
             float flip = sign(PROJECTION_MATRIX[1][1]);
-            float px_per_m = abs(PROJECTION_MATRIX[1][1]) * viewport_px.y * 0.5 / depth;
-            float px = clamp(world_size * px_per_m, min_px, size_px) * INSTANCE_CUSTOM.z;
+            float px_per_m = abs(PROJECTION_MATRIX[1][1]) * VIEWPORT_SIZE.y * 0.5 / depth;
+            // A selected icon stays at full size however far it is.
+            float full = INSTANCE_CUSTOM.w > 0.5 ? size_px : clamp(world_size * px_per_m, min_px, size_px);
+            float px = full * INSTANCE_CUSTOM.z;
             float pull = min(clamp(0.5 * px / px_per_m, min_pull, max_pull), depth * 0.5);
             vec4 actor = PROJECTION_MATRIX * vec4(centre, 1.0);
             probe = vec4(actor.xy / actor.w * 0.5 + 0.5, depth - pull, INSTANCE_CUSTOM.w);
-            spread = vec2(0.3 * px) / viewport_px;
+            spread = vec2(0.3 * px) / VIEWPORT_SIZE;
 
             vec3 front = centre * (1.0 - pull / max(length(centre), 0.001));
             POSITION = PROJECTION_MATRIX * vec4(front, 1.0);
-            POSITION.xy += vec2(VERTEX.x, VERTEX.y * flip) * px * 2.0 / viewport_px * POSITION.w;
+            POSITION.xy += vec2(VERTEX.x, VERTEX.y * flip) * px * 2.0 / VIEWPORT_SIZE * POSITION.w;
             // In front of the world (the fragment decides what the world hides), in their own depth order among
             // themselves; a selected icon in front of them all. Reversed depth: 1 is the near plane.
             float z = clamp(POSITION.z / POSITION.w, 0.0, 1.0);
             POSITION.z = (INSTANCE_CUSTOM.w > 0.5 ? 0.99999 : 0.99 + 0.0099 * z) * POSITION.w;
 
             icon_uv = (INSTANCE_CUSTOM.xy + UV) / cells;
-            tint = vec4(to_linear(COLOR.rgb), 1.0);
+            tint = vec4(to_linear(COLOR.rgb), COLOR.a);
         }
 
-        // Whether the world at a screen point lies beyond the actor (or the point is off screen).
-        bool open_at(vec2 uv, mat4 inv_projection) {
+        // How far away the world is at a screen point (0 off screen, where nothing is seen).
+        float world_at(vec2 uv, mat4 inv_projection) {
             if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) {
-                return false;
+                return 0.0;
             }
 
             float d = texture(depth_view, uv).r;
             vec4 v = inv_projection * vec4(uv * 2.0 - 1.0, d, 1.0);
-            return -v.z / v.w >= probe.z;
+            return -v.z / v.w;
         }
 
         void fragment() {
+            vec4 t = texture(atlas, icon_uv);
+            if (t.a < 0.5) {
+                discard;
+            }
+
+            float alpha = tint.a;
             if (probe.w < 0.5) {
                 // Seen if the world leaves the actor or a point around it open: a line or a thin rail across it does
-                // not hide it, a wall does.
+                // not hide it, a wall does. Just behind a surface (buried in a crate), it shows faint.
                 mat4 inv = INV_PROJECTION_MATRIX;
-                bool seen = open_at(probe.xy, inv) || open_at(probe.xy + vec2(spread.x, 0.0), inv) ||
-                    open_at(probe.xy - vec2(spread.x, 0.0), inv) || open_at(probe.xy + vec2(0.0, spread.y), inv) ||
-                    open_at(probe.xy - vec2(0.0, spread.y), inv);
-                if (!seen) {
-                    discard;
+                float open = max(max(world_at(probe.xy, inv), world_at(probe.xy + vec2(spread.x, 0.0), inv)),
+                    max(max(world_at(probe.xy - vec2(spread.x, 0.0), inv), world_at(probe.xy + vec2(0.0, spread.y), inv)),
+                        world_at(probe.xy - vec2(0.0, spread.y), inv)));
+                if (open < probe.z) {
+                    if (open < probe.z - buried) {
+                        discard;
+                    }
+
+                    alpha = min(alpha, faint);
                 }
             }
 
-            vec4 t = texture(atlas, icon_uv);
             ALBEDO = t.rgb * tint.rgb;
-            ALPHA = t.a;
-            ALPHA_SCISSOR_THRESHOLD = 0.5;
+            ALPHA = alpha;
         }
         """;
 }

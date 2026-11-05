@@ -20,7 +20,7 @@ public static class ActorIcons
     public const int Columns = 8;
 
     /// <summary>The dark halo around each atlas drawing, in cell pixels, so an icon reads on any background.</summary>
-    private const int HaloPixels = 3;
+    private const int HaloPixels = 4;
 
     private static readonly ActorKind[] s_kinds = Enum.GetValues<ActorKind>();
     private static ImageTexture? s_atlas;

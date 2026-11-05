@@ -514,11 +514,11 @@ one of these:
 | Name | Drawing | Kinds |
 |---|---|---|
 | `type-light` | Bulb | Point light |
-| `type-light-spot` | Lamp head over a cone with an elliptical foot | Spot light (LightEffect spot), SProjoFixe |
+| `type-light-spot` | Filled lamp shade on a stem, three rays fanning down | Spot light (LightEffect spot), SProjoFixe |
 | `type-light-sun` | Circle with eight rays | Sun light (LightEffect sun) |
 | `type-light-trigger` | Small bulb with a lightning bolt beside it | STriggerLight |
-| `type-start-spy` | `type-start` with a goggle band across the head | Spy start (TeamNumber 0) |
-| `type-start-merc` | `type-start` with a helmet (dome and brim) | Mercenary start (TeamNumber 1) |
+| `type-start-spy` | Solid figure with a goggle band across the head, pennant on a pole | Spy start (TeamNumber 0) |
+| `type-start-merc` | Solid figure in a helmet (dome and brim), pennant on a pole | Mercenary start (TeamNumber 1) |
 | `type-camnet` | Camera body with a lens, wired to two nodes below | SCamNetwork |
 | `type-sensor-motion` | Dome with two waves over it | SVolumetricSensor, motion tracking |
 | `type-sensor-presence` | Person in a dashed circle | SPresenceTrigger, SPresDetector |
@@ -546,13 +546,19 @@ gives a class's icon (16 px, `TextDim`); `ActorIcons.For(actor, colour)` refines
 **In the perspective view** (`ActorIconBatch`), an actor with nothing else to draw shows its kind icon instead of its
 box: the drawing in white with a dark halo (so it reads on light and dark surfaces), tinted by the actor's category
 colour (`ActorLook`), as a screen-facing billboard. It is `Preferences.ActorIconSize` UI pixels (default 26, 12–64,
-Edit > Preferences > Views) while near and shrinks with distance to no less than 55 % of that. It shows whole while the
-world leaves its actor in view and hides whole behind a wall; icons sort among themselves. Selected: the selection
-colour, drawn over everything, with the actor's box. Actors whose facing matters (starts, cameras, lasers, spot and sun
-lights, switches, stations, emitters…) keep their direction arrow, long enough to reach out from under the icon.
-Volumes and other brush-shaped actors keep their shape and get no icon; actors drawn with a mesh keep it and show a
-small icon (75 %) only while selected. The 2D views keep the boxes. View > Show > Actor Icons turns the icons off
-(boxes again).
+Edit > Preferences > Views) while near and shrinks with distance to no less than 55 % of that (and never below 10 px).
+It shows whole while the world leaves its actor in view and hides whole behind a wall; an actor buried just behind a
+surface (less than 320 units along the view: a start inside a crate) shows faint through it, as does an actor greyed
+out of the match. Icons sort among themselves. Selected: the selection colour, full size however far, drawn over
+everything, with the actor's box and arrow. Actors whose facing matters (starts, cameras, lasers, spot and sun lights,
+switches, stations, emitters…) keep their direction arrow, long enough to reach out from under the icon. Volumes and
+other brush-shaped actors keep their shape and get no icon; actors drawn with a mesh keep it and show a small icon
+(75 %) only while selected. The 2D views and the camera monitor keep the boxes. View > Show > Actor Icons turns the icons
+off (boxes again); it is greyed out while View > Show > Actors is off.
+
+Clicking follows what is drawn: an icon on show takes the click over the lines, boxes and surfaces it is drawn over
+(the surface it sits on, or a faint one it is buried behind), and an actor drawn as an icon has no box to click until
+it is selected. What View > Show hides is not picked.
 
 Toolbar icons (`ToolbarIcons.cs`, size 16): existing set kept; `brush.add` and `brush.subtract` redrawn as a cube with
 a +/− badge in `CsgAdd`/`CsgSubtract`; `tools.face` with a clearly filled top face (Accent fill α 0.6) so it differs

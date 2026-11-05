@@ -190,6 +190,7 @@ public sealed partial class WorldScene : Node3D
 
         foreach (ObjectRef gone in _entries.Keys.Where(k => !seen.Contains(k)).ToList())
         {
+            _iconsDirty |= _entries[gone].Icon != IconUse.None;
             _entries[gone].Root.QueueFree();
             _entries.Remove(gone);
         }
@@ -360,13 +361,12 @@ public sealed partial class WorldScene : Node3D
         e.Root.Transform = _posed.TryGetValue(id, out (Vec3 Location, Rot Rotation) pose)
             ? new Transform3D(Space.RotationToGodot(pose.Rotation) * Space.RotationToGodot(a.Rotation).Inverse(), Space.ToGodot(pose.Location))
             : new Transform3D(Basis.Identity, Space.ToGodot(a.Location));
-        _iconsDirty = true;
+        _iconsDirty |= e.Icon != IconUse.None;
     }
 
     /// <summary>Re-applies hidden flags, layers and show flags (cheap; runs after every sync).</summary>
     public void ApplyVisibility(MapProject p)
     {
-        _iconsDirty = true;
         var hidden = new HashSet<string>(StringComparer.Ordinal);
         foreach ((ObjectRef r, Entry e) in _entries)
         {
@@ -379,10 +379,15 @@ public sealed partial class WorldScene : Node3D
             // The entry's source is the live object (Sync runs first), so its meta is at hand without a lookup.
             EditorMeta? meta = e.Source switch { Brush b => b.Editor, Actor a => a.Editor, Ge g => g.Editor, _ => null };
             bool visible = meta is not null && ObjectFilter.IsVisible(p, meta);
-            e.Root.Visible = show && visible;
-            if (r.Kind == ObjectKind.Actor)
+            if (e.Root.Visible != (show && visible))
             {
-                SetGreyed(e, Gameplay.MatchGreying.Greys(p, r.Id));
+                e.Root.Visible = show && visible;
+                _iconsDirty |= e.Icon != IconUse.None;
+            }
+
+            if (r.Kind == ObjectKind.Actor && SetGreyed(e, Gameplay.MatchGreying.Greys(p, r.Id)))
+            {
+                _iconsDirty |= e.Icon != IconUse.None;
             }
 
             // A brush off the storey shown stays in the CSG and the light bake: the views cut the world as they draw.
@@ -684,10 +689,12 @@ public sealed partial class WorldScene : Node3D
             if (k == e.Key)
             {
                 e.Root.Position = Space.ToGodot(location);
+                _iconsDirty |= e.Icon != IconUse.None;
                 return;
             }
 
             e.Key = k;
+            _iconsDirty |= e.Icon != IconUse.None;
             foreach (Node c in e.Root.GetChildren())
             {
                 e.Root.RemoveChild(c);
@@ -697,6 +704,7 @@ public sealed partial class WorldScene : Node3D
             e.Wire = null;
             e.Light = null;
             e.Icon = IconUse.None;
+            e.IconArrow = null;
         }
         else
         {
@@ -707,6 +715,7 @@ public sealed partial class WorldScene : Node3D
 
         e.Root.Position = Space.ToGodot(location);
         build(e);
+        _iconsDirty |= e.Icon != IconUse.None;
         SetSelected(e, _selected.Contains(r));
     }
 
@@ -806,10 +815,11 @@ public sealed partial class WorldScene : Node3D
             e.IconTint = look.Color;
             if (use == IconUse.Always && ActorKinds.ShowsDirection(kind, a, ClassDefaults.Catalog))
             {
-                // Longer than the icon is wide in the world, so it reaches out from under it.
+                // Longer than the icon is wide in the world, so it reaches out from under it. Selected, the actor's box
+                // and its own arrow show instead.
                 var arrow = new LineBuilder();
                 BuildArrow(arrow, a, look.Color, Math.Max(look.HalfExtent.X * 2, ActorIconBatch.WorldSize * 1.25));
-                AddMesh(e.Root, arrow.Build(), SceneStyle.Lines, VisualLayers.ActorIcons);
+                e.IconArrow = AddMesh(e.Root, arrow.Build(), SceneStyle.Lines, VisualLayers.ActorIcons);
             }
         }
 
@@ -891,12 +901,13 @@ public sealed partial class WorldScene : Node3D
         _ => new Color(1, 1, 1),
     };
 
-    /// <summary>Draws an object faded (the Match panel's actors left out of a match) or as before.</summary>
-    private static void SetGreyed(Entry e, bool greyed)
+    /// <summary>Draws an object faded (the Match panel's actors left out of a match) or as before; true when that
+    /// changed.</summary>
+    private static bool SetGreyed(Entry e, bool greyed)
     {
         if (e.Greyed == greyed)
         {
-            return;
+            return false;
         }
 
         e.Greyed = greyed;
@@ -915,6 +926,7 @@ public sealed partial class WorldScene : Node3D
 
         Fade(e.Root, greyed);
         KeepSelectionLit(e);
+        return true;
     }
 
     // The selection outline of a greyed actor stays at full strength, so a selected greyed actor still shows as selected.
@@ -958,6 +970,11 @@ public sealed partial class WorldScene : Node3D
         }
 
         e.Selected = selected;
+        if (e.IconArrow is not null)
+        {
+            e.IconArrow.Visible = !selected;
+        }
+
         if (e.Wire is null)
         {
             return;
@@ -969,7 +986,7 @@ public sealed partial class WorldScene : Node3D
     }
 
     /// <summary>Writes every shown actor icon into the batch: the actors drawn as icons, and selected mesh actors (a
-    /// smaller icon). A selected icon takes the selection colour, a greyed one (left out of the match) is dimmed.</summary>
+    /// smaller icon). A selected icon takes the selection colour, a greyed one (left out of the match) is faint.</summary>
     private void WriteIcons()
     {
         _iconsDirty = false;
@@ -983,7 +1000,7 @@ public sealed partial class WorldScene : Node3D
                     continue;
                 }
 
-                Color tint = e.Selected ? SceneStyle.Selection : e.Greyed ? e.IconTint.Darkened(0.6f) : e.IconTint;
+                Color tint = e.Selected ? SceneStyle.Selection : e.Greyed ? e.IconTint with { A = ActorIconBatch.FaintAlpha } : e.IconTint;
                 float scale = e.Icon == IconUse.WhenSelected ? ActorIconBatch.SelectedMeshScale : 1;
                 _icons.Add(e.Root.Position, tint, e.IconCell, scale, e.Selected);
             }
@@ -1028,6 +1045,10 @@ public sealed partial class WorldScene : Node3D
         h.Add(a.Props.GetInt("LightHue"));
         h.Add(a.Props.GetInt("LightSaturation"));
         h.Add(Render.StaticMeshDrawing.Key(a));
+        // The icon and its arrow (a light's LightEffect makes it a spot or sun light, and gives it a facing).
+        ActorKind kind = ActorIcons.KindOf(a);
+        h.Add(kind);
+        h.Add(ActorKinds.ShowsDirection(kind, a, ClassDefaults.Catalog));
         if (ConveyorDesign.Is(a))
         {
             h.Add(ConveyorLook.Key(a, p));
@@ -1084,6 +1105,9 @@ public sealed partial class WorldScene : Node3D
 
         /// <summary>When the actor shows an icon in the perspective view, which (its atlas cell) and in what colour.</summary>
         public IconUse Icon { get; set; }
+
+        /// <summary>The direction arrow drawn with the icon (hidden while selected, when the box's own arrow shows).</summary>
+        public MeshInstance3D? IconArrow { get; set; }
 
         public Vector2I IconCell { get; set; }
 

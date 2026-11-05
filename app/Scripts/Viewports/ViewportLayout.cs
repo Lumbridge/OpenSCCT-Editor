@@ -64,6 +64,13 @@ public sealed partial class ViewportLayout : Node, IShellPart
 
         _scene = new WorldScene { Name = "WorldScene" };
         window.AddChild(_scene);
+        // What View > Show hides is not picked either.
+        Picking.IsShown = kind => kind switch
+        {
+            ObjectKind.Brush => _scene.ShowBrushes,
+            ObjectKind.Actor => _scene.ShowActors,
+            _ => _scene.ShowGes,
+        };
         _scene.AddChild(new PickedFacesNode { Name = "PickedFaces" });
 
         _rows = new VBoxContainer { Name = "Views" };
@@ -463,7 +470,7 @@ public sealed partial class ViewportLayout : Node, IShellPart
             _scene.RefreshIcons();
         })
         {
-            Order = 115, IsChecked = () => Render.ActorIconBatch.Shown,
+            Order = 115, IsChecked = () => Render.ActorIconBatch.Shown, IsEnabled = () => _scene.ShowActors,
             Description = "In the perspective view, draw actors without a mesh (lights, starts, triggers…) as icons instead of boxes",
         });
         AddShow("view.show.ges", "Geometric Events", () => _scene.ShowGes, v => _scene.ShowGes = v, 120);

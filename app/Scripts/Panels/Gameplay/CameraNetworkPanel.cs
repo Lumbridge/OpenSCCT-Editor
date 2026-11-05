@@ -116,7 +116,8 @@ public partial class CameraNetworkPanel : EditorPanel
     private void Light(bool lit)
     {
         RenderMode mode = lit ? RenderMode.Lit : RenderMode.Unlit;
-        _monitor.CullMask = VisualLayers.ForMode(mode);
+        // The actors' boxes as the views draw them without icons (an icon's size follows the perspective view).
+        _monitor.CullMask = VisualLayers.ForMode(mode) | VisualLayers.ActorBoxes;
         _monitor.Environment = EditorViewport.MakeEnvironment(mode);
     }
 
