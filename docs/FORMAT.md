@@ -488,8 +488,21 @@ Geometric events: the lines a player can grab. An example with one ledge:
 | `mask` | `0` | The GE ID bit: 0 is always on, else one of 1, 2, 4 ... 128, matched against LevelInfo `GEActivationMask`. |
 | `platform` | `0` | 0 all platforms, 1 PS2 only, 2 Xbox only. |
 | `flags` | `0` | The original flag word, kept for round trips (0x2 is the stock editor's "added in the editor" bit). |
+| `appearance` | absent | Optional generated ladder, pipe, pole, cable, overhead bar or fence geometry: `width`, `radius`, `spacing` (units) and optional `material` asset path. Absent means GE only. |
 | `editor` | empty | Editor-only state. |
 | `src` | none | Import provenance. |
+
+The appearance belongs to the GE, so cloning, transforms, point edits, deletion and undo keep the line and its
+geometry together. Width is ladder width or fence height; spacing is rung or post separation. Width is 4–512,
+radius 0.5–32, spacing 4–256, with at most 256 repeated rungs/posts. Each kind has suitable defaults when the
+author enables appearance. Ledge grabs use existing level geometry and do not generate an appearance.
+Climbable vertical poles use `PIPE`; the stock `POLE` kind is preserved as a marker and has no grab event.
+The compiler and original-game exporters generate ordinary brush geometry from these settings; the saved project
+contains no duplicate generated brushes and the runtime traversal format is unchanged. Original-game exports
+retain the resulting shapes but do not retain their procedural editing relationship. Fences default to the stock
+climbable `drpoc_chantier.SM.moa_grillage` surface material; replacement materials must also be climbable.
+When writing back an imported `.sdc`, its existing compiled world is preserved: generated brushes trigger the
+normal `sdc.worldNotRebuilt` warning and need a rebuild in the stock editor before they appear in the original game.
 
 ## Editor-only state (`editor`)
 

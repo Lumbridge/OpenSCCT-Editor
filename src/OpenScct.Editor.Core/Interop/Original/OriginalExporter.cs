@@ -39,6 +39,15 @@ public sealed class OriginalExporter : IMapExporter
 
     public ExportResult Export(MapProject project, string path, ExportOptions options)
     {
+        try
+        {
+            project = GeGeometry.Expand(project);
+        }
+        catch (ArgumentException ex)
+        {
+            return new ExportResult(false, [], [Finding.Error("ge.geometry", ex.Message)]);
+        }
+
         string folder = Path.GetFullPath(path).TrimEnd('\\', '/');
         if (ClearFolder(folder) is { } refused)
         {

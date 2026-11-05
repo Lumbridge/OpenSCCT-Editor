@@ -21,13 +21,15 @@ internal static class GameplayCommands
     [
         new("ge", "ge detect <project> [--apply] [--compare] [--all] [--min-drop 40] [--min-length 32] [--headroom 0] [--step 8] " +
             "[--box x,y,z,x,y,z] [--meshes] [--limit 200] [--json]\n" +
+            "ge draw <project> --kind LADDER|PIPE|POLE|ZL|HOH|FENCE|LG --from x,y,z --to x,y,z [--facing x,y,z] " +
+            "[--name id] [--zone-only] [--width 48] [--radius 4] [--spacing 24] [--material asset]\n" +
             "ge flush <project> [--ids a,b] [--reach 32] | ge join <project> [--ids a,b] [--dist 24] | " +
             "ge probe <project> [--ids a,b] | ge mask <project> --ids a,b --id 4 | ge platform <project> --ids a,b --platform common|ps2|xbox | " +
             "ge activation <project> <0-255>   (edits: [--dry-run] [--json])",
             "GE authoring. detect finds grabbable ledges in the geometry (brushes and baked collision) and lists the ones no " +
             "LG covers yet (--all lists every one, --meshes also looks at a baked map's props, --compare scores them against the map's LGs, --apply adds them as one " +
             "undo step). probe explains, per LG, whether its edge is grabbable and why not. flush moves LGs onto their edges, join closes corner gaps, mask sets GE ID bits, platform the GE platform and activation " +
-            "sets LevelInfo.GEActivationMask.", GeAsync),
+            "sets LevelInfo.GEActivationMask. draw creates a GE with matching generated geometry (LG uses existing geometry); --zone-only omits its appearance.", GeAsync),
         new("graph", "graph <project> [--id X] [--depth 1] [--dangling] [--rings] [--missions] [--limit 300] [--json]",
             "The event graph with SVMap 1.1 rules (fire, accept and reference links), events nothing receives, event " +
             "rings, and the missions / objectives / triggers tree.", GraphAsync),
@@ -38,11 +40,12 @@ internal static class GameplayCommands
     private static Task<int> GeAsync(CliArgs a)
     {
         EnsureServices();
-        string op = a.Positional(0)?.ToLowerInvariant() ?? throw new ArgumentException("give an op: detect, probe, flush, join, mask, platform or activation");
+        string op = a.Positional(0)?.ToLowerInvariant() ?? throw new ArgumentException("give an op: draw, detect, probe, flush, join, mask, platform or activation");
         string folder = a.Positional(1) ?? throw new ArgumentException("give the project folder");
         EditorSession session = EditorSession.Open(folder);
         return Task.FromResult(op switch
         {
+            "draw" => Draw(session, a),
             "detect" => Detect(session, a),
             "probe" => Probe(session, a),
             "flush" => Flush(session, a),
@@ -50,8 +53,75 @@ internal static class GameplayCommands
             "mask" => Mask(session, a),
             "platform" => Platform(session, a),
             "activation" => Activation(session, a),
-            _ => throw new ArgumentException($"unknown ge op '{op}' (detect, probe, flush, join, mask, platform, activation)"),
+            _ => throw new ArgumentException($"unknown ge op '{op}' (draw, detect, probe, flush, join, mask, platform, activation)"),
         });
+    }
+
+    private static int Draw(EditorSession session, CliArgs a)
+    {
+        string[] allowed = ["kind", "from", "to", "facing", "name", "zone-only", "width", "radius", "spacing", "material", "dry-run", "json", "pretty"];
+        if (a.OptionKeys.FirstOrDefault(key => !allowed.Contains(key, StringComparer.OrdinalIgnoreCase)) is { } unknown)
+        {
+            throw new ArgumentException($"unknown ge draw option --{unknown}");
+        }
+
+        string kind = a.Get("kind")?.ToUpperInvariant() ?? throw new ArgumentException("give --kind LADDER, PIPE, POLE, ZL, HOH, FENCE or LG");
+        Vec3 Point(string key)
+        {
+            string value = a.Get(key) ?? throw new ArgumentException($"give --{key} x,y,z");
+            string[] parts = value.Split(',');
+            if (parts.Length != 3)
+            {
+                throw new ArgumentException($"--{key} is x,y,z");
+            }
+
+            return new Vec3(Parsing.Number(parts[0], key), Parsing.Number(parts[1], key), Parsing.Number(parts[2], key));
+        }
+
+        GeAppearance? appearance = !a.Has("zone-only") && GeGeometry.Supports(kind) ? GeGeometry.Defaults(kind) : null;
+        if (appearance is not null)
+        {
+            appearance.Width = Number(a, "width", appearance.Width);
+            appearance.Radius = Number(a, "radius", appearance.Radius);
+            appearance.Spacing = Number(a, "spacing", appearance.Spacing);
+            appearance.Material = a.Get("material") ?? appearance.Material;
+        }
+        else if (new[] { "width", "radius", "spacing", "material" }.Any(a.Has))
+        {
+            throw new ArgumentException("appearance settings need a supported kind without --zone-only");
+        }
+
+        Ge ge = GeDrawing.Create(kind, Point("from"), Point("to"), a.Has("facing") ? Point("facing") : null, appearance);
+        ge.Id = a.Get("name") ?? GeShapes.IdSource(session.Project)(GeShapes.Stem(ge.Kind));
+        if (!OpenScct.Editor.Core.Compile.GameplayBuild.IsIdentifier(ge.Id) || session.Project.Find(ge.Id) is not null)
+        {
+            throw new ArgumentException("--name must be a unique identifier (letters, digits and _, at most 63 characters)");
+        }
+
+        session.Execute(new AddObjectsCommand($"Draw {ge.Id}", ges: [ge]));
+        if (!a.Has("dry-run"))
+        {
+            session.Save();
+        }
+
+        var result = new SvJsonObject();
+        result.Add("ge", ModelJson.GeToJson(ge));
+        result.Add("saved", SvJsonNode.Bool(!a.Has("dry-run")));
+        result.Add("warnings", Array(GeShapes.Problems(ge.Kind, ge.Points).Select(p => p.Message)));
+        if (a.Has("json"))
+        {
+            PrintJson(result, a);
+        }
+        else
+        {
+            Console.WriteLine($"Drew {ge.Id} ({ge.Kind}){(ge.Appearance is null ? "" : " with geometry")}" + (a.Has("dry-run") ? " (not saved)" : " (saved)"));
+            foreach (GeProblem problem in GeShapes.Problems(ge.Kind, ge.Points))
+            {
+                Console.WriteLine("  " + problem.Message);
+            }
+        }
+
+        return 0;
     }
 
     private static LedgeOptions Options(CliArgs a)

@@ -23,11 +23,13 @@ public static class ApiMethods
         "on (true = drop to the floor below the point; an id = onto or into that object), lift. Placement by reference finds floor heights, so a script never needs a floor z. " +
         "rot/rotDeg apply before placement, face after.\n" +
         "OPS: create {class, props} = actor | {brush: SHAPE, csg: \"subtract\" (default) | \"add\", flags, mat, mats:{top,bottom,sides}} " +
-        "= brush | {ge: LG|ZL|PIPE|LADDER|HOH|POLE|FENCE, points, mask} = GE; plus rot [pitch,yaw,roll] (65536 = one turn) | " +
+        "= brush | {ge: LG|ZL|PIPE|LADDER|HOH|POLE|FENCE, points, mask, platform, appearance} = GE; plus rot [pitch,yaw,roll] (65536 = one turn) | " +
         "rotDeg | face (a point to look at); scale; layer; folder; note; count + step (a row of copies).\n" +
         "SHAPE: \"cube\" | {size:[x,y,z]} | {min:[..],max:[..]} (world corners; also places it) | {kind, ...builder params} | " +
         "{faces:[[[x,y,z],...],...]}.\n" +
-        "update {set:{Prop: value|null}, unset:[..], rename, shape, csg, flags, mat, points, mask, placement, rot, layer...}; " +
+        "GE appearance: true enables generated geometry; {width, radius, spacing, material} changes its dimensions/material; false|null removes only " +
+        "the geometry. Supported for LADDER, PIPE (climbable pipe/pole), POLE (marker, no grab), ZL, HOH and FENCE. Ledges use existing geometry.\n" +
+        "update {set:{Prop: value|null}, unset:[..], rename, shape, csg, flags, mat, points, mask, appearance, placement, rot, layer...}; " +
         "delete; move {by:[dx,dy,dz]} | {to: POINT} (+ on, wall); rotate {by|byDeg|to|toDeg|face, around: \"center\"|POINT}; " +
         "scale {by|to}; duplicate {by, count, as}; brush / ge (create, or edit when id exists); " +
         "surface {id|ids|where (brushes), faces: [indexes]|\"all\"|\"walls\"|\"floors\"|\"ceilings\", mat, flags, clearFlags, lightmap, " +
@@ -81,7 +83,7 @@ public static class ApiMethods
         "find / count: filters kind (actor|brush|ge), ids, class (subclasses too unless exact:true), tag, event, near (POINT) + " +
         "radius, box [[min],[max]], layer, folder, text, has [props], props {Prop: value}, csg, author; fields [..] " +
         "(default id,class,loc; any of id kind class short loc rot scale tag event props layer folder note author bounds size " +
-        "center csg flags builder faces mats shape points mask refs match, or a property name), rows:true (table form, smaller output), limit (100), offset, sort; count takes by: class|kind|layer|folder|author.\n" +
+        "center csg flags builder faces mats shape points mask platform appearance refs match, or a property name), rows:true (table form, smaller output), limit (100), offset, sort; count takes by: class|kind|layer|folder|author.\n" +
         "get {ids, fields}; summary; schema {class, text, all, own}; classes {under, text, all}; check {target: openscct|original, deep} (rows end with a fix {label, changes} or null; deep compiles the map for the deep rules); " +
         "edges {id?, depth} (Event->Tag and actor-reference wiring, unheard events); raycast {from, to | dir, max}; " +
         "pointInfo {at, radius} (solid?, floor, ceiling, walls, nearby actors); history; identity (name, dossier, authors, " +

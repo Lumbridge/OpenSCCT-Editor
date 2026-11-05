@@ -20,6 +20,9 @@ public sealed partial class WorldScene : Node3D
     private readonly Dictionary<ObjectRef, Entry> _entries = new();
     private readonly HashSet<ObjectRef> _selected = new();
     private readonly List<Brush> _drawnBrushes = new();
+    private readonly List<Ge> _drawnGeLooks = new();
+    private List<Brush> _geBrushes = new();
+    private int _geNamesKey;
     private Node3D _builder = null!;
     private MeshInstance3D? _previewUnlit;
     private MeshInstance3D? _previewLit;
@@ -140,6 +143,8 @@ public sealed partial class WorldScene : Node3D
         _entries.Clear();
         _selected.Clear();
         _drawnBrushes.Clear();
+        _drawnGeLooks.Clear();
+        _geBrushes.Clear();
         _iconsDirty = true;
         _previewDirty = true;
         _previewInput = new MapProject();
@@ -167,6 +172,26 @@ public sealed partial class WorldScene : Node3D
 
         _drawnBrushes.Clear();
         _drawnBrushes.AddRange(p.Brushes);
+        // Generated parts remain owned by their GE. They join the same CSG and light previews as ordinary brushes,
+        // but never enter the editable project's brush list or acquire independent selection/undo state.
+        List<Ge> geLooks = p.Ges.Where(g => g.Appearance is not null && GeGeometry.Supports(g.Kind)).ToList();
+        var names = new HashCode();
+        foreach (ObjectRef r in p.AllRefs())
+        {
+            names.Add(r.Id, StringComparer.OrdinalIgnoreCase);
+        }
+
+        int namesKey = names.ToHashCode();
+        if (!geLooks.SequenceEqual(_drawnGeLooks) || namesKey != _geNamesKey)
+        {
+            bool hadLook = _geBrushes.Count > 0;
+            _geBrushes = GeGeometry.ExpandValid(p).Brushes.Skip(p.Brushes.Count).ToList();
+            _drawnGeLooks.Clear();
+            _drawnGeLooks.AddRange(geLooks);
+            _geNamesKey = namesKey;
+            brushesChanged |= hadLook || _geBrushes.Count > 0;
+        }
+
         if (Keep(p) != _bakedKeep)
         {
             _bakedKeep = Keep(p);
@@ -398,6 +423,13 @@ public sealed partial class WorldScene : Node3D
         }
 
         _hiddenBrushes = hidden;
+        foreach (Brush part in _geBrushes)
+        {
+            if (!ShowGes || !ObjectFilter.IsInWorld(p, part.Editor))
+            {
+                hidden.Add(part.Id);
+            }
+        }
         if (!hidden.SetEquals(_previewHidden))
         {
             _previewDirty = true;
@@ -503,7 +535,7 @@ public sealed partial class WorldScene : Node3D
         // The preview reads only the brushes and whether there is a baked world; the brushes are copied because the
         // user keeps editing while it runs.
         MapProject input = _previewInput;
-        input.Brushes = _project.Brushes.Select(b => b.Clone()).ToList();
+        input.Brushes = _project.Brushes.Concat(_geBrushes).Select(b => b.Clone()).ToList();
         input.Baked = _project.Baked;
         HashSet<string> hidden = _previewHidden = _hiddenBrushes;
         BackgroundJobs.Start(_ =>
@@ -907,6 +939,14 @@ public sealed partial class WorldScene : Node3D
             lines.Line(p - new Vector3(0, 0, tick), p + new Vector3(0, 0, tick), c);
         }
 
+        foreach (WorldBrush part in GeLookGeometry.Of(g))
+        {
+            foreach (WorldFace face in part.Faces.Where(f => (f.Flags & PolyFlags.Invisible) == 0))
+            {
+                lines.Polyline(face.Vertices.Select(Space.ToGodot).ToList(), c, closed: true);
+            }
+        }
+
         e.Wire = AddMesh(e.Root, lines.Build(), SceneStyle.Lines, VisualLayers.Common);
     }
 
@@ -1083,17 +1123,7 @@ public sealed partial class WorldScene : Node3D
         return h.ToHashCode();
     }
 
-    private static int GeKey(Ge g)
-    {
-        var h = new HashCode();
-        h.Add(g.Kind);
-        foreach (Vec3 p in g.Points)
-        {
-            h.Add(p);
-        }
-
-        return h.ToHashCode();
-    }
+    private static int GeKey(Ge g) => GeLookGeometry.Key(g);
 
     private sealed class Entry(object source, Node3D root)
     {

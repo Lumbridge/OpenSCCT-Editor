@@ -96,7 +96,8 @@ internal static class ChangeDiff
             default:
             {
                 Ge g = p.FindGe(r.Id)!;
-                return ApiJson.Obj(("ge", ApiJson.Str(g.Kind)), ("points", ApiJson.Arr(g.Points.Select(ApiJson.Vec))));
+                return ApiJson.Obj(("ge", ApiJson.Str(g.Kind)), ("points", ApiJson.Arr(g.Points.Select(ApiJson.Vec))),
+                    ("appearance", Project.ModelJson.GeToJson(g)["appearance"]));
             }
         }
     }

@@ -1,6 +1,7 @@
 using OpenScct.Content.Collision;
 using OpenScct.Core;
 using OpenScct.Editor.Core.Compile;
+using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Physics.Collision;
 
@@ -145,6 +146,7 @@ public sealed class WorldGeometry
 
     public WorldGeometry(MapProject project, string? projectFolder, string? exclude = null)
     {
+        project = GeGeometry.ExpandValid(project);
         BrushLayer layer = BakedContent.Collision(project);
         _brushes = layer.Brushes
             .Where(b => !b.IsNotSolid && !b.IsPortal && (b.PolyFlags & PolyFlags.AntiPortal) == 0)

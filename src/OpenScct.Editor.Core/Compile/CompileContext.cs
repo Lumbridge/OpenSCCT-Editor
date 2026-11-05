@@ -1,5 +1,6 @@
 using OpenScct.Content.Json;
 using OpenScct.Editor.Core.Assets;
+using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
 
@@ -13,7 +14,18 @@ public sealed class CompileContext
 
     public CompileContext(MapProject project, CompileOptions options, IClassCatalog? catalog)
     {
-        Project = project;
+        // Procedural traversal looks lower to ordinary brushes for every compiler consumer, including light previews.
+        // The authored project remains parametric; expansion never changes it and is safe to call more than once.
+        try
+        {
+            Project = GeGeometry.Expand(project);
+        }
+        catch (ArgumentException ex)
+        {
+            Project = project;
+            Error("ge.geometry", ex.Message);
+        }
+
         Options = options;
         ContentRoot = options.ContentRoot ?? EditorServices.ContentRoot;
         Classes = ClassDefaults.Create(ContentRoot, catalog);

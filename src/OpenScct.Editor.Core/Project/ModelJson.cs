@@ -211,6 +211,20 @@ public static class ModelJson
         o.Add("id", SvJsonNode.String(g.Id));
         o.Add("kind", SvJsonNode.String(g.Kind));
         o.Add("points", new SvJsonArray(g.Points.Select(Vec)));
+        if (g.Appearance is { } look)
+        {
+            var appearance = new SvJsonObject();
+            appearance.Add("width", SvJsonNode.Float((float)look.Width));
+            appearance.Add("radius", SvJsonNode.Float((float)look.Radius));
+            appearance.Add("spacing", SvJsonNode.Float((float)look.Spacing));
+            if (look.Material is not null)
+            {
+                appearance.Add("material", SvJsonNode.String(look.Material));
+            }
+
+            o.Add("appearance", appearance);
+        }
+
         if (g.Mask != 0)
         {
             o.Add("mask", SvJsonNode.Integer(g.Mask));
@@ -432,6 +446,16 @@ public static class ModelJson
         if (o["points"] is SvJsonArray pts)
         {
             g.Points.AddRange(pts.Select(p => ReadVec(p)));
+        }
+
+        if (o["appearance"] is SvJsonObject appearance)
+        {
+            GeAppearance look = Gameplay.GeGeometry.Defaults(g.Kind);
+            look.Width = appearance["width"] is null ? look.Width : Num(appearance["width"]);
+            look.Radius = appearance["radius"] is null ? look.Radius : Num(appearance["radius"]);
+            look.Spacing = appearance["spacing"] is null ? look.Spacing : Num(appearance["spacing"]);
+            look.Material = Str(appearance, "material");
+            g.Appearance = look;
         }
 
         return g;

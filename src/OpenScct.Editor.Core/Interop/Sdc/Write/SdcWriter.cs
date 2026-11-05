@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Services;
 
 namespace OpenScct.Editor.Core.Interop.Sdc;
@@ -61,6 +62,14 @@ public static class SdcWriter
     /// <exception cref="SdcWriteRefusedException">An editor copy asked of a map imported from a cooked copy.</exception>
     public static SdcWriteResult Write(MapProject project, string packageName, SdcWriteOptions options)
     {
+        try
+        {
+            project = GeGeometry.Expand(project);
+        }
+        catch (ArgumentException ex)
+        {
+            throw new SdcWriteRefusedException(ex.Message);
+        }
         var findings = new List<Finding>();
         (UPackage? src, SdcMap? srcMap) = options.UseSource ? Source(project, options, findings) : (null, null);
         if (srcMap?.Layout == SdcLayout.Cooked && options.Layout == SdcLayout.Editor)

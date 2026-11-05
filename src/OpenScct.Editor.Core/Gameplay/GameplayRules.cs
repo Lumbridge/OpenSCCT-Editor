@@ -18,6 +18,7 @@ internal sealed class GeGameplayRules : MapRule
     public const string LedgeLow = "ge.lg-low";
     public const string ZipLanding = "ge.zl-no-landing";
     public const string ClimbTop = "ge.climb-top";
+    public const string Appearance = "ge.appearance";
 
     public override IReadOnlyList<RuleInfo> Rules { get; } =
     [
@@ -34,10 +35,25 @@ internal sealed class GeGameplayRules : MapRule
         new(LedgeLow, Severity.Warning, $"A ledge grab over a drop under {new LedgeOptions().MinDrop}: a step the walk climbs, not a ledge to hang from"),
         new(ZipLanding, Severity.Warning, $"A zip line with no floor a safe drop under its low end (feet hang {Limits.ZipLineHang} under the line)"),
         new(ClimbTop, Severity.Info, $"A ladder or pipe whose top is not about {Limits.LadderTopOverFloor} over the floor it leads onto"),
+        new(Appearance, Severity.Error, "A GE's generated geometry has invalid dimensions or exceeds the repeat limit"),
     ];
 
     public override void Run(CheckContext c)
     {
+        bool invalidAppearance = false;
+        foreach (Ge ge in c.Project.Ges.Where(g => g.Appearance is not null))
+        {
+            try
+            {
+                GeGeometry.Validate(ge);
+            }
+            catch (ArgumentException ex)
+            {
+                invalidAppearance = true;
+                c.Report(Severity.Error, Appearance, $"{ge.Id}: {ex.Message}", ge.Points.FirstOrDefault(), ObjectRef.Ge(ge.Id));
+            }
+        }
+
         List<Ge> ges = c.Project.Ges.Where(g => GeKinds.All.Contains(g.Kind) && g.Points.Count >= (GeKinds.HasThirdPoint(g.Kind) ? 3 : 2)).ToList();
         List<Ge> ledgeList = ges.Where(g => g.Kind == GeKinds.LedgeGrab).ToList();
         foreach (Ge g in ges)
@@ -52,7 +68,7 @@ internal sealed class GeGameplayRules : MapRule
         }
 
         CornerGaps(c, ledgeList);
-        if (!new[] { NotFlush, NoEdge, NoHang, LedgeLow, ZipLanding, ClimbTop }.Any(c.Wants) || ges.Count == 0)
+        if (invalidAppearance || !new[] { NotFlush, NoEdge, NoHang, LedgeLow, ZipLanding, ClimbTop }.Any(c.Wants) || ges.Count == 0)
         {
             return;
         }

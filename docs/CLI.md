@@ -300,11 +300,22 @@ down the floor is (within --drop). A baked world's geometry is not seen.
 ### ge
 
 ```
+ose ge draw <project> --kind LADDER|PIPE|POLE|ZL|HOH|FENCE|LG --from x,y,z --to x,y,z [--facing x,y,z] [--name id] [--zone-only] [--width n] [--radius n] [--spacing n] [--material asset] [--dry-run] [--json]
 ose ge detect <project> [--apply] [--compare] [--all] [--min-drop 40] [--min-length 32] [--headroom 0] [--step 8] [--box x,y,z,x,y,z] [--meshes] [--limit 200] [--json]
 ose ge flush <project> [--ids a,b] [--reach 32] | ge join <project> [--ids a,b] [--dist 24] | ge probe <project> [--ids a,b] | ge mask <project> --ids a,b --id 4 | ge platform <project> --ids a,b --platform common|ps2|xbox | ge activation <project> <0-255>   (edits: [--dry-run] [--json])
 ```
 
 GE authoring. detect finds grabbable ledges in the geometry (brushes and baked collision) and lists the ones no LG covers yet (--all lists every one, --meshes also looks at a baked map's props, --compare scores them against the map's LGs, --apply adds them as one undo step). probe explains, per LG, whether its edge is grabbable and why not. flush moves LGs onto their edges, join closes corner gaps, mask sets GE ID bits, platform the GE platform and activation sets LevelInfo.GEActivationMask.
+
+`draw` creates the GE and its matching visible geometry as one editable object. Ladder, pipe and pole endpoints
+use the first point's XY and the two points' bottom/top heights; `--facing` is the direction toward the climber
+(default +X). Use `PIPE` for a climbable vertical pipe or pole; the original `POLE` kind is a marker with no grab
+event. Other kinds use the endpoints as given. Dimensions default to the selected kind; width controls
+ladder width or fence height, radius controls bar thickness and spacing controls rungs or fence posts. Fence
+panels default to the stock climbable `drpoc_chantier.SM.moa_grillage` material; a replacement must also be marked
+climbable in the game's material data. `--zone-only` creates only the GE; ledges
+always use existing geometry. Later point or appearance edits regenerate the geometry. Builds and original-game
+exports lower it to ordinary brushes without adding those brushes to the saved project.
 
 ### graph
 

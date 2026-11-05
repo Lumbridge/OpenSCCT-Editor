@@ -37,6 +37,14 @@ public sealed class SdcExporter : IMapExporter
     /// <summary>Writes the file even when the lint finds errors; <see cref="ExportResult.Ok"/> is false then.</summary>
     public ExportResult Export(MapProject project, string path, ExportOptions options)
     {
+        try
+        {
+            project = OpenScct.Editor.Core.Gameplay.GeGeometry.Expand(project);
+        }
+        catch (ArgumentException ex)
+        {
+            return new ExportResult(false, [], [Finding.Error("ge.geometry", ex.Message)]);
+        }
         SdcLayout layout = ParseLayout(options.Choice(this, LayoutChoice));
         UeSchema? schema = UeSchema.Load(options.ContentRoot ?? EditorServices.ContentRoot);
         options.Progress?.Invoke("checking round-trip compatibility");

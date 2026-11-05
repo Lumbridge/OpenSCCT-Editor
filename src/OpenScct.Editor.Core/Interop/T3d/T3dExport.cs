@@ -35,6 +35,25 @@ public static partial class T3dExport
     public static T3dDocument FromProject(MapProject p, UeSchema? schema, IReadOnlyCollection<ObjectRef>? only = null, Func<Actor, bool>? leaveOut = null,
         string? projectFolder = null, IReadOnlyList<Actor>? added = null)
     {
+        // A copied GE brings its generated look with it. Other GEs' geometry is not part of a selection export.
+        if (only is not null && p.Ges.Any(g => g.Appearance is not null))
+        {
+            var selection = new HashSet<ObjectRef>(only, ObjectRefComparer.Instance);
+            p = Session.ProjectSnapshot.Take(p);
+            foreach (Ge g in p.Ges.Where(g => !selection.Contains(ObjectRef.Ge(g.Id))))
+            {
+                g.Appearance = null;
+            }
+
+            int authoredBrushes = p.Brushes.Count;
+            p = GeGeometry.Expand(p);
+            only = only.Concat(p.Brushes.Skip(authoredBrushes).Select(b => ObjectRef.Brush(b.Id))).ToList();
+        }
+        else
+        {
+            p = GeGeometry.Expand(p);
+        }
+
         var doc = new T3dDocument();
         var types = new T3dTypes(schema, p.Id);
         SvJsonObject extra = p.Extra[T3dImport.ExtraKey] as SvJsonObject ?? new SvJsonObject();

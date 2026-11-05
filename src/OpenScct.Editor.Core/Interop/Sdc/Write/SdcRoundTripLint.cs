@@ -1,4 +1,5 @@
 using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Services;
 
 namespace OpenScct.Editor.Core.Interop.Sdc;
@@ -13,6 +14,7 @@ public static class SdcRoundTripLint
 {
     public static List<Finding> Check(MapProject p, SdcWriteResult written, string packageName, SdcLayout layout, UeSchema? schema)
     {
+        p = GeGeometry.Expand(p);
         var f = new List<Finding>();
         UPackage pkg;
         SdcMap map;

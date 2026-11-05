@@ -7,7 +7,7 @@ namespace OpenScct.Editor.Core.Scripting;
 /// <summary>
 /// Named fields of an object for query output. Model fields: id, kind, class, short, loc, rot, scale, scale3d,
 /// postScale, prePivot, tag, event, props, layer, folder, hidden, locked, note, author, op, src, bounds, size, center,
-/// csg, flags, builder, faces, mats, shape, points, mask, platform, refs. Any other name (or <c>props.Name</c>) is a
+/// csg, flags, builder, faces, mats, shape, points, mask, platform, appearance, refs. Any other name (or <c>props.Name</c>) is a
 /// property: the stored value, else the class default.
 /// </summary>
 internal static class Fields
@@ -60,6 +60,7 @@ internal static class Fields
                 if (g.Mask != 0) yield return "mask";
                 if (g.Platform != 0) yield return "platform";
                 if (g.Flags != 0) yield return "flags";
+                if (g.Appearance is not null) yield return "appearance";
                 break;
         }
 
@@ -135,6 +136,7 @@ internal static class Fields
             case "points": return g is null ? null : ApiJson.Arr(g.Points.Select(ApiJson.Vec));
             case "mask": return g is null ? null : SvJsonNode.Integer(g.Mask);
             case "platform": return g is null ? null : SvJsonNode.Integer(g.Platform);
+            case "appearance": return g is null ? null : ModelJson.GeToJson(g)["appearance"];
             case "match": return a?.Match is { IsEmpty: false } match ? Project.MatchJson.ToJson(match) : null;
             case "legs": return a?.Legs is { } legs ? Project.MoverLegsJson.ToJson(legs) : null;
             case "refs": return a is null ? null : ApiJson.Strings(ChangeApplier.References(a.Props).Distinct(StringComparer.OrdinalIgnoreCase));

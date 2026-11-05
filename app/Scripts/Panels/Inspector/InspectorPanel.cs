@@ -1,5 +1,6 @@
 using Godot;
 using OpenScct.Editor.Core.Commands;
+using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Geometry;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
@@ -259,7 +260,7 @@ public partial class InspectorPanel : EditorPanel
             {
                 ObjectKind.Actor => Index.Actor(r)?.Class ?? "",
                 ObjectKind.Brush => Index.Brush(r)?.Shape.Builder is { } b ? b.Kind + string.Join(',', b.Numbers.Keys) : "",
-                _ => Index.Ge(r)?.Points.Count.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "",
+                _ => Index.Ge(r) is { } ge ? $"{ge.Kind}:{ge.Points.Count}:{ge.Appearance is not null}" : "",
             });
         }
 
@@ -568,7 +569,14 @@ public partial class InspectorPanel : EditorPanel
 
         OptionRow("Kind", "The traversal kind", GeKinds.All.Select((k, i) => (KindName(k), i)).ToList(),
             () => Ges().Select(g => GeKinds.All.ToList().IndexOf(g.Kind)).ToList(),
-            id => ReplaceObjectsCommand.Edit(Context.Project, geRefs, $"GE kind {GeKinds.All[id]}", ge: g => g.Kind = GeKinds.All[id]));
+            id => ReplaceObjectsCommand.Edit(Context.Project, geRefs, $"GE kind {GeKinds.All[id]}", ge: g =>
+            {
+                g.Kind = GeKinds.All[id];
+                if (g.Appearance is not null)
+                {
+                    g.Appearance = GeGeometry.Supports(g.Kind) ? GeGeometry.Defaults(g.Kind) : null;
+                }
+            }));
         var masks = new List<(string, int)> { ("None (always on)", 0) };
         for (int bit = 1; bit <= 128; bit <<= 1)
         {
@@ -581,6 +589,55 @@ public partial class InspectorPanel : EditorPanel
         OptionRow("Platform", "Original GEPlatform", [("Common", 0), ("PS2 only", 1), ("Xbox only", 2)],
             () => Ges().Select(g => g.Platform).ToList(),
             id => ReplaceObjectsCommand.Edit(Context.Project, geRefs, "GE platform", ge: g => g.Platform = id));
+
+        if (Ges().Any(g => GeGeometry.Supports(g.Kind)))
+        {
+            CheckRow("Geometry", "Generate visible parts that follow this GE's endpoints", () => Ges().Select(g => g.Appearance is not null).ToList(),
+                on => ReplaceObjectsCommand.Edit(Context.Project, geRefs, "GE visible geometry", ge: g =>
+                    g.Appearance = on && GeGeometry.Supports(g.Kind) ? g.Appearance ?? GeGeometry.Defaults(g.Kind) : null));
+        }
+
+        if (Ges().Any(g => g.Appearance is not null))
+        {
+            PanelUi.Header(_sections, "Traversal geometry");
+            VecRow("Width / height", [""], r => Index.Ge(r)?.Appearance is { } a ? [a.Width] : null,
+                ge: (g, _, value) =>
+                {
+                    if (g.Appearance is { } a)
+                    {
+                        a.Width = Math.Clamp(value, 4, 512);
+                        if (g.Kind == GeKinds.Ladder)
+                        {
+                            a.Radius = Math.Min(a.Radius, (a.Width - 1) / 2);
+                        }
+                    }
+                }, tooltip: "Ladder width or fence height in units");
+            VecRow("Radius", [""], r => Index.Ge(r)?.Appearance is { } a ? [a.Radius] : null,
+                ge: (g, _, value) =>
+                {
+                    if (g.Appearance is { } a)
+                    {
+                        a.Radius = Math.Clamp(value, 0.5, g.Kind == GeKinds.Ladder ? Math.Min(32, (a.Width - 1) / 2) : 32);
+                    }
+                }, tooltip: "Radius of rails, poles, bars or cables in units");
+            VecRow("Spacing", [""], r => Index.Ge(r)?.Appearance is { } a ? [a.Spacing] : null,
+                ge: (g, _, value) =>
+                {
+                    if (g.Appearance is { } a)
+                    {
+                        a.Spacing = Math.Clamp(value, 4, 256);
+                    }
+                }, tooltip: "Distance between ladder rungs or fence uprights in units");
+            TextRow("Material", "Material asset path; blank uses the default surface", r => Index.Ge(r)?.Appearance?.Material ?? "",
+                text => ReplaceObjectsCommand.Edit(Context.Project, geRefs, "GE geometry material", ge: g =>
+                {
+                    if (g.Appearance is { } a)
+                    {
+                        a.Material = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+                    }
+                }));
+            PanelUi.Caption(_sections, "The geometry follows the endpoints. Moving, copying and undo keep it with the GE.");
+        }
 
         var counts = Ges().Select(g => g.Points.Count).Distinct().ToList();
         if (counts is [int count])
@@ -614,10 +671,10 @@ public partial class InspectorPanel : EditorPanel
     {
         GeKinds.LedgeGrab => "Ledge grab (LG)",
         GeKinds.ZipLine => "Zip line (ZL)",
-        GeKinds.Pipe => "Pipe",
+        GeKinds.Pipe => "Climbable pipe / pole",
         GeKinds.Ladder => "Ladder",
         GeKinds.HandOverHand => "Hand over hand (HOH)",
-        GeKinds.Pole => "Pole",
+        GeKinds.Pole => "Pole marker",
         GeKinds.Fence => "Fence",
         _ => kind,
     };

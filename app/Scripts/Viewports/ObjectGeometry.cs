@@ -34,7 +34,8 @@ public static class ObjectGeometry
         return (w.Min, w.Max);
     }
 
-    public static (Vec3 Min, Vec3 Max) GeBounds(Ge g) => BoundsOf(g.Points);
+    public static (Vec3 Min, Vec3 Max) GeBounds(Ge g) =>
+        BoundsOf(g.Points.Concat(GeLookGeometry.Of(g).SelectMany(b => new[] { b.Min, b.Max })));
 
     /// <summary>World bounds of an object, or null when it does not exist.</summary>
     public static (Vec3 Min, Vec3 Max)? Bounds(MapProject p, ObjectRef r) => r.Kind switch

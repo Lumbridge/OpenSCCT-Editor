@@ -514,5 +514,7 @@ public static partial class ChangeApplier
             int p = (int)ApiJson.RequireNumber(platform, "platform");
             ge.Platform = p is >= 0 and <= 2 ? p : throw new ApiException("platform is 0 (all), 1 (PS2) or 2 (Xbox)", "platform");
         }
+
+        SetGeAppearance(op, ge);
     }
 }

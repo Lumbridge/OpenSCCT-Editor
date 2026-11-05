@@ -1,4 +1,5 @@
 using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Services;
 
 namespace OpenScct.Editor.Core.Compile;
@@ -22,7 +23,7 @@ public sealed class WorldPreview : IWorldPreview
         lock (_lock)
         {
             CsgWorld world = _worlds.GetValue(project, _ => new CsgWorld());
-            BrushLayer layer = BakedContent.Render(project);
+            BrushLayer layer = BakedContent.Render(GeGeometry.ExpandValid(project));
             csg = world.Build(layer.Brushes, layer.WorldSolid);
         }
 

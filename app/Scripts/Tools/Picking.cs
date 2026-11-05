@@ -64,6 +64,33 @@ public static class Picking
             }
         }
 
+        foreach (Ge ge in p.Ges)
+        {
+            if (!IsShown(ObjectKind.Ge) || !ObjectFilter.IsVisible(p, ge.Editor)
+                || (pickableOnly && !ObjectFilter.IsPickable(p, ge.Editor)))
+            {
+                continue;
+            }
+
+            foreach (WorldBrush part in GeLookGeometry.Of(ge))
+            {
+                if (part.IsEmpty || !RayBox(o, d, part.Min - Vec3.One, part.Max + Vec3.One, out double entry)
+                    || (best is { } sofar && entry > sofar.Distance))
+                {
+                    continue;
+                }
+
+                foreach (WorldFace face in part.Faces.Where(f => (f.Flags & PolyFlags.Invisible) == 0))
+                {
+                    if (RayPolygon(o, d, face.Vertices, face.Normal, out double t) && (best is null || t < best.Value.Distance))
+                    {
+                        best = new SurfaceHit(ObjectRef.Ge(ge.Id), t, o + d * t, face.Normal,
+                            (face.Flags & PolyFlags.TwoSided) != 0);
+                    }
+                }
+            }
+        }
+
         // A hit right at the camera means it sits in the baked world's solid outside the rooms: no surface there.
         if (!pickableOnly && p.Baked is { KeepCollision: true }
             && new WorldGeometry(p, EditorContext.Instance.Session.Folder).Raycast(o, d, best?.Distance ?? 65536) is { BrushId: null, Distance: >= 1 } baked)
@@ -91,7 +118,7 @@ public static class Picking
 
         foreach (Ge g in p.Ges)
         {
-            if (IsShown(ObjectKind.Ge) && ObjectFilter.IsPickable(p, g.Editor) && g.Points.Count > 0 && g.Points.All(Inside))
+            if (IsShown(ObjectKind.Ge) && ObjectFilter.IsPickable(p, g.Editor) && g.Points.Count > 0 && BoxInside(ObjectGeometry.GeBounds(g)))
             {
                 result.Add(ObjectRef.Ge(g.Id));
             }
@@ -161,6 +188,10 @@ public static class Picking
             if (IsShown(ObjectKind.Ge) && ObjectFilter.IsPickable(p, g.Editor))
             {
                 Consider(ObjectRef.Ge(g.Id), PolylineDistance(cam, g.Points, mouse, closed: false) - 1);
+                foreach (WorldFace face in GeLookGeometry.Of(g).SelectMany(b => b.Faces).Where(f => (f.Flags & PolyFlags.Invisible) == 0))
+                {
+                    Consider(ObjectRef.Ge(g.Id), PolylineDistance(cam, face.Vertices, mouse, closed: true) - 1);
+                }
             }
         }
 

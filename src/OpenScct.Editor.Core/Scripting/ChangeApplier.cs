@@ -29,11 +29,11 @@ public static partial class ChangeApplier
     private static readonly string[] TransformKeys = ["rot", "rotDeg", "face", "keepRot", "scale", "scale3d", "prePivot", "postScale"];
 
     private static IEnumerable<string> CreateKeys =>
-        new[] { "id", "class", "props", "set", "brush", "shape", "csg", "flags", "mat", "mats", "ge", "kind", "points", "mask", "platform", "count", "step" }
+        new[] { "id", "class", "props", "set", "brush", "shape", "csg", "flags", "mat", "mats", "ge", "kind", "points", "mask", "platform", "appearance", "count", "step" }
             .Concat(Placement.Keys).Concat(TransformKeys).Concat(MetaKeys);
 
     private static IEnumerable<string> UpdateKeys =>
-        new[] { "id", "ids", "where", "set", "props", "unset", "rename", "shape", "brush", "csg", "flags", "mat", "mats", "points", "mask", "platform", "kind", "keepTextures" }
+        new[] { "id", "ids", "where", "set", "props", "unset", "rename", "shape", "brush", "csg", "flags", "mat", "mats", "points", "mask", "platform", "appearance", "kind", "keepTextures" }
             .Concat(Placement.Keys).Concat(TransformKeys).Concat(MetaKeys);
 
     private static readonly Dictionary<string, (OpHandler Run, string[] Keys)> s_ops = new(StringComparer.OrdinalIgnoreCase)
@@ -47,7 +47,7 @@ public static partial class ChangeApplier
         ["duplicate"] = (Duplicate, ["id", "ids", "where", "by", "count", "as"]),
         ["brush"] = (BrushOp, [.. CreateKeys.Concat(UpdateKeys).Distinct()]),
         ["surface"] = (Surface, SurfaceKeys),
-        ["ge"] = (GeOp, ["id", "kind", "ge", "points", "mask", "platform", .. MetaKeys]),
+        ["ge"] = (GeOp, ["id", "kind", "ge", "points", "mask", "platform", "appearance", .. MetaKeys]),
         ["conveyor"] = (ConveyorOp, ConveyorKeys),
         ["link"] = (Link, ["from", "to", "tag", "prop", "clear"]),
         ["layer"] = (LayerOp, ["name", "color", "visible", "locked", "rename", "delete", "add", "where"]),

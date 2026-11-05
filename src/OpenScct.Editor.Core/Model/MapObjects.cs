@@ -368,6 +368,22 @@ public static class GeKinds
     public static bool HasThirdPoint(string kind) => kind is Ladder or Pipe;
 }
 
+/// <summary>Dimensions and material of optional geometry generated along a GE.</summary>
+public sealed class GeAppearance
+{
+    /// <summary>Ladder width, or fence height, in Unreal units.</summary>
+    public double Width { get; set; } = 48;
+
+    public double Radius { get; set; } = 4;
+
+    /// <summary>Distance between ladder rungs or fence uprights.</summary>
+    public double Spacing { get; set; } = 24;
+
+    public string? Material { get; set; }
+
+    public GeAppearance Clone() => (GeAppearance)MemberwiseClone();
+}
+
 /// <summary>A geometric event: a traversal line the player can grab (ledge, pipe, zip line...).</summary>
 public sealed class Ge
 {
@@ -393,6 +409,9 @@ public sealed class Ge
     /// <summary>The original flag word, kept for round trips (0x2 is the editor's selection bit).</summary>
     public int Flags { get; set; }
 
+    /// <summary>Optional generated geometry, rebuilt from the GE's points. Null keeps a traversal zone only.</summary>
+    public GeAppearance? Appearance { get; set; }
+
     public EditorMeta Editor { get; set; } = new();
 
     public string? Source { get; set; }
@@ -403,6 +422,7 @@ public sealed class Ge
         Mask = Mask,
         Platform = Platform,
         Flags = Flags,
+        Appearance = Appearance?.Clone(),
         Editor = Editor.Clone(),
         Source = Source,
     };

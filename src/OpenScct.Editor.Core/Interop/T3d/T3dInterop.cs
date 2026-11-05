@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using OpenScct.Editor.Core.Assets;
 using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Services;
 
 namespace OpenScct.Editor.Core.Interop.T3d;
@@ -78,6 +79,15 @@ public sealed class T3dExporter : IMapExporter
     /// <see cref="ExportResult.Ok"/> is false then.</summary>
     public ExportResult Export(MapProject project, string path, ExportOptions options)
     {
+        try
+        {
+            project = GeGeometry.Expand(project);
+        }
+        catch (ArgumentException ex)
+        {
+            return new ExportResult(false, [], [Finding.Error("ge.geometry", ex.Message)]);
+        }
+
         UeSchema? schema = UeSchema.Load(options.ContentRoot ?? EditorServices.ContentRoot);
         options.Progress?.Invoke("checking round-trip compatibility");
         string? content = options.ContentRoot ?? EditorServices.ContentRoot;
@@ -117,6 +127,7 @@ public sealed class T3dExporter : IMapExporter
             Actors = project.Actors.Where(a => set.Contains(ObjectRef.Actor(a.Id))).ToList(),
             Ges = project.Ges.Where(g => set.Contains(ObjectRef.Ge(g.Id))).ToList(),
         };
-        return (T3dExport.FromProject(project, schema, set), RoundTripLint.Check(picked, schema, wholeMap: false, handoff: ConveyorHandoff.Of(project)));
+        return (T3dExport.FromProject(project, schema, set), RoundTripLint.Check(GeGeometry.Expand(picked), schema, wholeMap: false,
+            handoff: ConveyorHandoff.Of(project)));
     }
 }

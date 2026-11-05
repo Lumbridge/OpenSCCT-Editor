@@ -70,6 +70,7 @@ public sealed class TraversalWorld
     /// <summary>The world of a project. <paramref name="projectFolder"/> resolves a relative baked source path.</summary>
     public static TraversalWorld Build(MapProject project, string? projectFolder = null)
     {
+        project = GeGeometry.ExpandValid(project);
         var worlds = new List<(CollisionWorld, CollisionData)>();
         var surfaces = new List<SurfacePoly>();
         if (project.Baked is { KeepCollision: true } baked && LoadBaked(baked.SourceMap, projectFolder) is { } b)
