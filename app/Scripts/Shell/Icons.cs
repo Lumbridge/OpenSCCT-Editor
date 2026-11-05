@@ -158,6 +158,8 @@ public static class Icons
         ["property-sets"] = """<rect x="1.5" y="4.5" width="9.5" height="10" rx="1.25"/><path d="M4.5 4.5v-2a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1h-2.5"/><path d="M4 8h4.5M4 11h4.5"/>""",
         ["storeys"] = """<path d="M3 14.5v-10l5-3 5 3v10z"/><path d="M3 8h10M3 11.25h10"/><path d="M1.5 14.5h13"/>""",
         ["grid"] = """<rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><rect x="9" y="9" width="5.5" height="5.5" rx="1"/>""",
+        // Three tiles and a pointer dragging the fourth away: the placeables palette.
+        ["palette"] = """<rect x="1.5" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="9" y="1.5" width="5.5" height="5.5" rx="1"/><rect x="1.5" y="9" width="5.5" height="5.5" rx="1"/><path d="M9.25 9.25l5.25 2-2.25.9-.9 2.35z"/>""",
     };
 
     /// <summary>Names that draw another icon.</summary>

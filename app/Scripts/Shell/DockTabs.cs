@@ -27,6 +27,7 @@ public static class DockTabs
         ["Log"] = "log",
         ["History"] = "history",
         ["Assets"] = "folder",
+        ["Placeables"] = "palette",
         ["Connections"] = "link",
         ["Event Sequencer"] = "type-event",
         ["Missions"] = "type-objective",

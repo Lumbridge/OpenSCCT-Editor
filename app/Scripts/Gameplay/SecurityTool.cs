@@ -173,6 +173,7 @@ public sealed class SecurityTool : IViewportTool
             Device = SecurityDevices.Placeable[(int)i];
             Reset();
         };
+        ToolOptions.Action(bar, _tools.Context, PlaceablesActions.Open, "Palette").Icon = Icons.Get("palette", EditorTheme.Text);
         ToolOptions.Hint(bar, "Place: click a wall", "Link: drag from a sender to a receiver", "Esc cancels");
     }
 

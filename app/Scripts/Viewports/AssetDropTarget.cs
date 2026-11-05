@@ -1,10 +1,12 @@
 using Godot;
 using OpenScct.Editor.Core.Assets;
 using OpenScct.Editor.Core.Commands;
+using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Geometry.Edit;
 using OpenScct.Editor.Core.Model;
 using OpenScctEditor.Assets;
 using OpenScctEditor.Core;
+using OpenScctEditor.Gameplay;
 using OpenScctEditor.Panels;
 using OpenScctEditor.Shell;
 using OpenScctEditor.Shell.Background;
@@ -27,7 +29,11 @@ namespace OpenScctEditor.Viewports;
 /// face (and the picked faces it would also go on) is highlighted and the status bar names it; over empty space, an
 /// actor, the imported baked world, a read-only face or the view's own controls the view refuses the drop and the
 /// status bar says why, as it does for a texture no material shows. The 2D views refuse surfaces: they cannot show
-/// which face of a brush (floor, wall or ceiling) a drop would go on. Escape, or leaving the view, cancels.
+/// which face of a brush (floor, wall or ceiling) a drop would go on. A tile of the placeables palette places its
+/// gameplay class by that class's rule (<see cref="PlaceableLanding"/>: on the wall, ceiling or floor under the pointer
+/// facing out, or standing on the floor), with a faint copy of its mesh and its cone, beam or facing drawn while it is
+/// over a view, refused with the reason where it cannot go; the drop is one undo step that also makes the links the
+/// selection asks for, selects the new actor and says what still needs wiring. Escape, or leaving the view, cancels.
 /// </summary>
 [ShellPart(Order = -18)]
 public sealed partial class AssetDropTarget : Node, IShellPart
@@ -57,6 +63,9 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     /// <summary>The last surface answer and where it was asked (the views ask on every move).</summary>
     private (EditorViewport View, Vector2 At, AssetDrag Drag, SurfaceTarget? Target, string Status)? _lastSurface;
 
+    /// <summary>The palette placeable shown where it would land (and the view it is over), for the overlay.</summary>
+    private (EditorViewport View, Placeable Entry, PlaceableSpot Spot)? _placeable;
+
     /// <summary>The map's level geometry for the top view's downward rays, made once per drag.</summary>
     private WorldGeometry? _world;
 
@@ -78,6 +87,11 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     /// or texture over a brush face that takes it (the face is outlined).</summary>
     public bool CanDrop(EditorViewport view, Vector2 position, Variant data)
     {
+        if (AssetDragData.ReadPlaceable(data) is { } placeable)
+        {
+            return ShowPlaceable(view, placeable, PlaceableLanding.Find(view, Pointer(view, position), placeable, wait: false));
+        }
+
         switch (AssetDragData.Read(data))
         {
             case { IsMesh: true } mesh:
@@ -100,7 +114,11 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         _shown = null;
         try
         {
-            if (drag is { IsMesh: true })
+            if (AssetDragData.ReadPlaceable(data) is { } placeable)
+            {
+                PlacePlaceable(view, Pointer(view, position), placeable);
+            }
+            else if (drag is { IsMesh: true })
             {
                 PlaceMesh(view, Pointer(view, position), drag);
             }
@@ -122,11 +140,11 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     public override void _Input(InputEvent e)
     {
         if (e is InputEventKey { Pressed: true, Keycode: Key.Escape } && GetViewport().GuiIsDragging()
-            && AssetDragData.Read(GetViewport().GuiGetDragData()) is { } drag)
+            && DragName(GetViewport().GuiGetDragData()) is { } name)
         {
             GetViewport().GuiCancelDrag();
             End();
-            _ctx.SetStatus($"Cancelled dragging {drag.Name}.");
+            _ctx.SetStatus($"Cancelled dragging {name}.");
             GetViewport().SetInputAsHandled();
         }
     }
@@ -156,13 +174,13 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     private void OverControls(Vector2 pointer)
     {
         _pointer = pointer;
-        if (AssetDragData.Read(GetViewport().GuiGetDragData()) is not { } drag)
+        if (DragName(GetViewport().GuiGetDragData()) is not { } name)
         {
             HideGhost();
             return;
         }
 
-        string why = $"over the view's controls; drop {drag.Name} in the view itself";
+        string why = $"over the view's controls; drop {name} in the view itself";
         if (_shown == NotHere + why)
         {
             return;
@@ -188,6 +206,74 @@ public sealed partial class AssetDropTarget : Node, IShellPart
                 _ctx.SetStatus(refused);
             }
         }
+    }
+
+    /// <summary>The name of what an asset or palette drag carries, or null for any other drag.</summary>
+    private static string? DragName(Variant data) => AssetDragData.Read(data)?.Name ?? AssetDragData.ReadPlaceable(data)?.Title;
+
+    // ---- a palette placeable ----------------------------------------------------------------------------------------
+
+    /// <summary>Shows where a palette placeable would land (its ghost and its cone, beam or facing), or why it cannot;
+    /// true when the view takes it there.</summary>
+    private bool ShowPlaceable(EditorViewport view, Placeable entry, (PlaceableSpot? Spot, string Why) at)
+    {
+        if (_ghost is not null && IsInstanceValid(_ghost))
+        {
+            _ghost.Visible = false;
+        }
+
+        EditorViewport? old = _placeable?.View;
+        if (at.Spot is { } spot)
+        {
+            if (_placeable is not { } shown || shown.Spot != spot || shown.Entry != entry)
+            {
+                PlaceableLanding.ShowGhost(entry, spot);
+            }
+
+            _placeable = (view, entry, spot);
+        }
+        else if (_placeable is not null)
+        {
+            _placeable = null;
+            PlaceableLanding.ShowGhost(null, null);
+        }
+
+        if (old is not null && old != view && IsInstanceValid(old))
+        {
+            old.Redraw();
+        }
+
+        view.Redraw();
+        _over = view;
+        _pointer = EditorPointer.Global(view);
+        _frame = Engine.GetProcessFrames();
+        // While the collision world is still being built the drop is taken (it waits for it); only the preview waits.
+        bool pending = at.Spot is null && at.Why == PlaceableLanding.Pending;
+        string status = at.Spot is { } s ? $"Drop to place {entry.Title} on {s.On} at {s.Location}"
+            : pending ? $"Drop to place {entry.Title}: {at.Why}\u2026" : NotHere + at.Why;
+        _refused = at.Spot is null && !pending ? "Not placed: " + at.Why : null;
+        if (status != _shown)
+        {
+            _shown = status;
+            _ctx.SetStatus(status);
+        }
+
+        return at.Spot is not null || pending;
+    }
+
+    /// <summary>Places a palette placeable where it was dropped (waiting for the collision world if it is still being
+    /// built), as one undo step with its wiring; where it cannot go, the status bar says why.</summary>
+    private void PlacePlaceable(EditorViewport view, Vector2 at, Placeable entry)
+    {
+        (PlaceableSpot? spot, string why) = PlaceableLanding.Find(view, at, entry, wait: true);
+        if (spot is not { } s)
+        {
+            _ctx.SetStatus("Not placed: " + why);
+            return;
+        }
+
+        _refused = null;
+        PlaceableLanding.Place(_ctx, entry, s, view.Kind);
     }
 
     // ---- where a mesh lands -----------------------------------------------------------------------------------------
@@ -554,6 +640,11 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     /// the picked faces' own blue.</summary>
     public void Draw(EditorViewport view, Control canvas)
     {
+        if (_placeable is { } placing && placing.View == view)
+        {
+            PlaceableLanding.Draw(view.Cam, canvas, placing.Entry, placing.Spot);
+        }
+
         if (_face is not { } target || _faceView != view)
         {
             return;
@@ -631,6 +722,16 @@ public sealed partial class AssetDropTarget : Node, IShellPart
             if (was is not null && IsInstanceValid(was))
             {
                 was.Redraw();
+            }
+        }
+
+        if (_placeable is { } placing)
+        {
+            _placeable = null;
+            PlaceableLanding.ShowGhost(null, null);
+            if (IsInstanceValid(placing.View))
+            {
+                placing.View.Redraw();
             }
         }
 

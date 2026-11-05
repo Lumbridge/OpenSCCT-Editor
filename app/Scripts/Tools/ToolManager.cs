@@ -305,6 +305,10 @@ public sealed class ToolManager : IShellPart
         Changed?.Invoke();
     }
 
+    /// <summary>Builds the active tool's options bar again after this frame (its state changed from outside: the place
+    /// tool's class picked in the placeables palette).</summary>
+    public void RefreshOptions() => EditorLifetime.Defer(RebuildOptions);
+
     /// <summary>Tells views and the toolbar that tool state changed (tools call this after edits to their state).</summary>
     public void NotifyChanged() => Changed?.Invoke();
 
