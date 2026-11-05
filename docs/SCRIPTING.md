@@ -648,7 +648,7 @@ use the same Core code as the app's tools. `ose <command> --help` gives the argu
   starts minimised and never takes the focus (`--svm-background` then keeps it off-screen); a game too old for
   `--svm-mapshot` is not started, nor one whose copy cannot be made (each picture then reports why). `--dry-run` lists the shots and each one's `state` (`missing`, `stale`: rendered from an earlier version of
   the map, `current`); `--only menu,loading-spy-1` picks slots; `--force` renders current ones again; `--exe` picks
-  the game; `--fast` and `--classes` build as `ose build` does.
+  the game; `--fast` and `--no-classes` build as `ose build` does.
 - `ose identity picture <slot> file` takes PNG, JPEG, BMP and WebP files of any shape and size: the editor's core
   decodes all four (no image library, no Godot), and the build crops and scales them and stores them as PNG. A JPEG
   that already has the slot's shape (square; 16:9 for the banner) and size is kept as it is. A file the core cannot

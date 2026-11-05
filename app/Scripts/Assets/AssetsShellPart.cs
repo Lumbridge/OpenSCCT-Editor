@@ -14,12 +14,15 @@ namespace OpenScctEditor.Assets;
 public sealed class AssetsShellPart : IShellPart
 {
     private string? _folder;
+    private string? _source;
 
     public void Attach(MainWindow window, EditorContext context)
     {
         _folder = AssetService.ProjectFolder;
+        _source = AssetService.BakedSourceMap;
         window.AddChild(AssetThumbnails.Create());
         context.SessionReplaced += OnSessionReplaced;
+        context.ProjectChanged += _ => OnProjectChanged();
         AssetService.Instance.AssetsChanged += () =>
         {
             ClearCaches();
@@ -31,14 +34,28 @@ public sealed class AssetsShellPart : IShellPart
     private void OnSessionReplaced()
     {
         string? folder = AssetService.ProjectFolder;
-        if (!string.Equals(folder, _folder, StringComparison.OrdinalIgnoreCase))
+        string? source = AssetService.BakedSourceMap;
+        if (!string.Equals(folder, _folder, StringComparison.OrdinalIgnoreCase) || !string.Equals(source, _source, StringComparison.OrdinalIgnoreCase))
         {
-            // Map-local assets differ per project folder, so resolved materials and meshes are stale.
+            // Map-local assets differ per project folder and baked source map, so resolved materials and meshes are stale.
             _folder = folder;
+            _source = source;
             ClearCaches();
         }
 
         AssetService.Instance.Reload();
+    }
+
+    /// <summary>An edit, undo or redo (or a script) that changes the baked world's source map, or drops the baked world:
+    /// meshes found in the old source, or missing without it, are stale, so resolve again and redraw.</summary>
+    private void OnProjectChanged()
+    {
+        string? source = AssetService.BakedSourceMap;
+        if (!string.Equals(source, _source, StringComparison.OrdinalIgnoreCase))
+        {
+            _source = source;
+            AssetService.Instance.ProjectAssetsChanged();
+        }
     }
 
     private static void ClearCaches()

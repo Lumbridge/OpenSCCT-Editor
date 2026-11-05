@@ -77,13 +77,15 @@ public static class MapShots
     /// <summary>The size a slot's camera picture is rendered at: 16:9 for the banner, square for the rest.</summary>
     public static (int Width, int Height) SizeOf(string slot) => slot == "banner" ? (BannerWidth, BannerHeight) : (Size, Size);
 
-    /// <summary>The key of a compiled map's look: the hash of its sim and render files (what a render shows), without
-    /// the class table <c>ose build --classes</c> adds, which changes nothing on screen.</summary>
+    /// <summary>The key of a compiled map's look: the hash of its sim and render files (what a render shows). The class
+    /// table <c>sim/classes.json</c> is part of it, as OpenSCCT draws a device's class mesh (cameras, laser triggers,
+    /// laptops) from it, so a picture rendered from a build without it (every build before the table was written by
+    /// default, or <c>ose build --no-classes</c>) is stale.</summary>
     public static string MapKey(IEnumerable<KeyValuePair<string, byte[]>> files) =>
         SvMapHash.GroupHash(files.Where(f => IsShown(f.Key)).Select(f => (f.Key, SvMapHash.FileDigest(f.Key, f.Value))));
 
     private static bool IsShown(string file) =>
-        (file.StartsWith("sim/", StringComparison.Ordinal) || file.StartsWith("render/", StringComparison.Ordinal)) && file != ClassTable.RelativePath;
+        file.StartsWith("sim/", StringComparison.Ordinal) || file.StartsWith("render/", StringComparison.Ordinal);
 
     /// <summary>The key of a compiled map folder, the same as <see cref="MapKey(IEnumerable{KeyValuePair{string, byte[]}})"/>
     /// gives for its files.</summary>

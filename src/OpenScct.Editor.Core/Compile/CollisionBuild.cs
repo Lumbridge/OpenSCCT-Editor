@@ -136,7 +136,7 @@ public sealed partial class CollisionBuild
                 if (!AddMeshActor(a, a.Id) && _ctx.Rules.Flag(a, "bCollideActors"))
                 {
                     _ctx.Warn("collision.mesh-missing",
-                        $"actor {a.Id}: no converted map ships its static mesh {MeshPath(a)}, so it collides as its cylinder", ObjectRef.Actor(a.Id));
+                        $"actor {a.Id}: {_ctx.NothingShips($"its static mesh {MeshPath(a)}")}, so it collides as its cylinder", ObjectRef.Actor(a.Id));
                     AddCylinder(a);
                 }
             }

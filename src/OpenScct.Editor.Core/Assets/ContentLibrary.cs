@@ -87,6 +87,13 @@ public sealed class ContentLibrary
         return index.GetValueOrDefault(asset) ?? index.GetValueOrDefault(AssetPaths.Short(asset));
     }
 
+    /// <summary>Builds the material and mesh indexes now (safe on any thread), so a later lookup does not read them.</summary>
+    public void Warm()
+    {
+        _ = _materials.Value;
+        _ = _meshes.Value;
+    }
+
     /// <summary>The library's map folders (those with a manifest), in name order.</summary>
     public IEnumerable<string> MapDirs() => _onlyMap is not null ? [_onlyMap]
         : _svmapRoot is null ? []

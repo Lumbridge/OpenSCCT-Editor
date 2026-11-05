@@ -31,12 +31,11 @@ public sealed class BakedSource
 
     public CollisionData Collision { get; }
 
-    /// <summary>Finds the source map (a folder path, or a map id in the content library) and reads its collision.</summary>
+    /// <summary>Finds the source map (a folder path, a relative one read against the project folder first, or a map id in
+    /// the content library) and reads its collision.</summary>
     public static BakedSource? Open(CompileContext ctx, BakedWorld settings)
     {
-        string? folder = Directory.Exists(settings.SourceMap) && File.Exists(Path.Combine(settings.SourceMap, "manifest.json"))
-            ? Path.GetFullPath(settings.SourceMap)
-            : ctx.Library.MapFolder(settings.SourceMap);
+        string? folder = FolderOf(settings.SourceMap, ctx.Library, ctx.Options.ProjectFolder);
         if (folder is null)
         {
             ctx.Error("baked.missing", $"the baked world's source map '{settings.SourceMap}' was not found (a map folder or a map in {ctx.ContentRoot ?? "no content folder"})");
@@ -53,6 +52,31 @@ public sealed class BakedSource
             ctx.Error("baked.collision", $"the baked world's collision could not be read: {e.Message}");
             return null;
         }
+    }
+
+    /// <summary>
+    /// The folder of a baked world's source map: <paramref name="sourceMap"/> itself when it is an SVMap folder (a
+    /// relative path is read against <paramref name="projectFolder"/> first when one is given), else the map of that id
+    /// in <paramref name="library"/>, else null.
+    /// </summary>
+    public static string? FolderOf(string sourceMap, Assets.AssetResolver library, string? projectFolder = null)
+    {
+        if (sourceMap.Length == 0)
+        {
+            return null;
+        }
+
+        static bool IsMap(string dir) => Directory.Exists(dir) && File.Exists(Path.Combine(dir, "manifest.json"));
+        if (projectFolder is not null && !Path.IsPathRooted(sourceMap))
+        {
+            string near = Path.Combine(projectFolder, sourceMap);
+            if (IsMap(near))
+            {
+                return Path.GetFullPath(near);
+            }
+        }
+
+        return IsMap(sourceMap) ? Path.GetFullPath(sourceMap) : library.MapFolder(sourceMap);
     }
 
     /// <summary>The payload of a 1.1 chunk parallel to a table of <paramref name="count"/> rows, or null.</summary>

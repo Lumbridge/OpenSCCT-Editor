@@ -132,7 +132,7 @@ public sealed class CliArgs
     /// <summary>Switches that never take a value, so one given before the positionals does not eat the next one.</summary>
     private static readonly HashSet<string> s_switches = new(StringComparer.OrdinalIgnoreCase)
         { "dry-run", "save", "json", "pretty", "help", "verbose", "overwrite", "no-validate", "live", "link", "replace", "force", "delete",
-          "no-restart", "prereleases" };
+          "no-restart", "prereleases", "no-classes" };
 
     private readonly List<string> _positional = new();
     private readonly Dictionary<string, string> _options = new(StringComparer.OrdinalIgnoreCase);

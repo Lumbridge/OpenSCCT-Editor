@@ -21,7 +21,7 @@ public static class BuildCommands
     [CliProvider]
     public static IEnumerable<CliCommand> Commands() =>
     [
-        new("build", "build <project.osmap> [--out <folder>] [--target openscct|original] [--fast] [--classes] [--no-validate] [--content <dir>] [--verbose]",
+        new("build", "build <project.osmap> [--out <folder>] [--target openscct|original] [--fast] [--no-classes] [--no-validate] [--content <dir>] [--verbose]",
             "Compiles the project to an SVMap 1.2 folder (default <project>/../build/<MapId>) and prints a JSON result. --target original also " +
             "checks the stock engine's limits and writes the original-format export (<MapId>.t3d next to the map folder) when an exporter is installed.",
             BuildAsync),
@@ -296,7 +296,7 @@ public static class BuildCommands
             ContentRoot = a.Get("content") ?? EditorServices.ContentRoot,
             ProjectFolder = Path.GetFullPath(path),
             Target = target,
-            WriteClassTable = a.Has("classes"),
+            WriteClassTable = !a.Has("no-classes"),
             Progress = a.Has("verbose") ? line => Console.Error.WriteLine($"ose build: {line}") : null,
         };
         IMapCompiler compiler = EditorServices.Compiler ?? new MapCompiler();

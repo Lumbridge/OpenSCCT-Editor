@@ -107,7 +107,7 @@ Lists the running editors that take live connections (ose serve --live connects 
 ### build
 
 ```
-ose build <project.osmap> [--out <folder>] [--target openscct|original] [--fast] [--classes] [--no-validate] [--content <dir>] [--verbose]
+ose build <project.osmap> [--out <folder>] [--target openscct|original] [--fast] [--no-classes] [--no-validate] [--content <dir>] [--verbose]
 ```
 
 Compiles the project to an SVMap 1.2 folder (default &lt;project>/../build/&lt;MapId>) and prints a JSON result. --target original also checks the stock engine's limits and writes the original-format export (&lt;MapId>.t3d next to the map folder) when an exporter is installed.
@@ -147,7 +147,7 @@ Builds the project, then starts OpenSCCT on it (--svm-maps, --svm-play). --playe
 ### mapshot
 
 ```
-ose mapshot <project.osmap> [--only menu,loading-spy-1] [--force] [--exe <OpenSCCT.exe>] [--out <folder>] [--fast] [--classes] [--dry-run]
+ose mapshot <project.osmap> [--only menu,loading-spy-1] [--force] [--exe <OpenSCCT.exe>] [--out <folder>] [--fast] [--no-classes] [--dry-run]
 ```
 
 Builds the project, renders its camera pictures with OpenSCCT in a background window (a linked copy of the game started minimised beside a background override.cfg, so it never takes the focus) into the project's .cache/pictures, then builds again so the map carries them. Pictures already rendered from this version of the map are kept unless --force; --dry-run lists each picture's state (missing, stale or current).
