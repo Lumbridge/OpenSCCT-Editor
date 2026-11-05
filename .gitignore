@@ -1,0 +1,34 @@
+bin/
+obj/
+.godot/
+.vs/
+*.user
+local/
+.content/
+TestResults/
+app/override.cfg
+
+# Game files never go into Git: the editor reads the user's own at run time.
+*.sdc
+*.sds
+*.utx
+*.usx
+*.uax
+*.umx
+*.ukx
+*.utc
+*.uas
+*.u
+*.unr
+*.int
+*.t3d
+*.psk
+*.dds
+*.ase
+*.tga
+*.ogg
+*.bik
+# Map projects and their build and export output (an imported map carries converted game content).
+*.osmap/
+/build/
+/export/

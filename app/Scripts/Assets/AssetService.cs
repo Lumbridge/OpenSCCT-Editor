@@ -1,0 +1,141 @@
+using OpenScct.Editor.Core.Assets;
+using OpenScct.Editor.Core.Services;
+using OpenScctEditor.Core;
+using OpenScctEditor.Shell;
+
+namespace OpenScctEditor.Assets;
+
+/// <summary>
+/// The app's asset state: the catalogue of the open map (built off the main thread), the resolver the viewport draws
+/// with, and the favourites (kept in the app settings, so they are shared across maps).
+/// </summary>
+public sealed class AssetService
+{
+    private readonly HashSet<string> _favourites;
+    private AssetResolver? _resolver;
+    private string? _resolverFolder;
+    private int _generation;
+
+    private AssetService() => _favourites = new HashSet<string>(AppSettings.GetStrings("assets", "favourites"), StringComparer.OrdinalIgnoreCase);
+
+    public static AssetService Instance { get; } = new();
+
+    /// <summary>The catalogue (empty until the first index finishes).</summary>
+    public AssetCatalog Catalog { get; private set; } = AssetCatalog.Empty;
+
+    public bool Loading { get; private set; }
+
+    /// <summary>Raised on the main thread when the catalogue was rebuilt.</summary>
+    public event Action? CatalogChanged;
+
+    /// <summary>Raised on the main thread when the project's own assets changed (an import): drawn materials and
+    /// meshes must be resolved again.</summary>
+    public event Action? AssetsChanged;
+
+    public event Action? FavouritesChanged;
+
+    /// <summary>The project folder assets resolve against (null for an unsaved map).</summary>
+    public static string? ProjectFolder => EditorContext.Instance.Session.Folder;
+
+    /// <summary>How material and mesh paths resolve for the open map (the compiler's own rules).</summary>
+    public AssetResolver Resolver
+    {
+        get
+        {
+            string? folder = ProjectFolder;
+            if (_resolver is null || !string.Equals(folder, _resolverFolder, StringComparison.OrdinalIgnoreCase))
+            {
+                _resolver = AssetResolver.For(EditorServices.ContentRoot, folder);
+                _resolverFolder = folder;
+            }
+
+            return _resolver;
+        }
+    }
+
+    /// <summary>
+    /// The material a brush face gets to show a material or texture from the browser, or null and why not. A material
+    /// is itself; a texture becomes the material that shows its image (<see cref="AssetCatalog.SurfaceMaterial"/>), as a
+    /// face naming the texture file would resolve to nothing and draw (and build) as the missing-material grid.
+    /// </summary>
+    public (string? Material, string Why) SurfaceMaterial(AssetKind kind, string path)
+    {
+        if (kind == AssetKind.Material)
+        {
+            return (path, "");
+        }
+
+        string name = AssetPaths.Split(path).Name;
+        if (kind != AssetKind.Texture)
+        {
+            return (null, $"{name} is not a material or texture");
+        }
+
+        if (Catalog.Find(AssetKind.Texture, path) is not { } entry)
+        {
+            return (null, $"the texture {name} is not in the asset index");
+        }
+
+        return Catalog.SurfaceMaterial(entry) is { } material
+            ? (material, "")
+            : (null, $"no material shows the texture {name}; pick a material on the Materials tab instead");
+    }
+
+    /// <summary>Indexes the content and the open map's assets in the background (the cache makes this quick).</summary>
+    public void Reload()
+    {
+        int generation = ++_generation;
+        string? content = EditorServices.ContentRoot;
+        string? folder = ProjectFolder;
+        Loading = true;
+        CatalogChanged?.Invoke();
+        BackgroundJobs.Start(_ =>
+        {
+            AssetCatalog catalog;
+            try
+            {
+                catalog = AssetCatalog.For(content, folder);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
+            {
+                BackgroundJobs.Post(() => EditorContext.Instance.Log($"Asset index failed: {ex.Message}", Severity.Warning));
+                catalog = AssetCatalog.Empty;
+            }
+
+            BackgroundJobs.Post(() =>
+            {
+                if (generation != _generation)
+                {
+                    return;
+                }
+
+                Catalog = catalog;
+                Loading = false;
+                CatalogChanged?.Invoke();
+            });
+        });
+    }
+
+    /// <summary>After an import into the project's assets: resolve again, redraw, re-index.</summary>
+    public void ProjectAssetsChanged()
+    {
+        _resolver = null;
+        AssetsChanged?.Invoke();
+        Reload();
+    }
+
+    public bool IsFavourite(AssetEntry e) => _favourites.Contains(Key(e));
+
+    public void ToggleFavourite(AssetEntry e)
+    {
+        if (!_favourites.Remove(Key(e)))
+        {
+            _favourites.Add(Key(e));
+        }
+
+        AppSettings.Set("assets", "favourites", _favourites.Order(StringComparer.OrdinalIgnoreCase).ToArray());
+        FavouritesChanged?.Invoke();
+    }
+
+    private static string Key(AssetEntry e) => $"{e.Kind}|{e.Path}";
+}

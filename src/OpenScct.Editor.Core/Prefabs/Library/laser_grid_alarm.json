@@ -1,0 +1,22 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "laser_grid_alarm",
+  "title": "Laser grid on an alarm",
+  "category": "security",
+  "summary": "A stack of laser beams across an opening; breaking a beam sets off the grid's own alarm. Pivot: the floor in the middle of the opening; the beams run along Y. The beams are tagged <instance>_lasers, so a switch can turn them off.",
+  "params": {
+    "width": { "default": 256, "min": 32, "max": 4096, "summary": "Length of each beam (the width of the opening)" },
+    "beams": { "default": 3, "min": 1, "max": 12, "summary": "How many beams, stacked up" },
+    "bottom": { "default": 24, "min": 0, "max": 1024, "summary": "Height of the lowest beam" },
+    "spacing": { "default": 48, "min": 8, "max": 512, "summary": "Height between beams" },
+    "alarmName": { "default": "Laser grid", "summary": "The alarm's name on the HUD" },
+    "duration": { "default": 20, "min": 1, "max": 600, "summary": "Seconds the alarm lasts" }
+  },
+  "ops": [
+    { "op": "create", "id": "$alarm", "class": "SAlarm", "at": [0, 0, "${bottom + beams * spacing + 32}"],
+      "props": { "Tag": "Alarm", "AlarmName": "${alarmName}", "AlarmDescription": "${alarmName}", "AlarmDescriptionSpy": "${alarmName}", "Duration": "${duration}" } },
+    { "op": "create", "id": "$beam", "class": "SLaserTrigger", "at": [0, "${-width / 2}", "${bottom}"], "rotDeg": [0, 90, 0],
+      "count": "${beams}", "step": [0, 0, "${spacing}"],
+      "props": { "LaserLength": "${width}", "Event": "Alarm", "Tag": "${id}_lasers" } }
+  ]
+}

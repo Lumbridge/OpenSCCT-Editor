@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>OpenScct.Editor.Cli</RootNamespace>
+    <AssemblyName>ose</AssemblyName>
+    <Company>OpenSCCT</Company>
+    <Product>OpenSCCT Editor</Product>
+    <AssemblyTitle>OpenSCCT Editor command line</AssemblyTitle>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\OpenScct.Editor.Core\OpenScct.Editor.Core.csproj" />
+  </ItemGroup>
+</Project>

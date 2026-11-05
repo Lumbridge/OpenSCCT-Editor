@@ -1,0 +1,10 @@
+<Solution>
+  <!-- Godot needs a solution next to the project to export it. It builds ExportDebug or ExportRelease;
+       OpenScctEditor.csproj maps those to the libraries' Debug and Release. -->
+  <Configurations>
+    <BuildType Name="Debug" />
+    <BuildType Name="ExportDebug" />
+    <BuildType Name="ExportRelease" />
+  </Configurations>
+  <Project Path="OpenScctEditor.csproj" />
+</Solution>

@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>OpenScct.Editor.Core</RootNamespace>
+    <AssemblyName>OpenScct.Editor.Core</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="$(OpenScctDir)src\OpenScct.Core\OpenScct.Core.csproj" />
+    <ProjectReference Include="$(OpenScctDir)src\OpenScct.Content\OpenScct.Content.csproj" />
+    <ProjectReference Include="$(OpenScctDir)src\OpenScct.Physics\OpenScct.Physics.csproj" />
+    <ProjectReference Include="$(OpenScctDir)src\OpenScct.Game\OpenScct.Game.csproj" />
+    <ProjectReference Include="$(OpenScctDir)src\OpenScct.Maps\OpenScct.Maps.csproj" />
+    <!-- The server's map loader and the bots' light field (MapCatalog.LoadSvMap, MapAiLight) for the analysis overlays. -->
+    <ProjectReference Include="$(OpenScctDir)src\OpenScct.Server\OpenScct.Server.csproj" />
+    <!-- The launcher's release feed, downloader and checksums, for the editor's own updates (Updates/). -->
+    <ProjectReference Include="$(OpenScctDir)src\OpenScct.Launcher.Core\OpenScct.Launcher.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The checkout this build was compiled against (ContentLocator.FindOpenScctRoot uses it for the content builder).
+         Only local Debug builds record it: it is a path on the machine that built them. -->
+    <AssemblyMetadata Include="OpenScctRoot" Value="$([System.IO.Path]::GetFullPath('$(OpenScctDir)'))" Condition="'$(OseRelease)' != 'true' and '$(Configuration)' == 'Debug'" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The starter prefab library (PrefabStore.Builtin). -->
+    <EmbeddedResource Include="Prefabs\Library\*.json" LogicalName="OpenScct.Editor.Core.Prefabs.Library.%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

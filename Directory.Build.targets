@@ -1,0 +1,6 @@
+<Project>
+  <!-- A clear message instead of hundreds of missing-type errors when there is no OpenSCCT checkout to build against. -->
+  <Target Name="OseRequireOpenScct" BeforeTargets="ResolveProjectReferences;CollectPackageReferences" Condition="!Exists('$(OpenScctDir)src\OpenScct.Core\OpenScct.Core.csproj')">
+    <Error Text="No OpenSCCT checkout at $(OpenScctDir). Clone https://github.com/Lumbridge/OpenSCCT next to this repo (as OpenSCCT) and run tools\Sync-OpenScct.ps1, or pass -p:OpenScctRoot=&lt;checkout&gt;/." />
+  </Target>
+</Project>

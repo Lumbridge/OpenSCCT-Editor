@@ -1,0 +1,31 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>14</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <VersionPrefix>0.1.0</VersionPrefix>
+    <!-- A local package for trying updates out (tools/Package-Release.ps1 -Local -Version 0.1.1) stamps its own version. -->
+    <VersionPrefix Condition="'$(OseVersionPrefix)' != ''">$(OseVersionPrefix)</VersionPrefix>
+    <!-- Only release packages (OseRelease=true, set by tools/Package-Release.ps1) carry a plain version; every other
+         build is "<version>-dev", so a build from source never offers to update itself. A pre-release package passes
+         its own suffix (VersionSuffix=beta.1). The SDK appends "+<commit>" to the informational version. -->
+    <VersionSuffix Condition="'$(OseRelease)' != 'true' and '$(VersionSuffix)' == ''">dev</VersionSuffix>
+    <EditorRoot>$(MSBuildThisFileDirectory)</EditorRoot>
+    <!-- The OpenSCCT checkout whose Godot-free libraries the editor uses. Override with -p:OpenScctRoot=...
+         Default: the pinned worktree tools\Sync-OpenScct.ps1 keeps at openscct.ref (..\OpenSCCT-Editor-deps), else the
+         OpenSCCT clone named by OSE_OPENSCCT_GIT, else the clone next to this repo (..\OpenSCCT). -->
+    <OpenScctRoot Condition="'$(OpenScctRoot)' == '' and Exists('$(MSBuildThisFileDirectory)..\OpenSCCT-Editor-deps\OpenSCCT.slnx')">$(MSBuildThisFileDirectory)..\OpenSCCT-Editor-deps\</OpenScctRoot>
+    <OpenScctRoot Condition="'$(OpenScctRoot)' == '' and '$(OSE_OPENSCCT_GIT)' != ''">$([MSBuild]::EnsureTrailingSlash('$(OSE_OPENSCCT_GIT)'))</OpenScctRoot>
+    <OpenScctRoot Condition="'$(OpenScctRoot)' == ''">$(MSBuildThisFileDirectory)..\OpenSCCT\</OpenScctRoot>
+    <!-- The same folder with its trailing slash, given or not (a -p: value cannot be changed in place). -->
+    <OpenScctDir>$([MSBuild]::EnsureTrailingSlash('$(OpenScctRoot)'))</OpenScctDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' != 'Debug'">
+    <!-- Builds other than local Debug ones carry no path of the machine that built them. -->
+    <PathMap>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))=/_/</PathMap>
+  </PropertyGroup>
+</Project>

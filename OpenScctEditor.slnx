@@ -1,0 +1,6 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/OpenScct.Editor.Core/OpenScct.Editor.Core.csproj" />
+    <Project Path="src/OpenScct.Editor.Cli/OpenScct.Editor.Cli.csproj" />
+  </Folder>
+</Solution>

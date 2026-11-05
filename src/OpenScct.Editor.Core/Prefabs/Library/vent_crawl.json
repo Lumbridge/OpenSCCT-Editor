@@ -1,0 +1,16 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "vent_crawl",
+  "title": "Raised vent with a ledge",
+  "category": "traversal",
+  "summary": "A crouch vent carved into a wall at sill height, with a ledge grab (LG GE) on its lip so spies can pull themselves in. The vent height follows the map's crouch numbers. Pivot: the floor at the wall face; the vent runs into the wall along -X.",
+  "params": {
+    "length": { "default": 512, "min": 64, "max": 16384, "summary": "Length of the vent into the wall" },
+    "width": { "default": 96, "min": 72, "max": 512, "summary": "Inside width" },
+    "sill": { "default": 96, "min": 0, "max": 1024, "summary": "Height of the vent floor over the room floor (0: no ledge)" }
+  },
+  "ops": [
+    { "op": "create", "id": "$vent", "brush": { "kind": "vent", "length": "${length}", "width": "${width}" }, "at": ["${-length / 2}", 0, "${sill}"] },
+    { "if": "${sill > 0}", "op": "create", "id": "$lip", "ge": "LG", "points": [[0, "${-width / 2}", "${sill}"], [0, "${width / 2}", "${sill}"]] }
+  ]
+}

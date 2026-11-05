@@ -1,0 +1,17 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "objective_computer",
+  "title": "Objective computer",
+  "category": "objectives",
+  "summary": "A hackable computer (SComputerObjectiveTrigger) and the objective (SObjective) it completes. Pivot: the floor in front of the computer; it faces +X.",
+  "params": {
+    "name": { "default": "Terminal", "summary": "The objective's name (also the HUD text)" },
+    "captureTime": { "default": 10, "min": 1, "max": 120, "summary": "Seconds to hack it (CaptureTime)" }
+  },
+  "ops": [
+    { "op": "create", "id": "$computer", "class": "SComputerObjectiveTrigger", "at": [0, 0, "${standHeight / 2}"],
+      "props": { "TriggerName": "${name}", "CaptureTime": "${captureTime}", "DominationCaptureTime": "${captureTime}" } },
+    { "op": "create", "id": "$objective", "class": "SObjective", "at": [0, 0, "${standHeight + 64}"],
+      "props": { "ObjectiveName": "${name}", "Description": "Terminal: ${name}", "DescriptionDEF": "Terminal: ${name}", "Triggers": ["$computer"] } }
+  ]
+}

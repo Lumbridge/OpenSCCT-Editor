@@ -1,0 +1,84 @@
+# Normalise line endings: LF in the repo and in checkouts, CRLF only for Windows scripts.
+* text=auto eol=lf
+
+*.cs text eol=lf diff=csharp
+*.csproj text eol=lf
+*.props text eol=lf
+*.targets text eol=lf
+*.slnx text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.py text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.svg text eol=lf
+
+# Map and mesh text formats
+*.t3d text eol=lf
+*.ase text eol=lf
+*.obj text eol=lf
+*.mtl text eol=lf
+
+# UE2 .int text files are often UTF-16: keep their bytes as they are.
+*.int -text
+
+# Godot text resources
+*.godot text eol=lf
+*.tscn text eol=lf
+*.tres text eol=lf
+*.import text eol=lf
+*.uid text eol=lf
+*.gdshader text eol=lf
+*.gdshaderinc text eol=lf
+*.glsl text eol=lf
+*.cfg text eol=lf
+
+# Windows scripts
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary
+*.glb binary
+*.gltf binary
+*.bin binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.bmp binary
+*.tga binary
+*.pcx binary
+*.dds binary
+*.exr binary
+*.hdr binary
+*.psd binary
+*.ico binary
+*.ogg binary
+*.wav binary
+*.mp3 binary
+*.ttf binary
+*.otf binary
+*.blend binary
+*.fbx binary
+*.zip binary
+*.res binary
+*.scn binary
+*.sdc binary
+*.sds binary
+*.utx binary
+*.utc binary
+*.usx binary
+*.uax binary
+*.umx binary
+*.ukx binary
+*.uvx binary
+*.u binary
+*.exe binary
+*.dll binary
+*.pdb binary
+*.so binary
+*.dylib binary
+*.cmd text eol=crlf

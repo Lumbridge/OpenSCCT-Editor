@@ -1,0 +1,21 @@
+<Project Sdk="Godot.NET.Sdk/4.7.2">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <RootNamespace>OpenScctEditor</RootNamespace>
+    <AssemblyName>OpenScctEditor</AssemblyName>
+  </PropertyGroup>
+  <!-- Godot builds Debug, ExportDebug or ExportRelease; the libraries know Debug and Release. -->
+  <PropertyGroup>
+    <EditorLibraryConfiguration Condition="'$(Configuration)' == 'ExportRelease'">Release</EditorLibraryConfiguration>
+    <EditorLibraryConfiguration Condition="'$(EditorLibraryConfiguration)' == ''">Debug</EditorLibraryConfiguration>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ProjectReference>
+      <SetConfiguration>Configuration=$(EditorLibraryConfiguration)</SetConfiguration>
+    </ProjectReference>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\src\OpenScct.Editor.Core\OpenScct.Editor.Core.csproj" />
+  </ItemGroup>
+</Project>

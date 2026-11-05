@@ -1,0 +1,22 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "spawn_room",
+  "title": "Team spawn room",
+  "category": "starts",
+  "summary": "A carved room with a row of player starts for one team, facing a doorway in its +X wall. Pivot: the floor in the middle of the room.",
+  "params": {
+    "team": { "default": 0, "min": 0, "max": 1, "summary": "0 = spies, 1 = mercenaries (TeamNumber)" },
+    "starts": { "default": 4, "min": 1, "max": 16, "summary": "How many player starts" },
+    "spacing": { "default": 96, "min": 72, "max": 512, "summary": "Distance between starts" },
+    "length": { "default": 512, "min": 256, "max": 4096, "summary": "Inside length along X" },
+    "width": { "default": 512, "min": 128, "max": 4096, "summary": "Inside width along Y" },
+    "height": { "default": 256, "min": 192, "max": 2048, "summary": "Inside height" },
+    "door": { "default": true, "summary": "Carve a doorway through the +X wall" }
+  },
+  "ops": [
+    { "op": "create", "id": "$room", "brush": { "kind": "room", "length": "${length}", "width": "${width}", "height": "${height}" }, "at": [0, 0, 0] },
+    { "if": "${door}", "op": "create", "id": "$door", "brush": { "kind": "doorway", "depth": 64 }, "at": ["${length / 2 + 32}", 0, 0] },
+    { "op": "create", "id": "$start", "class": "PlayerStart", "at": ["${-length / 2 + 96}", "${-(starts - 1) * spacing / 2}", "${standHeight / 2}"],
+      "count": "${starts}", "step": [0, "${spacing}", 0], "props": { "TeamNumber": "${team}" } }
+  ]
+}
