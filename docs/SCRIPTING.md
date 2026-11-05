@@ -17,6 +17,7 @@ and unique across brushes, actors and GEs (case-insensitive).
 | | `ose query <map.osmap> <query-json\|file\|->` | |
 | | `ose summary <map.osmap>` | |
 | JSON lines | `ose serve [map.osmap]` | long sessions with no reload cost |
+| MCP | `ose mcp [map.osmap]` or `ose mcp --live [--pid N]` | agent clients using local stdio |
 | Live | `ose serve --live` [`--pid N`] | edit the map open in the running editor (`ose live` lists editors) |
 
 `ose` is `ose\ose.exe` in a release, or `dotnet <editor>/src/OpenScct.Editor.Cli/bin/Debug/net10.0/ose.dll` in a build
@@ -37,6 +38,46 @@ files written and the findings of the round-trip lint (and, for an `.sdc`, of th
 `open` and `new` replace the open map. While it has unsaved changes they are refused, unless the call has
 `"discard":true`. `open` on a cooked `.sdc` recovers its brushes from the compiled BSP: `"brushes":"merge"` (the
 default), `"cells"` or `"off"` (the baked world only).
+
+## MCP for mapping agents
+
+For live editing, open the map and choose **Tools → Scripting → Copy MCP Configuration**. Paste the entry into
+your client's local stdio MCP configuration. For a project on disk, use the same executable with `mcp` and the
+project path in place of `--live`. For example:
+
+```json
+{
+  "mcpServers": {
+    "openscct-editor": {
+      "command": "C:/OpenSCCT Editor/ose/ose.exe",
+      "args": ["mcp", "C:/maps/RooftopD.osmap"]
+    }
+  }
+}
+```
+
+From source, use `dotnet` as the command and the full path to `ose.dll` as the first argument. Use
+`ose live` to list running editors and add `--pid N` to pin a live session. Without a PID the newest editor is
+selected. For an isolated editor, pass the background script's `OSE_LIVE_DIR` to the client in the server entry's
+`env` and use `mcp --live`. Only the background editor allows `ui_tree`, `ui_shot` and `ui_input`.
+
+Start with `map_summary` (or `editor_state` for the active selection and camera). Request only the IDs and fields
+you need. For example, find a surface and read nearby brushes with one `map_query` call:
+
+```json
+{"queries":[{"q":"raycast","from":[0,0,256],"max":512},{"q":"find","kind":"brush","near":[0,0,0],"radius":512,"fields":["id","bounds"],"rows":true,"limit":6}]}
+```
+
+Use `map_help` with no arguments for a short index, with `{"kind":"op"}` to list edit operations, or with a kind
+and name for a single example. For instance, `{"kind":"op","name":"ge"}` returns the fields and a dry-run
+example for a ledge. The kinds are `method`, `op`, and `query`. Substitute the IDs, coordinates and file paths
+from your project when an example uses placeholders. Use `map_query` with `q:"schema"` for actor properties.
+
+Group related geometry, actors and traversal into one change document. In a project session, call `map_apply`
+with `dryRun:true`, inspect the diff, then apply and save. In a live editor, use `map_propose` for a visual
+review, then check `map_proposal` for the user's decision. An accepted proposal is one undo step. Finish with
+`map_check` and `map_build`, or `map_playtest` when the game is available. Object replies also include
+structured content. Invalid edits return the operation and field where available.
 
 ## Live editing in the open editor
 

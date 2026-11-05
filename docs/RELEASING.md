@@ -47,7 +47,8 @@ shows `0.2.0-dev (eb6af75)`. A `-dev` build never updates itself.
    documents and `version.json`, checks the folder (only the expected names, no PDBs, a notice for every third-party
    library, no path of the build machine in any file, `ose --help` runs) and writes, in `local/release/<version>/`: the zip, its `.sha256`, `SHA256SUMS`,
    `notes.md` (drafted from the commits since the last tag) and `publish.ps1`.
-3. Edit `notes.md`. Try the zip: extract it somewhere and run it.
+3. Edit `notes.md`. Try the zip: extract it somewhere and run it. Run `python -B tools/Test-Mcp.py "<extracted folder>/ose/ose.exe"`
+   to check MCP discovery and build a test map with the packaged CLI.
 4. Run `publish.ps1`. It uploads everything as a **draft** release (`gh release create --draft`), which editors never
    see.
 5. Check the draft on GitHub and publish it. Editors find it at their next check.

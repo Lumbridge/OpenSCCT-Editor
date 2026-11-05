@@ -89,6 +89,16 @@ ose summary <project.osmap>
 
 Prints a short overview of the map (counts, starts, objectives, problems).
 
+### mcp
+
+```
+ose mcp [project.osmap] | mcp --live [--pid N]
+```
+
+Runs an MCP server over UTF-8 stdio. Exposes map editing, queries, builds and playtests, plus visual proposals
+and editor state in live mode. See [MCP for mapping agents](SCRIPTING.md#mcp-for-mapping-agents) for setup and
+focused tool discovery.
+
 ### serve
 
 ```

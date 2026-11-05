@@ -68,10 +68,11 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   meshes, collision caps), the stealth light map, reachability and routes for each side, and the bots' nav graph.
 - **Assets and prefabs.** An asset catalogue of the materials, meshes, textures and sounds a map can use, glTF and OBJ
   mesh import with generated collision, and prefabs with a starter library.
-- **Command line and scripting.** Everything the app does is also an `ose` command
+- **Command line, scripting and MCP.** Everything the app does is also an `ose` command
   ([docs/CLI.md](docs/CLI.md)). Scripts edit maps through change documents and queries, one shot or over a JSON-lines
   server, and can edit the map open in the editor as ghost proposals to accept or reject
-  ([docs/SCRIPTING.md](docs/SCRIPTING.md)).
+  ([docs/SCRIPTING.md](docs/SCRIPTING.md)). MCP clients can use the same tools through `ose mcp`.
+  The editor can copy its [MCP configuration](docs/SCRIPTING.md#mcp-for-mapping-agents).
 
 ## Build from source
 

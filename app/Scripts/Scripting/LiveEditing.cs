@@ -472,6 +472,10 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
 
     private void RegisterActions()
     {
+        _ctx.AddAction(new EditorAction("live.copyMcp", "Copy MCP Configuration", "Tools/Scripting", CopyMcpConfiguration)
+        {
+            Order = 110, Description = "Copies stdio MCP server configuration for this editor installation",
+        });
         _ctx.AddAction(new EditorAction("live.allow", "Allow Live Script Connections", "Tools/Scripting", () =>
         {
             bool on = _server is null;
@@ -517,6 +521,38 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
             IsEnabled = () => ChangesArgument() is not null,
             Description = "Headless runs: -- --changes=<file.json> --run=live.previewFile",
         });
+    }
+
+    private void CopyMcpConfiguration()
+    {
+        string command = Path.Combine(Path.GetDirectoryName(OS.GetExecutablePath())!, "ose", "ose.exe");
+        var args = new List<string> { "mcp", "--live" };
+        if (!OS.HasFeature("template"))
+        {
+            string cli = Path.Combine(ProjectSettings.GlobalizePath("res://"), "..", "src", "OpenScct.Editor.Cli", "bin");
+            string? dll = new[] { "Debug", "Release" }
+                .Select(configuration => Path.GetFullPath(Path.Combine(cli, configuration, "net10.0", "ose.dll")))
+                .FirstOrDefault(File.Exists);
+            if (dll is null)
+            {
+                _ctx.Log("Build OpenScct.Editor.Cli before copying MCP configuration.", Severity.Error);
+                return;
+            }
+
+            command = "dotnet";
+            args.Insert(0, dll);
+        }
+        else if (!File.Exists(command))
+        {
+            _ctx.Log("The bundled ose/ose.exe is missing from this editor installation.", Severity.Error);
+            return;
+        }
+
+        SvJsonObject config = ApiJson.Obj(("mcpServers", ApiJson.Obj(("openscct-editor", ApiJson.Obj(
+            ("command", ApiJson.Str(command)),
+            ("args", ApiJson.Strings(args)))))));
+        EditorClipboard.Set(ApiJson.Write(config));
+        _ctx.Log("Copied OpenSCCT Editor MCP configuration.");
     }
 
     private static string? ChangesArgument() =>

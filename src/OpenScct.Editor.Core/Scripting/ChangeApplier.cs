@@ -79,6 +79,8 @@ public static partial class ChangeApplier
     /// <summary>The op names, for help and schemas.</summary>
     public static IEnumerable<string> OpNames => s_ops.Keys;
 
+    internal static IReadOnlyList<string> OpFields(string name) => s_ops[name].Keys;
+
     /// <summary>Applies a change document to a session.</summary>
     /// <param name="dryRun">Overrides the document's dryRun when not null.</param>
     /// <param name="author">Overrides the document's author when not null.</param>

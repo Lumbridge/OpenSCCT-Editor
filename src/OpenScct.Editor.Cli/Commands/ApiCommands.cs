@@ -21,6 +21,8 @@ internal static class ApiCommands
         new("query", "query <project.osmap> <query-json|file|->",
             "Runs a query ({\"q\":\"find\",...}, or {\"queries\":[...]}) and prints compact JSON.", Guard(QueryAsync)),
         new("summary", "summary <project.osmap>", "Prints a short overview of the map (counts, starts, objectives, problems).", Guard(SummaryAsync)),
+        new("mcp", "mcp [project.osmap] | mcp --live [--pid N]",
+            "Serves the OpenSCCT Editor tools over Model Context Protocol (stdio).", McpAsync),
         new("serve", "serve [project.osmap] | serve --live [--pid N]",
             "Serves the scripting API as JSON lines on stdin/stdout: {\"id\",\"method\",\"params\"} -> {\"id\",\"result\"|\"error\"}. " +
             "--live edits the map open in the running editor.", Guard(ServeAsync)),
@@ -85,6 +87,24 @@ internal static class ApiCommands
         await new JsonLinesServer(host).RunAsync(input, output).ConfigureAwait(false);
         (host as IDisposable)?.Dispose();
         return 0;
+    }
+
+    private static async Task<int> McpAsync(CliArgs a)
+    {
+        try
+        {
+            IApiEndpoint host = Endpoint(a, "ose mcp");
+            using var connection = host as IDisposable;
+            (TextReader input, TextWriter output) = Stdio();
+            string version = typeof(ApiCommands).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+            await new McpServer(host, version).RunAsync(input, output).ConfigureAwait(false);
+            return 0;
+        }
+        catch (Exception ex) when (ex is ApiException or IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            Console.Error.WriteLine($"ose mcp: {ex.Message}");
+            return 1;
+        }
     }
 
     /// <summary>The running editor (--live), or a host over the project folder given.</summary>
