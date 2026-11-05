@@ -361,8 +361,9 @@ public static class PlaceableLanding
 
         batch.Draw(cam, canvas);
 
-        // No mesh to show (an alarm, a switch): the class's icon marks the spot, as the dot alone is easily missed.
-        if (StaticMeshDrawing.MeshPath(ghost) is null && cam.ToScreen(spot.Location) is { } at)
+        // No mesh to show (an alarm, a switch, or a device whose mesh ships nowhere): the class's icon marks the spot,
+        // as the dot alone is easily missed.
+        if (!StaticMeshDrawing.DrawsMesh(ghost) && cam.ToScreen(spot.Location) is { } at)
         {
             const int Size = EditorTheme.IconSizeTile;
             canvas.DrawTextureRect(ActorIcons.For(Placeables.Kind(entry, EditorServices.Classes), colour, Size),

@@ -568,7 +568,9 @@ out of the match. Icons sort among themselves. Selected: the selection colour, f
 everything, with the actor's box and arrow. Actors whose facing matters (starts, cameras, lasers, spot and sun lights,
 switches, stations, emitters…) keep their direction arrow, long enough to reach out from under the icon. Volumes and
 other brush-shaped actors keep their shape and get no icon; actors drawn with a mesh keep it and show a small icon
-(75 %) only while selected. The 2D views and the camera monitor keep the boxes. View > Show > Actor Icons turns the icons
+(75 %) only while selected. "Drawn with a mesh" is the views' own mesh lookup (a baked map's source map and the
+device meshes included): a device whose mesh ships nowhere gets its icon once that is known, while a plain static mesh
+actor with a missing mesh keeps its box. The 2D views and the camera monitor keep the boxes. View > Show > Actor Icons turns the icons
 off (boxes again); it is greyed out while View > Show > Actors is off.
 
 Clicking follows what is drawn: an icon on show takes the click over the lines, boxes and surfaces it is drawn over

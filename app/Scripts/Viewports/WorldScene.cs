@@ -807,25 +807,23 @@ public sealed partial class WorldScene : Node3D
         // An actor drawn as an icon in the perspective view keeps its box in the 2D views (and when selected).
         IconUse use = ActorIconBatch.Use(a);
         e.Wire = AddMesh(e.Root, lines.Build(), SceneStyle.Lines, use == IconUse.Always ? VisualLayers.ActorBoxes : VisualLayers.Common);
-        if (use != IconUse.None)
-        {
-            ActorKind kind = ActorIcons.KindOf(a);
-            e.Icon = use;
-            e.IconCell = ActorIcons.Cell(kind);
-            e.IconTint = look.Color;
-            if (use == IconUse.Always && ActorKinds.ShowsDirection(kind, a, ClassDefaults.Catalog))
-            {
-                // Longer than the icon is wide in the world, so it reaches out from under it. Selected, the actor's box
-                // and its own arrow show instead.
-                var arrow = new LineBuilder();
-                BuildArrow(arrow, a, look.Color, Math.Max(look.HalfExtent.X * 2, ActorIconBatch.WorldSize * 1.25));
-                e.IconArrow = AddMesh(e.Root, arrow.Build(), SceneStyle.Lines, VisualLayers.ActorIcons);
-            }
-        }
-
+        SetIcon(e, a, look, use);
         if (e.Wire is not null)
         {
-            Render.StaticMeshDrawing.Attach(e.Root, a, e.Wire, look.Color, () => _meshLight.GetValueOrDefault(a.Id));
+            // A device whose mesh turns out to ship nowhere (not even in a baked map's source map or the gameplay pack)
+            // is drawn without one, so it shows its icon instead of a bare box.
+            MeshInstance3D wire = e.Wire;
+            Render.StaticMeshDrawing.Attach(e.Root, a, wire, look.Color, () => _meshLight.GetValueOrDefault(a.Id), () =>
+            {
+                if (ReferenceEquals(e.Wire, wire) && e.Icon != IconUse.Always && ActorIconBatch.Use(a) == IconUse.Always)
+                {
+                    wire.Layers = VisualLayers.ActorBoxes;
+                    e.Wire = wire;
+                    SetIcon(e, a, look, IconUse.Always);
+                    SetSelected(e, e.Selected);
+                    _iconsDirty = true;
+                }
+            });
         }
 
         if (ConveyorDesign.Is(a))
@@ -839,6 +837,29 @@ public sealed partial class WorldScene : Node3D
             e.Light = PreviewLight(a);
             e.Light.Visible = LightOn(a);
             e.Root.AddChild(e.Light);
+        }
+    }
+
+    /// <summary>Gives <paramref name="e"/> the icon of <paramref name="use"/> (its atlas cell and colour, and for an actor
+    /// always drawn as an icon its direction arrow).</summary>
+    private static void SetIcon(Entry e, Actor a, ActorLook look, IconUse use)
+    {
+        if (use == IconUse.None)
+        {
+            return;
+        }
+
+        ActorKind kind = ActorIcons.KindOf(a);
+        e.Icon = use;
+        e.IconCell = ActorIcons.Cell(kind);
+        e.IconTint = look.Color;
+        if (use == IconUse.Always && e.IconArrow is null && ActorKinds.ShowsDirection(kind, a, ClassDefaults.Catalog))
+        {
+            // Longer than the icon is wide in the world, so it reaches out from under it. Selected, the actor's box
+            // and its own arrow show instead.
+            var arrow = new LineBuilder();
+            BuildArrow(arrow, a, look.Color, Math.Max(look.HalfExtent.X * 2, ActorIconBatch.WorldSize * 1.25));
+            e.IconArrow = AddMesh(e.Root, arrow.Build(), SceneStyle.Lines, VisualLayers.ActorIcons);
         }
     }
 

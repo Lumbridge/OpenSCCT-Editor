@@ -22,7 +22,7 @@ public static class StaticMeshes
 {
     private const string SkeletalKey = "skeletal:";
     private static readonly Dictionary<string, LoadedMesh?> s_loaded = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly Dictionary<string, List<Action<LoadedMesh>>> s_waiting = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, List<(Action<LoadedMesh> Ready, Action? Missing)>> s_waiting = new(StringComparer.OrdinalIgnoreCase);
     private static int s_generation;
 
     /// <summary>The mesh when it is already loaded (null while loading or when missing).</summary>
@@ -31,11 +31,14 @@ public static class StaticMeshes
     /// <summary>True when <paramref name="path"/> was looked for and nothing ships it (or its file is broken).</summary>
     public static bool IsMissing(string path) => s_loaded.TryGetValue(path, out LoadedMesh? m) && m is null;
 
+    /// <summary>True when the skeletal mesh <paramref name="asset"/> was looked for and nothing ships it.</summary>
+    public static bool IsMissingSkeletal(string asset) => IsMissing(SkeletalKey + asset);
+
     /// <summary>Calls <paramref name="ready"/> with the mesh of <paramref name="path"/> on the main thread (at once when
-    /// loaded). A missing mesh never calls back. The lookup runs on the worker too: the first one in a library builds
-    /// its index (a baked map's source map reads its whole glb JSON for it).</summary>
-    public static void Request(string path, Action<LoadedMesh> ready) =>
-        Load(path, "Static mesh", ready, () =>
+    /// loaded), or <paramref name="missing"/> when nothing ships it (or its file is broken). The lookup runs on the worker
+    /// too: the first one in a library builds its index (a baked map's source map reads its whole glb JSON for it).</summary>
+    public static void Request(string path, Action<LoadedMesh> ready, Action? missing = null) =>
+        Load(path, "Static mesh", ready, missing, () =>
         {
             AssetResolver resolver = AssetService.Instance.Resolver;
             return () => resolver.FindViewMesh(path) is { } lib ? MeshSections.Read(lib) : null;
@@ -43,8 +46,8 @@ public static class StaticMeshes
 
     /// <summary>As <see cref="Request"/>, for the skeletal mesh <paramref name="asset"/> in its reference pose.</summary>
     /// <remarks>The file is read on the worker; its placement (RotOrigin, scale) is cached there for the caller.</remarks>
-    public static void RequestSkeletal(string asset, Action<LoadedMesh> ready) =>
-        Load(SkeletalKey + asset, "Skeletal mesh", ready, () =>
+    public static void RequestSkeletal(string asset, Action<LoadedMesh> ready, Action? missing = null) =>
+        Load(SkeletalKey + asset, "Skeletal mesh", ready, missing, () =>
         {
             AssetResolver resolver = AssetService.Instance.Resolver;
             return resolver.HasSkeletalMesh(asset) ? () => resolver.FindSkeletalMesh(asset) is { } file ? MeshSections.Read(file) : null : null;
@@ -55,7 +58,7 @@ public static class StaticMeshes
 
     /// <summary>Loads the mesh cached as <paramref name="path"/>: <paramref name="find"/> (main thread) gives the reader
     /// that runs on a worker, or null when nothing ships it.</summary>
-    private static void Load(string path, string kind, Action<LoadedMesh> ready, Func<Func<List<MeshSection>?>?> find)
+    private static void Load(string path, string kind, Action<LoadedMesh> ready, Action? missing, Func<Func<List<MeshSection>?>?> find)
     {
         if (s_loaded.TryGetValue(path, out LoadedMesh? done))
         {
@@ -63,17 +66,21 @@ public static class StaticMeshes
             {
                 ready(done);
             }
+            else
+            {
+                missing?.Invoke();
+            }
 
             return;
         }
 
-        if (s_waiting.TryGetValue(path, out List<Action<LoadedMesh>>? list))
+        if (s_waiting.TryGetValue(path, out List<(Action<LoadedMesh>, Action?)>? list))
         {
-            list.Add(ready);
+            list.Add((ready, missing));
             return;
         }
 
-        s_waiting[path] = [ready];
+        s_waiting[path] = [(ready, missing)];
         Func<List<MeshSection>?>? read = find();
         int generation = s_generation;
         BackgroundJobs.Start(_ =>
@@ -110,11 +117,18 @@ public static class StaticMeshes
 
         LoadedMesh? mesh = sections is null ? null : Build(sections);
         s_loaded[path] = mesh;
-        if (s_waiting.Remove(path, out List<Action<LoadedMesh>>? list) && mesh is not null)
+        if (s_waiting.Remove(path, out List<(Action<LoadedMesh> Ready, Action? Missing)>? list))
         {
-            foreach (Action<LoadedMesh> ready in list)
+            foreach ((Action<LoadedMesh> ready, Action? missing) in list)
             {
-                ready(mesh);
+                if (mesh is not null)
+                {
+                    ready(mesh);
+                }
+                else
+                {
+                    missing?.Invoke();
+                }
             }
         }
     }

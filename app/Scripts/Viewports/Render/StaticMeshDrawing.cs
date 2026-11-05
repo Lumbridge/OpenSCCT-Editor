@@ -53,6 +53,16 @@ public static class StaticMeshDrawing
         a.Shape is null && (int)Rules.Number(a, "DrawType") == DrawTypeMesh ? PropValues.AssetPath(Rules.Value(a, "Mesh")) : null;
 
     /// <summary>
+    /// Whether the views draw <paramref name="a"/> with a mesh: it has a static or skeletal mesh path, and the lookup
+    /// (<see cref="StaticMeshes"/> through the open map's resolver: the project, the converted maps, a baked map's source
+    /// map and the gameplay pack) has not found that nothing ships it. While the mesh is still loading this is true;
+    /// <see cref="Attach"/>'s <c>missing</c> callback says when it turned out false.
+    /// </summary>
+    public static bool DrawsMesh(Actor a) =>
+        MeshPath(a) is { } path ? !StaticMeshes.IsMissing(path)
+        : SkeletalPath(a) is { } skeletal && !StaticMeshes.IsMissingSkeletal(skeletal);
+
+    /// <summary>
     /// The wall mount a security camera shows in the game, or null: SCamera.PreBeginPlay with bAutoWallSupport spawns
     /// its WallSupportStaticmesh where <see cref="SecurityDevices.CameraMount"/> says (the game's 200 uu trace back for
     /// the wall, through the traversal world the security tools use; the last one built while a new one builds, and no
@@ -90,11 +100,21 @@ public static class StaticMeshDrawing
     /// <summary>Adds the mesh of <paramref name="a"/> under <paramref name="root"/> (now, or when it has loaded) and
     /// redraws <paramref name="wire"/> as the mesh's bounds. The wire marks this build: when the actor was rebuilt
     /// before the mesh loaded, its old wire has left the root and the late mesh is dropped. <paramref name="bakedLight"/>
-    /// gives the Lit Preview's light for the actor once the mesh is there (<see cref="ShowBakedLight"/>).</summary>
-    public static void Attach(Node3D root, Actor a, MeshInstance3D wire, Color color, Func<LitPreviewMesh?> bakedLight)
+    /// gives the Lit Preview's light for the actor once the mesh is there (<see cref="ShowBakedLight"/>).
+    /// <paramref name="missing"/> runs (main thread, while this build is current) when nothing ships the actor's static or
+    /// skeletal mesh, so the caller can show the actor as one drawn without a mesh.</summary>
+    public static void Attach(Node3D root, Actor a, MeshInstance3D wire, Color color, Func<LitPreviewMesh?> bakedLight, Action? missing = null)
     {
-        bool Current(string name) => GodotObject.IsInstanceValid(root) && !root.IsQueuedForDeletion() && GodotObject.IsInstanceValid(wire) &&
-            !wire.IsQueuedForDeletion() && wire.GetParent() == root && root.GetNodeOrNull(name) is null;
+        bool Built() => GodotObject.IsInstanceValid(root) && !root.IsQueuedForDeletion() && GodotObject.IsInstanceValid(wire) &&
+            !wire.IsQueuedForDeletion() && wire.GetParent() == root;
+        bool Current(string name) => Built() && root.GetNodeOrNull(name) is null;
+        Action? gone = missing is null ? null : () =>
+        {
+            if (Built())
+            {
+                missing();
+            }
+        };
 
         if (MeshPath(a) is { } path)
         {
@@ -110,7 +130,7 @@ public static class StaticMeshDrawing
                 var lines = new LineBuilder();
                 lines.Box(ObjectGeometry.Corners(mesh.Min, mesh.Max).Select(c => Space.ToGodot(MeshToWorld(a, c) - a.Location)).ToList(), color);
                 wire.Mesh = lines.Build();
-            });
+            }, gone);
         }
         else if (SkeletalPath(a) is { } skeletal)
         {
@@ -120,7 +140,7 @@ public static class StaticMeshDrawing
                 {
                     root.AddChild(Holder(mesh, SkeletalName, local));
                 }
-            });
+            }, gone);
         }
 
         if (Mount(a) is { } mount)

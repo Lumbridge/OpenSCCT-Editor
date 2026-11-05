@@ -1,4 +1,5 @@
 using Godot;
+using OpenScct.Editor.Core.Classes;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Model;
 using OpenScctEditor.Shell;
@@ -100,11 +101,15 @@ public sealed partial class ActorIconBatch : MultiMeshInstance3D
     }
 
     /// <summary>The icon an actor shows in the perspective view: none for a brush-shaped actor, a small one while
-    /// selected for one drawn with a mesh (its static or skeletal mesh, or a conveyor's; one whose mesh does not ship
-    /// keeps its box, as an imported map's static mesh actors do), else always.</summary>
+    /// selected for one drawn with a mesh (its static or skeletal mesh, or a conveyor's), else always. Whether a mesh is
+    /// drawn follows the views' own lookup (<see cref="StaticMeshDrawing.DrawsMesh"/>, which finds a baked map's
+    /// source-map meshes and the gameplay pack's device meshes): a device whose mesh nothing ships shows its icon once
+    /// that is known. A plain static mesh actor whose mesh does not ship keeps its box (where the mesh stands), as an
+    /// imported map's do, rather than a field of mesh icons.</summary>
     public static IconUse Use(Actor a) =>
         a.Shape is { Faces.Count: > 0 } ? IconUse.None
-        : ConveyorDesign.Is(a) || StaticMeshDrawing.MeshPath(a) is not null || StaticMeshDrawing.SkeletalPath(a) is not null ? IconUse.WhenSelected
+        : ConveyorDesign.Is(a) || StaticMeshDrawing.DrawsMesh(a) || (StaticMeshDrawing.MeshPath(a) is not null && ActorIcons.KindOf(a) == ActorKind.StaticMesh)
+            ? IconUse.WhenSelected
         : IconUse.Always;
 
     /// <summary>The size an icon is drawn at <paramref name="at"/>, in the view's UI pixels (picking uses it): a
