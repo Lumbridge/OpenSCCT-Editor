@@ -12,13 +12,14 @@ namespace OpenScct.Editor.Cli.Commands;
 /// <c>check</c> works anywhere; <c>stage</c> downloads and unpacks into a release folder; <c>apply</c> and
 /// <c>recover</c> are run by the editor from a copy of <c>ose</c> outside the folder they change.
 /// </summary>
-internal static class UpdateCommands
+internal static partial class UpdateCommands
 {
     [CliProvider]
     public static IEnumerable<CliCommand> Provide() =>
     [
         new("update",
-            "update check [--install <folder>] [--prereleases] [--json] | update stage [--install <folder>] [--prereleases] | " +
+            "update check [--install <folder>] [--prereleases] [--json] | update stage [--install <folder>] [--version <version>] [--json] [--cancel-file <path>] | " +
+            "update status --install <folder> --json | update install-staged --install <folder> --version <version> --json | " +
             "update apply --plan <file> [--no-restart] | update recover (--install <folder> | --swap <record>) [--no-restart]",
             "Editor updates. check: is a newer release out (for the release folder ose runs from, or --install; from source it " +
             "only reports the latest release)? stage: download, verify and unpack it into that folder, ready to swap in when the " +
@@ -30,7 +31,9 @@ internal static class UpdateCommands
     private static Task<int> RunAsync(CliArgs a) => a.Positional(0) switch
     {
         "check" => CheckAsync(a),
-        "stage" => StageAsync(a),
+        "stage" => ProtocolAsync(a, () => StageProtocolAsync(a)),
+        "status" => ProtocolAsync(a, () => Task.FromResult(Status(a))),
+        "install-staged" => ProtocolAsync(a, () => InstallStagedAsync(a)),
         "apply" => Task.FromResult(Apply(a)),
         "recover" => Task.FromResult(Recover(a)),
         _ => throw new ArgumentException("give check, stage, apply or recover"),
@@ -59,7 +62,8 @@ internal static class UpdateCommands
 
         SemVersion current = info?.ParsedVersion ?? EditorRelease.Version;
         using HttpClient http = UpdateHttp.ForChecks();
-        UpdateCheckResult r = await UpdateChecker.CheckAsync(http, UpdatePaths.Default, current, a.Has("prereleases"), CancellationToken.None).ConfigureAwait(false);
+        UpdateCheckResult r = await UpdateChecker.CheckAsync(http, UpdatePaths.Default, current, a.Has("prereleases"), CancellationToken.None,
+            install is not null && LauncherIntegration.IsManaged(install)).ConfigureAwait(false);
         bool fromSource = info is null;
         if (a.Has("json"))
         {
@@ -103,47 +107,6 @@ internal static class UpdateCommands
         }
 
         return r.Kind == UpdateCheckKind.Failed ? 1 : 0;
-    }
-
-    private static async Task<int> StageAsync(CliArgs a)
-    {
-        string install = InstallFolder(a) ?? throw new ArgumentException("give --install <release folder> (ose is not running from one)");
-        SemVersion current = InstallInfo.Read(install).ParsedVersion!;
-        var paths = UpdatePaths.Default;
-        var log = new UpdateLog(paths.Log) { Echo = Console.Out };
-        if (UpdateStager.FindStaged(install, current) is { } ready)
-        {
-            Console.WriteLine($"{ready.Version} is already staged in {ready.Folder}; it is installed when the editor next restarts.");
-            return 0;
-        }
-
-        using HttpClient checks = UpdateHttp.ForChecks();
-        UpdateCheckResult r = await UpdateChecker.CheckAsync(checks, paths, current, a.Has("prereleases"), CancellationToken.None).ConfigureAwait(false);
-        if (r.Kind == UpdateCheckKind.Failed)
-        {
-            Console.Error.WriteLine($"ose update: could not check for updates: {r.Problem}");
-            return 1;
-        }
-
-        if (r.Offer is not { } offer)
-        {
-            Console.WriteLine($"Up to date ({current}).");
-            return 0;
-        }
-
-        using HttpClient downloads = UpdateHttp.ForDownloads();
-        var stager = new UpdateStager(downloads, paths, install, log);
-        try
-        {
-            await stager.StageAsync(offer, new ConsoleProgress(), CancellationToken.None).ConfigureAwait(false);
-            Console.WriteLine("It is installed when the editor next restarts.");
-            return 0;
-        }
-        catch (UpdateException ex)
-        {
-            Console.Error.WriteLine($"ose update: {ex.Message}");
-            return 1;
-        }
     }
 
     private static int Apply(CliArgs a)

@@ -48,6 +48,17 @@ public sealed class UpdateResult
     }
 
     /// <summary>Reads and removes the install's result; null when there is none (or it cannot be read).</summary>
+    public static UpdateResult? Read(string install)
+    {
+        try
+        {
+            string path = UpdatePaths.Result(install);
+            return File.Exists(path) ? JsonSerializer.Deserialize<UpdateResult>(File.ReadAllText(path), Json) : null;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException) { return null; }
+    }
+
+    /// <summary>Consumes the editor's startup notification. Launcher status must use Read instead.</summary>
     public static UpdateResult? Take(string install)
     {
         string path = UpdatePaths.Result(install);

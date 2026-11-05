@@ -13,7 +13,12 @@ public static class GameExe
     public static readonly IReadOnlyList<string> Variables = ["OSE_GAME_EXE", "OPENSCCT_EXE"];
 
     /// <summary>The launcher's folder (install.json, versions, content).</summary>
-    public static string LauncherRoot => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenSCCT");
+    public const string LauncherRootVariable = "OSE_LAUNCHER_ROOT";
+
+    public static string? ManagedLauncherRoot => Environment.GetEnvironmentVariable(LauncherRootVariable) is { Length: > 0 } root
+        ? Path.GetFullPath(root) : null;
+
+    public static string LauncherRoot => ManagedLauncherRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenSCCT");
 
     /// <summary>The full path of the first candidate that exists, or null.</summary>
     public static string? Find(string? given = null)
@@ -32,8 +37,11 @@ public static class GameExe
     /// <summary>The launcher's content folder for an exe it installed (the game finds a checkout's on its own).</summary>
     public static string? LauncherContent(string exe)
     {
+        if (!exe.StartsWith(Path.Combine(LauncherRoot, "versions") + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return null;
+        string packs = Path.Combine(LauncherRoot, "packs");
+        if (File.Exists(Path.Combine(packs, "shared", "classes.json"))) return packs;
         string content = Path.Combine(LauncherRoot, "content");
-        return exe.StartsWith(Path.Combine(LauncherRoot, "versions"), StringComparison.OrdinalIgnoreCase) && Directory.Exists(content) ? content : null;
+        return ManagedLauncherRoot is null && Directory.Exists(content) ? content : null;
     }
 
     /// <summary>
@@ -65,6 +73,12 @@ public static class GameExe
     private static IEnumerable<string?> Candidates(string? given)
     {
         yield return given;
+        if (ManagedLauncherRoot is not null)
+        {
+            if (CurrentVersion() is { } managedVersion)
+                yield return Path.Combine(LauncherRoot, "versions", managedVersion, "OpenSCCT.exe");
+            yield break;
+        }
         foreach (string name in Variables)
         {
             yield return Environment.GetEnvironmentVariable(name);

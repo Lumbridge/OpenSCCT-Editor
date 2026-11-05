@@ -17,6 +17,13 @@ for [OpenSCCT](https://github.com/Lumbridge/OpenSCCT), the community rewrite of 
 
 ## Get it
 
+The Windows OpenSCCT launcher includes an optional **Editor** tab. Choose **Set up Editor** there to install the
+editor and any missing game/content prerequisites, then **Open Editor**. The launcher keeps the editor in its own
+`editor` folder and can update it; Help > Check for Updates inside the editor continues to work too. Installing the
+editor is optional for players. This requires launcher and editor releases that include launcher integration.
+
+For a standalone installation:
+
 1. Install [OpenSCCT](https://github.com/Lumbridge/OpenSCCT#play) with its launcher (version 0.8.93 or newer). The
    editor uses the content the launcher installs (class data, the converted maps, their materials and meshes) and
    starts the game for Play and test rounds.

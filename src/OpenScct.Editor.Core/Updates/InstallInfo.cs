@@ -24,6 +24,12 @@ public sealed class InstallInfo
     [JsonPropertyName("format")]
     public int Format { get; set; } = CurrentFormat;
 
+    [JsonPropertyName("launcherProtocol")]
+    public int LauncherProtocol { get; set; }
+
+    [JsonPropertyName("minimumGameVersion")]
+    public string? MinimumGameVersion { get; set; }
+
     [JsonPropertyName("product")]
     public string Product { get; set; } = EditorRelease.Product;
 

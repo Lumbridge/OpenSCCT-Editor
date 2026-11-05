@@ -86,7 +86,10 @@ public sealed class SvmbuildRunner
     public static SvmbuildRunner? Find(string? root = null)
     {
         string? env = Environment.GetEnvironmentVariable("OSE_OPENSCCT");
-        foreach (string? candidate in new[] { root, env, EditorServices.OpenScctRoot, ContentLocator.FindOpenScctRoot(), InstalledBuild() })
+        IEnumerable<string?> candidates = GameExe.ManagedLauncherRoot is not null
+            ? new[] { root, InstalledBuild() }
+            : new[] { root, env, EditorServices.OpenScctRoot, ContentLocator.FindOpenScctRoot(), InstalledBuild() };
+        foreach (string? candidate in candidates)
         {
             if (string.IsNullOrEmpty(candidate) || !Directory.Exists(candidate))
             {
@@ -119,7 +122,7 @@ public sealed class SvmbuildRunner
     /// <summary>The launcher's current game build (<c>%LOCALAPPDATA%\OpenSCCT\install.json</c>), or null.</summary>
     public static string? InstalledBuild()
     {
-        string launcher = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenSCCT");
+        string launcher = GameExe.LauncherRoot;
         string manifest = Path.Combine(launcher, "install.json");
         if (!File.Exists(manifest))
         {

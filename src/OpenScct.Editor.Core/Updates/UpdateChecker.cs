@@ -42,7 +42,7 @@ public sealed record UpdateCheckResult(
 /// </summary>
 public static class UpdateChecker
 {
-    public static async Task<UpdateCheckResult> CheckAsync(HttpClient http, UpdatePaths paths, SemVersion current, bool prereleases, CancellationToken cancel)
+    public static async Task<UpdateCheckResult> CheckAsync(HttpClient http, UpdatePaths paths, SemVersion current, bool prereleases, CancellationToken cancel, bool requireLauncherProtocol = false)
     {
         ArgumentNullException.ThrowIfNull(http);
         ArgumentNullException.ThrowIfNull(paths);
@@ -58,7 +58,7 @@ public static class UpdateChecker
         var offers = new Dictionary<ReleaseInfo, UpdateOffer>();
         foreach (ReleaseInfo release in feed.Releases)
         {
-            if (Offer(release) is { } offer)
+            if (Offer(release) is { } offer && (!requireLauncherProtocol || LauncherIntegration.Asset(offer) is not null))
             {
                 offers[release] = offer;
             }

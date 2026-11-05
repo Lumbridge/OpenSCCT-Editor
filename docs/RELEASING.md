@@ -127,6 +127,62 @@ administrator rights. Background runs (`--background`, `OSE_BACKGROUND=1`) never
 
 ## Trying updates out
 
+### Launcher integration (protocol 1)
+
+The Windows launcher installs an optional editor copy under `<launcher-root>/editor` and writes `.launcher-managed`
+outside the package's owned entries. Standalone installs keep their existing behavior. The launcher and the editor
+both use the editor's updater; neither replaces a running editor or command-line tool.
+
+Every new package includes `launcherProtocol: 1` and `minimumGameVersion: "0.8.93"` in format-1 `version.json`.
+Packaging also emits `OpenSCCT-Editor-<version>-win-x64.launcher.json` with those two fields and includes it in the
+generated draft-release upload command. Publish this sidecar with the ZIP and checksum: a managed editor only offers
+releases carrying it and validates both the sidecar and downloaded manifest before staging. The marker survives
+updates because it is not a package entry. A release without compatible metadata must never replace a managed copy.
+
+The launcher supplies `OSE_LAUNCHER_ROOT`; managed discovery uses that root's current `install.json`, `packs`, and
+installed content builder instead of inherited executable/content overrides. It resolves the current game when Play
+or a CLI command needs it, so keeping the editor open across a game update does not pin an old executable. Standalone
+`OSE_GAME_EXE`/`OSE_CONTENT` overrides remain supported. GUI and headless play use the same effective content root.
+
+The machine interface is:
+
+```
+ose update status --install <folder> --json
+ose update stage --install <folder> --version <exact-version> --json --cancel-file <path>
+ose update install-staged --install <folder> --version <exact-version> --json
+```
+
+`status` reports `launcherProtocol`, `current`, `staged`, `minimumGameVersion`, `busy`, and the last update `result`
+without consuming the editor's notification. `stage` writes JSON lines to stdout: progress has `type: "progress"`,
+`phase`, `received`, `total`, and `bytesPerSecond`; the final line has `type: "result"`, `status`, `version`, `message`,
+and optional `folder`. Status is `staged`, `current`, `cancelled`, `busy`, or `failed`. Creating the cancellation file
+stops download/extraction cooperatively, leaving the installed editor untouched. Exact selection never downgrades.
+
+Before `install-staged`, copy the entire installed `ose` directory to a unique helper directory outside the editor
+installation and run that copy. A CLI waiting inside the installed tree would keep its own files locked on Windows.
+The command prepares a unique copy of the **new** build's helper, applies the selected staged version, and waits.
+It returns `installed`, `current`, `busy`, or `failed`, never opens a visible editor, and retains the headless startup
+probe and rollback. Applying is not cancellable. Exit codes for both operations are 0 success, 1 failed/cancelled,
+and 2 busy. Diagnostic logs go to stderr in JSON mode. The launcher reads `version.json` after completion rather
+than relying on its previous version display.
+
+Staging, applying, recovery, and cleanup acquire the existing global update lock before the per-install swap lock.
+GUI and CLI handoffs use a unique installation/operation ID for helper and plan paths; no version-only plan is
+overwritten by another window. Update results remain in `.update/result.json` until the editor consumes them.
+
+Run the isolated regression checks with:
+
+```
+dotnet run --project tools/launcher-integration-checks/LauncherIntegrationChecks.csproj
+```
+
+They cover root switching, packed content, retained/pruned game versions, standalone overrides, lock contention,
+verified staging, cancellation, corrupted staging, successful/failed startup probes, rollback/recovery, preservation
+of user files, and structured CLI orchestration. Release QA must additionally use exported Godot packages and verify
+both launcher-driven and in-editor updates before distributing the integrated launcher.
+
+### Local release feeds
+
 `OSE_UPDATE_API` replaces `https://api.github.com` in the updater's requests (for example
 `http://127.0.0.1:8770`; only a loopback address is accepted, and its answers are cached apart from GitHub's), so a
 local server can play the release feed: it answers

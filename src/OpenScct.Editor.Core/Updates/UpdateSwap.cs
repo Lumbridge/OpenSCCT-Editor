@@ -155,6 +155,8 @@ public sealed class UpdateSwap
         ArgumentNullException.ThrowIfNull(plan);
         string install = Path.GetFullPath(plan.Install);
         string work = UpdatePaths.WorkFolder(install);
+        using UpdateLock? download = UpdateLock.TryTake(_paths);
+        if (download is null) { WriteReady(plan, ReadyBusy); return 2; }
         using UpdateLock? held = UpdateLock.TryTake(UpdatePaths.SwapLock(install));
         if (held is null)
         {
@@ -211,7 +213,9 @@ public sealed class UpdateSwap
         try
         {
             next = InstallInfo.Read(staged);
-            if ((UpdateStager.Problem(staged, next, to) ?? UpdateStager.CheckFiles(staged, next)) is { } problem)
+            if ((UpdateStager.Problem(staged, next, to)
+                ?? (LauncherIntegration.IsManaged(install) ? LauncherIntegration.Problem(next) : null)
+                ?? UpdateStager.CheckFiles(staged, next)) is { } problem)
             {
                 throw new InvalidDataException(problem);
             }
@@ -316,6 +320,8 @@ public sealed class UpdateSwap
     public int Recover(string install, bool restart)
     {
         install = Path.GetFullPath(install);
+        using UpdateLock? download = UpdateLock.TryTake(_paths);
+        if (download is null) return 2;
         using UpdateLock? held = UpdateLock.TryTake(UpdatePaths.SwapLock(install));
         if (held is null)
         {
@@ -368,6 +374,8 @@ public sealed class UpdateSwap
             return true;
         }
 
+        using UpdateLock? download = UpdateLock.TryTake(paths);
+        if (download is null) return true;
         using UpdateLock? held = UpdateLock.TryTake(UpdatePaths.SwapLock(install));
         if (held is null)
         {

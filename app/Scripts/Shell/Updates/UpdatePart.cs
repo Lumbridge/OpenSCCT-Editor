@@ -188,7 +188,7 @@ public sealed partial class UpdatePart : Node, IShellPart
             try
             {
                 using System.Net.Http.HttpClient http = UpdateHttp.ForChecks();
-                UpdateCheckResult r = await UpdateChecker.CheckAsync(http, _paths, UpdateEnvironment.Version, prereleases, cancel).ConfigureAwait(false);
+                UpdateCheckResult r = await UpdateChecker.CheckAsync(http, _paths, UpdateEnvironment.Version, prereleases, cancel, LauncherIntegration.IsManaged(_env!.Install)).ConfigureAwait(false);
                 BackgroundJobs.Post(() => Found(r, quiet: true));
             }
             catch (OperationCanceledException) when (cancel.IsCancellationRequested)
@@ -209,7 +209,7 @@ public sealed partial class UpdatePart : Node, IShellPart
         BackgroundJobs.Run(CheckJob, cancel =>
         {
             using System.Net.Http.HttpClient http = UpdateHttp.ForChecks();
-            return UpdateChecker.CheckAsync(http, _paths, UpdateEnvironment.Version, prereleases, cancel).GetAwaiter().GetResult();
+            return UpdateChecker.CheckAsync(http, _paths, UpdateEnvironment.Version, prereleases, cancel, LauncherIntegration.IsManaged(_env!.Install)).GetAwaiter().GetResult();
         }, r => Found(r, quiet: false));
     }
 
@@ -516,8 +516,16 @@ public sealed partial class UpdatePart : Node, IShellPart
 
         try
         {
-            string helper = UpdateHelper.Prepare(_paths, Path.Combine(staged.Folder, EditorRelease.CliFolder), staged.Version.ToString());
-            string planFile = _paths.Plan(staged.Version);
+            string operation = UpdatePaths.OperationName(_env.Install, staged.Version);
+            string helper;
+            string planFile = _paths.OperationPlan(operation);
+            using (UpdateLock? download = UpdateLock.TryTake(_paths))
+            {
+                if (download is null) return HelperLaunch.Busy;
+                using UpdateLock? swap = UpdateLock.TryTake(UpdatePaths.SwapLock(_env.Install));
+                if (swap is null) return HelperLaunch.Busy;
+                helper = UpdateHelper.Prepare(_paths, Path.Combine(staged.Folder, EditorRelease.CliFolder), operation);
+            }
             string ready = planFile + ".ready";
             File.Delete(ready);
             var plan = new ApplyPlan

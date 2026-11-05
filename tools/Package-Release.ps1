@@ -255,6 +255,8 @@ $files = @(Get-ChildItem -LiteralPath $folder -Recurse -File -Force | Where-Obje
         }
     })
 $info = [ordered]@{
+    launcherProtocol = 1
+    minimumGameVersion = '0.8.93'
     format   = 1
     product  = 'OpenSCCT Editor'
     version  = $Version
@@ -313,6 +315,9 @@ $line = "$hash  $zipName`n"
 [IO.File]::WriteAllText("$zip.sha256", $line, $utf8)
 [IO.File]::WriteAllText((Join-Path $Out 'SHA256SUMS'), $line, $utf8)
 
+$launcherName = "OpenSCCT-Editor-$Version-win-x64.launcher.json"
+[IO.File]::WriteAllText((Join-Path $Out $launcherName), (@{ launcherProtocol = 1; minimumGameVersion = '0.8.93' } | ConvertTo-Json) + "`n", $utf8)
+
 # --- Notes and the publish command ---------------------------------------------------------------------------------
 $previous = git -C $repo describe --tags --abbrev=0 --match 'v*' HEAD 2>$null
 $log = if ($LASTEXITCODE -eq 0 -and $previous) { git -C $repo log --no-merges "$previous..HEAD" --format='- %s' } else { @('- First release.') }
@@ -328,7 +333,7 @@ if (-not $Local) {
         '# Uploads this package as a DRAFT release. Review it on GitHub, then publish it there.',
         '$ErrorActionPreference = ''Stop''',
         "gh release create v$Version -R $owner --draft --target $commit --title 'OpenSCCT Editor $Version' --notes-file (Join-Path `$PSScriptRoot 'notes.md')$pre ``",
-        "    (Join-Path `$PSScriptRoot '$zipName') (Join-Path `$PSScriptRoot '$zipName.sha256') (Join-Path `$PSScriptRoot 'SHA256SUMS')"
+        "    (Join-Path `$PSScriptRoot '$zipName') (Join-Path `$PSScriptRoot '$zipName.sha256') (Join-Path `$PSScriptRoot 'SHA256SUMS') (Join-Path `$PSScriptRoot '$launcherName')"
     )
     Write-Text (Join-Path $Out 'publish.ps1') ($publish -join "`n")
 }

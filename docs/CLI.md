@@ -20,6 +20,9 @@ This page is generated from `ose help`.
 
 ## Projects
 
+For launcher-managed installation/update commands and their structured protocol, see
+[Launcher integration](RELEASING.md#launcher-integration-protocol-1).
+
 ### new
 
 ```

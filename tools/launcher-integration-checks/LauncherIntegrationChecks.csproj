@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>LauncherIntegrationChecks</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/OpenScct.Editor.Core/OpenScct.Editor.Core.csproj" />
+    <ProjectReference Include="../../src/OpenScct.Editor.Cli/OpenScct.Editor.Cli.csproj" />
+  </ItemGroup>
+</Project>

@@ -448,6 +448,11 @@ public static class ContentLocator
 
     public static string? FindContentRoot()
     {
+        if (GameExe.ManagedLauncherRoot is { } managed)
+        {
+            string downloaded = Path.Combine(managed, "packs");
+            return File.Exists(Path.Combine(downloaded, "shared", "classes.json")) ? downloaded : null;
+        }
         foreach (string? c in Candidates("OSE_CONTENT", ".content"))
         {
             if (c is not null && File.Exists(Path.Combine(c, "shared", "classes.json")))
@@ -456,7 +461,7 @@ public static class ContentLocator
             }
         }
 
-        string packs = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenSCCT", "packs");
+        string packs = Path.Combine(GameExe.LauncherRoot, "packs");
         return File.Exists(Path.Combine(packs, "shared", "classes.json")) ? packs : null;
     }
 

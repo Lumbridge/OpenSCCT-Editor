@@ -8,6 +8,10 @@ https://github.com/Lumbridge/OpenSCCT-Editor
 Running it
 ----------
 
+The Windows OpenSCCT launcher also offers an optional Editor tab. It can install the editor
+and its game/content prerequisites together, then open or update it. The editor's own updater
+continues to work for launcher installations. This needs releases with launcher integration.
+
 Double-click "OpenSCCT Editor.exe". Keep the whole folder together: the exe needs the
 "data_OpenScctEditor_windows_x86_64" folder next to it.
 

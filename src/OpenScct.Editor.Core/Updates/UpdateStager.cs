@@ -10,7 +10,9 @@ using OpenScct.Launcher.Versioning;
 namespace OpenScct.Editor.Core.Updates;
 
 /// <summary>An update that failed for a reason the user can act on; the message is written for them.</summary>
-public sealed class UpdateException(string message, Exception? inner = null) : Exception(message, inner);
+public class UpdateException(string message, Exception? inner = null) : Exception(message, inner);
+
+public sealed class UpdateBusyException(string message) : UpdateException(message);
 
 /// <summary>A new build unpacked and checked in the install's <c>.update</c> folder, ready to swap in.</summary>
 public sealed record StagedUpdate(SemVersion Version, string Folder, InstallInfo Info);
@@ -92,12 +94,16 @@ public sealed class UpdateStager
     {
         ArgumentNullException.ThrowIfNull(offer);
         using UpdateLock held = UpdateLock.TryTake(_paths)
-            ?? throw new UpdateException("Another OpenSCCT Editor window is downloading or installing an update. It will finish it.");
+            ?? throw new UpdateBusyException("Another OpenSCCT Editor window is downloading or installing an update. It will finish it.");
+        using UpdateLock swap = UpdateLock.TryTake(UpdatePaths.SwapLock(_install))
+            ?? throw new UpdateBusyException("Another updater is changing this editor installation. Try again when it finishes.");
+        cancel.ThrowIfCancellationRequested();
+        bool managed = LauncherIntegration.IsManaged(_install);
 
         string staging = UpdatePaths.Staged(_install, offer.Version);
         if (FindStaged(_install, SemVersion.Parse("0.0.0")) is { } ready && ready.Version == offer.Version)
         {
-            if (CheckFiles(ready.Folder, ready.Info) is not { } damaged)
+            if ((CheckFiles(ready.Folder, ready.Info) ?? (managed ? LauncherIntegration.Problem(ready.Info) : null)) is not { } damaged)
             {
                 _log.Write($"{offer.Version} is already staged in {ready.Folder}");
                 return ready;
@@ -117,6 +123,7 @@ public sealed class UpdateStager
         RequireSpace(_install, size * 3);
 
         var client = new GitHubReleaseClient(_http, EditorRelease.Source, _paths.Cache);
+        if (managed) await LauncherIntegration.ValidateOfferAsync(_http, client, offer, cancel).ConfigureAwait(false);
         string expected = await ExpectedHashAsync(client, offer, cancel).ConfigureAwait(false);
         string zip = _paths.Download(offer.Archive.Name);
         _log.Write($"downloading {offer.Archive.Name} ({offer.Archive.Size} bytes) to {zip}");
@@ -149,13 +156,14 @@ public sealed class UpdateStager
             Directory.CreateDirectory(UpdatePaths.WorkFolder(_install));
             HideWorkFolder();
             SafeDelete.Tree(staging, UpdatePaths.WorkFolder(_install));
-            Unpack(zip, staging);
+            Unpack(zip, staging, cancel);
             InstallInfo info = InstallInfo.Read(staging);
-            if ((Problem(staging, info, offer.Version) ?? CheckFiles(staging, info)) is { } problem)
+            if ((Problem(staging, info, offer.Version) ?? (managed ? LauncherIntegration.Problem(info) : null) ?? CheckFiles(staging, info)) is { } problem)
             {
                 throw new InvalidDataException(problem);
             }
 
+            cancel.ThrowIfCancellationRequested();
             AtomicFile.WriteAllText(Path.Combine(staging, UpdatePaths.StagedMarkName), offer.Version.ToString());
             _log.Write($"staged {offer.Version} in {staging}");
             return new StagedUpdate(offer.Version, staging, info);
@@ -186,7 +194,7 @@ public sealed class UpdateStager
     /// <see cref="MaxUnpackedBytes"/> unpacked. Each file is written under a temporary name first. Throws
     /// <see cref="InvalidDataException"/> for an archive that breaks a rule.
     /// </summary>
-    public static void Unpack(string zip, string target)
+    public static void Unpack(string zip, string target, CancellationToken cancel = default)
     {
         string root = Path.TrimEndingDirectorySeparator(Path.GetFullPath(target)) + Path.DirectorySeparatorChar;
         string prefix = EditorRelease.FolderName + "/";
@@ -201,6 +209,7 @@ public sealed class UpdateStager
         byte[] buffer = new byte[1 << 16];
         foreach (ZipArchiveEntry entry in archive.Entries)
         {
+            cancel.ThrowIfCancellationRequested();
             string name = entry.FullName.Replace('\\', '/');
             if (!name.StartsWith(prefix, StringComparison.Ordinal))
             {
@@ -247,6 +256,7 @@ public sealed class UpdateStager
                 int read;
                 while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
                 {
+                    cancel.ThrowIfCancellationRequested();
                     written += read;
                     if (written > entry.Length)
                     {

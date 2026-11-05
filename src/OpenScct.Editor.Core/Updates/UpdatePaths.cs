@@ -48,6 +48,13 @@ public sealed class UpdatePaths
 
     public string Plan(SemVersion version) => Path.Combine(Root, $"apply-{version}.json");
 
+    /// <summary>Every handoff owns its helper and plan, even when two installs update to the same version.</summary>
+    public static string OperationName(string install, SemVersion version) =>
+        Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(Path.GetFullPath(install).ToUpperInvariant())))[..16]
+        + "-" + version + "-" + Guid.NewGuid().ToString("N");
+
+    public string OperationPlan(string operation) => Path.Combine(Root, $"apply-{operation}.json");
+
     public string Download(string assetName) => Path.Combine(Downloads, assetName);
 
     public static string WorkFolder(string install) => Path.Combine(install, WorkFolderName);
