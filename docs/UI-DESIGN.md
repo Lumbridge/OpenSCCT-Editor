@@ -507,6 +507,53 @@ Object type icons (outliner, classes, inspector title, prefab placeholders, plac
 | `type-group` | Folder (outliner groups) |
 | `type-layer` | Stacked sheets |
 
+Actor kind icons (`ActorIcons`: the perspective view's actor icons, and any list of actors or classes). Each kind of
+actor (`ActorKinds` in Core, the one class → kind mapping, by class inheritance) draws one of the type icons above or
+one of these:
+
+| Name | Drawing | Kinds |
+|---|---|---|
+| `type-light` | Bulb | Point light |
+| `type-light-spot` | Lamp head over a cone with an elliptical foot | Spot light (LightEffect spot), SProjoFixe |
+| `type-light-sun` | Circle with eight rays | Sun light (LightEffect sun) |
+| `type-light-trigger` | Small bulb with a lightning bolt beside it | STriggerLight |
+| `type-start-spy` | `type-start` with a goggle band across the head | Spy start (TeamNumber 0) |
+| `type-start-merc` | `type-start` with a helmet (dome and brim) | Mercenary start (TeamNumber 1) |
+| `type-camnet` | Camera body with a lens, wired to two nodes below | SCamNetwork |
+| `type-sensor-motion` | Dome with two waves over it | SVolumetricSensor, motion tracking |
+| `type-sensor-presence` | Person in a dashed circle | SPresenceTrigger, SPresDetector |
+| `type-mine` | Circle with spikes | SMines and subclasses, SBallTrap |
+| `type-laptop` | Open laptop | SComputerObjectiveTrigger |
+| `type-bomb` | Round bomb with a fuse | SBombTargetObjectiveTrigger |
+| `type-disk` | Disc with a hole and a shine arc | SDisk |
+| `type-flag` | Pole with a swallow-tail flag | SFlag |
+| `type-flag-zone` | Flag standing in a dashed ground ellipse | SFlagDropZone |
+| `type-mission` | Clipboard with a tick (as `check-list`) | SMission |
+| `type-ammo` | Three cartridges | SAmmoStock |
+| `type-health` | Cross in a rounded square | SInfirmary |
+| `type-switch` | Wall plate with a lever | SInterrupteur, SGPOControl |
+| `type-lift` | Car with up and down chevrons | SLift |
+| `type-message` | Speech bubble with two text lines | SMessageTrigger |
+| `type-glass` | Pane with two shine strokes | SVitre |
+| `type-gameplay` | Hexagon with a dot | Other gameplay objects (SBasicGamePlayObject) |
+
+The other kinds use `type-camera` (cameras), `type-laser`, `type-alarm`, `type-objective` (SObjective, objective
+triggers), `type-door`, `type-mover`, `type-trigger`, `type-volume`, `type-zone` (ZoneInfo), `type-sound`,
+`type-emitter`, `type-projector`, `type-event` (SMagicEvent, SShaker), `pin` (keypoints), `type-note`, `type-tip`,
+`type-path`, `type-conveyor`, `type-mesh`, `type-pawn`, and `type-actor` for anything else. `ActorIcons.For(className)`
+gives a class's icon (16 px, `TextDim`); `ActorIcons.For(actor, colour)` refines it by the actor's own values.
+
+**In the perspective view** (`ActorIconBatch`), an actor with nothing else to draw shows its kind icon instead of its
+box: the drawing in white with a dark halo (so it reads on light and dark surfaces), tinted by the actor's category
+colour (`ActorLook`), as a screen-facing billboard. It is `Preferences.ActorIconSize` UI pixels (default 26, 12–64,
+Edit > Preferences > Views) while near and shrinks with distance to no less than 55 % of that. It shows whole while the
+world leaves its actor in view and hides whole behind a wall; icons sort among themselves. Selected: the selection
+colour, drawn over everything, with the actor's box. Actors whose facing matters (starts, cameras, lasers, spot and sun
+lights, switches, stations, emitters…) keep their direction arrow, long enough to reach out from under the icon.
+Volumes and other brush-shaped actors keep their shape and get no icon; actors drawn with a mesh keep it and show a
+small icon (75 %) only while selected. The 2D views keep the boxes. View > Show > Actor Icons turns the icons off
+(boxes again).
+
 Toolbar icons (`ToolbarIcons.cs`, size 16): existing set kept; `brush.add` and `brush.subtract` redrawn as a cube with
 a +/− badge in `CsgAdd`/`CsgSubtract`; `tools.face` with a clearly filled top face (Accent fill α 0.6) so it differs
 from `tools.brush`; new `tools.conveyor` (two rollers and a belt).
