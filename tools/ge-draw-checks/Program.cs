@@ -1,4 +1,9 @@
+using OpenScct.Content;
 using OpenScct.Content.Json;
+using OpenScct.Content.Loading;
+using OpenScct.Core;
+using OpenScct.Physics.Collision;
+using OpenScct.Game.Movement;
 using OpenScct.Editor.Cli;
 using OpenScct.Editor.Core.Commands;
 using OpenScct.Editor.Core.Compile;
@@ -43,7 +48,7 @@ internal static class Program
                 Check(parts.Count > 0, kind + " makes visible geometry");
                 Check(parts.All(b => b.Shape.Faces.Count >= 4 && b.WorldFaces().All(f => f.Vertices.All(Finite))), kind + " makes finite closed solids");
                 WorldModel shape = WorldModel.Build(parts, [], worldSolid: false, numbering: null);
-                Check(shape.Visible.Count > 0 && (kind == GeKinds.Fence ? shape.Solid.Count > 0 : shape.Solid.Count == 0),
+                Check(shape.Visible.Count > 0 && (kind is GeKinds.Fence or GeKinds.Pipe or GeKinds.Pole ? shape.Solid.Count > 0 : shape.Solid.Count == 0),
                     kind + " remains visible with collision appropriate for traversal");
                 if (vertical)
                 {
@@ -146,6 +151,7 @@ internal static class Program
             Check(build.Ok, "compiled GE fixture passes strict SVMap validation: " + string.Join("; ", build.Findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));
             Check(build.Stats.GetValueOrDefault("brushes") == expanded.Brushes.Count && build.Stats.GetValueOrDefault("csg.visible") > 6,
                 "compiled fixture includes the generated brush surfaces alongside the room");
+            CheckPipeCollision(root);
             Console.WriteLine($"PASS: {_checks} GE drawing checks. Fixture: {root}");
         }
         catch
@@ -153,6 +159,58 @@ internal static class Program
             Console.Error.WriteLine("GE checks fixture retained: " + root);
             throw;
         }
+    }
+
+    private static void CheckPipeCollision(string root)
+    {
+        var project = MapProject.CreateDefault("PipeCollision", "Pipe collision regression");
+        Brush room = Box.Make("Room0", new Vec3(4096, 2048, 1024), CsgOper.Subtract);
+        room.Location = new Vec3(0, 0, 512);
+        project.Brushes.Add(room);
+        Vec3 facing = new(0.6, 0.8, 0);
+        foreach (double radius in new double[] { 0.5, 6, 10, 32 })
+        {
+            Vec3 foot = new((project.Ges.Count - 1.5) * 700, 0, 0);
+            Ge pipe = GeDrawing.Create(GeKinds.Pipe, foot, foot + Vec3.UnitZ * 512, facing, new GeAppearance { Radius = radius });
+            pipe.Id = "Pipe" + project.Ges.Count;
+            project.Ges.Add(pipe);
+        }
+
+        CompileResult build = new MapCompiler().Compile(project, Path.Combine(root, project.Id), new CompileOptions
+        {
+            FastLighting = true, WriteClassTable = false, Validate = true,
+        });
+        Check(build.Ok, "pipe collision fixture compiles");
+        SvMap map = SvMap.Load(build.OutputFolder);
+        CollisionWorld world = CollisionWorld.Build(map.Collision);
+        const ETraceFlags flags = ETraceFlags.TRACE_Level | ETraceFlags.TRACE_LevelGeometry;
+        foreach (Ge pipe in project.Ges)
+        {
+            Vec3 foot = pipe.Points[0];
+            FVector from = V(foot + facing * 120 + Vec3.UnitZ * 100);
+            FVector to = V(foot - facing * 120 + Vec3.UnitZ * 100);
+            Check(world.LineCheck(out _, null, to, from, default, flags), "pipe blocks a line trace at radius " + pipe.Appearance!.Radius);
+            Check(world.LineCheck(out var hit, null, to, from, new FVector(35, 35, 90), flags), "pipe blocks a walking cylinder");
+            double distance = (hit.Location - V(foot)).Size2D();
+            Check(distance > 15 && distance < 55, "walking stop is inside the pipe grab window: radius " + pipe.Appearance!.Radius + " distance " + distance);
+            FVector hold = V(foot + facing * 37 + Vec3.UnitZ * 100);
+            Check(!world.LineCheck(out _, null, hold + new FVector(0, 0, 200), hold, new FVector(35, 35, 90), flags),
+                "pipe collision leaves the climbing cylinder clear");
+            PawnRig rig = PawnRig.Create(PawnTeam.Spy, map.Collision, map.Traversal);
+            FRotator rotation = V(-facing).Rotation();
+            rig.Place(V(foot + facing * 120 + Vec3.UnitZ * 89.5), rotation, rotation, crouched: false);
+            rig.SetFastSpeed(true);
+            rig.WaitStill(120);
+            for (int tick = 0; tick < 180 && rig.Pawn.Location.Z < 250; tick++)
+            {
+                rig.Step(new PlayerInputFrame { BT_Up = 1 });
+            }
+            Check(rig.Pawn.Location.Z >= 250 && rig.Controller.GetStateName().ToString() == "s_OnPipe",
+                "spy walks into and climbs the generated pipe at radius " + pipe.Appearance!.Radius +
+                ": " + rig.Controller.GetStateName() + " at " + rig.Pawn.Location);
+        }
+
+        static FVector V(Vec3 p) => new((float)p.X, (float)p.Y, (float)p.Z);
     }
 
     private static void SaveSample(string folder)

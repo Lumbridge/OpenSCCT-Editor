@@ -4,6 +4,7 @@ using OpenScct.Editor.Core.Commands;
 using OpenScct.Editor.Core.Geometry;
 using OpenScct.Editor.Core.Model;
 using OpenScctEditor.Core;
+using OpenScctEditor.Panels;
 
 namespace OpenScctEditor.Tools;
 
@@ -17,6 +18,8 @@ public sealed partial class TransformBar : HBoxContainer
     private readonly ToolManager _tools;
     private readonly Label _label = new() { CustomMinimumSize = new Vector2(64, 0), HorizontalAlignment = HorizontalAlignment.Right };
     private readonly LineEdit[] _fields = new LineEdit[3];
+    private readonly SpinBox[] _spinners = new SpinBox[3];
+    private bool _refreshing;
 
     /// <summary>The (rounded) text each field was filled with: a field still showing it was not edited.</summary>
     private readonly string[] _shown = ["", "", ""];
@@ -34,14 +37,23 @@ public sealed partial class TransformBar : HBoxContainer
         string[] names = ["X", "Y", "Z"];
         for (int i = 0; i < 3; i++)
         {
-            var edit = new LineEdit { CustomMinimumSize = new Vector2(86, 0), PlaceholderText = names[i], SelectAllOnFocus = true };
+            SpinBox spin = PanelUi.Spin(this, -1048576, 1048576, 0.000000001, 0, names[i], 96);
+            spin.AllowGreater = spin.AllowLesser = true;
+            spin.CustomArrowStep = 1;
+            LineEdit edit = spin.GetLineEdit();
+            spin.ValueChanged += value =>
+            {
+                if (_refreshing) { return; }
+                edit.Text = value.ToString("R", CultureInfo.InvariantCulture);
+                Apply();
+            };
             edit.TextSubmitted += _ =>
             {
                 Apply();
                 edit.ReleaseFocus();
             };
             _fields[i] = edit;
-            AddChild(edit);
+            _spinners[i] = spin;
         }
 
         EditorContext ctx = tools.Context;
@@ -56,6 +68,7 @@ public sealed partial class TransformBar : HBoxContainer
 
     public void Refresh()
     {
+        _refreshing = true;
         MapProject p = _tools.Context.Project;
         string[] labels = Mode switch
         {
@@ -71,7 +84,7 @@ public sealed partial class TransformBar : HBoxContainer
         {
             LineEdit f = _fields[i];
             f.PlaceholderText = labels[i];
-            f.Editable = state is not null;
+            _spinners[i].Editable = state is not null;
             if (f.HasFocus())
             {
                 continue;
@@ -83,7 +96,13 @@ public sealed partial class TransformBar : HBoxContainer
                 TransformMode.Scale => Format(s.Scale[i]),
                 _ => Format(s.Location[i]),
             };
+            if (double.TryParse(f.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double number))
+            {
+                _spinners[i].SetValueNoSignal(number);
+                f.Text = _shown[i];
+            }
         }
+        _refreshing = false;
     }
 
     private void Apply()

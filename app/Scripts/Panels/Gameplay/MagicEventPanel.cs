@@ -170,7 +170,7 @@ public partial class MagicEventPanel : EditorPanel
         head.AddChild(new Label { Text = $"Group {g + 1}", ThemeTypeVariation = "GroupLabel", TooltipText = $"Group {g} in the game's lists" });
         head.AddChild(new VSeparator());
         head.AddChild(new Label { Text = "Repeat", ThemeTypeVariation = "Dim", TooltipText = "0: every time; n: n more cycles; -1: off", MouseFilter = MouseFilterEnum.Pass });
-        SpinBox repeat = PanelUi.Spin(head, -1, 999, 1, group.Repeat, "0: every time; n: n more cycles; -1: off", DelayWidth, scrub: true);
+        SpinBox repeat = PanelUi.Spin(head, -1, 999, 1, group.Repeat, "0: every time; n: n more cycles; -1: off", DelayWidth);
         // Steps of the spin box in a row make one undo step.
         repeat.ValueChanged += v => Edit(list => list[g] = list[g] with { Repeat = (int)v }, $"magic.repeat.{_id}.{g}");
         var sequence = new CheckBox { Text = "Sequence", TooltipText = "One action per activation, in turn (sequence); off: every action each time", ButtonPressed = group.Sequence };
@@ -222,7 +222,7 @@ public partial class MagicEventPanel : EditorPanel
             tag.AddChild(ev);
             TagPicker(tag, graph, SetEvent).ThemeTypeVariation = "ComboButton";
             // A number box like the group's Repeat: no stepper in this dense row, the unit inside the box.
-            SpinBox delay = PanelUi.Spin(row, 0, MaxDelay, 0.01, a.Delay, "Seconds after the activation", DelayWidth, scrub: true);
+            SpinBox delay = PanelUi.Spin(row, 0, MaxDelay, 0.01, a.Delay, "Seconds after the activation", DelayWidth);
             delay.Suffix = "s";
             delay.ValueChanged += d =>
             {

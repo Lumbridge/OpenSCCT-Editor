@@ -54,7 +54,9 @@ public sealed class GeDrawTool : IViewportTool
 
     public string Description => "Draw ladders, pipes, poles, zip lines, overhead bars and fences with matching geometry; drag endpoints to reshape";
 
-    private string Kind => _tools.GeKind;
+    // POLE is a legacy marker with no runtime grab action. The creator offers PIPE for climbable poles.
+    private static readonly string[] DrawingKinds = GeKinds.All.Where(k => k != GeKinds.Pole).ToArray();
+    private string Kind => _tools.GeKind == GeKinds.Pole ? GeKinds.Pipe : _tools.GeKind;
 
     private bool Geometry
     {
@@ -239,10 +241,10 @@ public sealed class GeDrawTool : IViewportTool
     {
         ToolOptions.Name(bar, "GE");
         OptionButton kinds = ToolOptions.Options(bar, "Kind of GE to draw", 180);
-        for (int i = 0; i < GeKinds.All.Count; i++)
+        for (int i = 0; i < DrawingKinds.Length; i++)
         {
-            kinds.AddItem(KindTitle(GeKinds.All[i]), i);
-            if (GeKinds.All[i] == Kind)
+            kinds.AddItem(KindTitle(DrawingKinds[i]), i);
+            if (DrawingKinds[i] == Kind)
             {
                 kinds.Select(i);
             }
@@ -250,7 +252,7 @@ public sealed class GeDrawTool : IViewportTool
 
         kinds.ItemSelected += i =>
         {
-            _tools.GeKind = GeKinds.All[(int)i];
+            _tools.GeKind = DrawingKinds[(int)i];
             Reset();
             _tools.RefreshOptions();
         };
@@ -507,7 +509,12 @@ public sealed class GeDrawTool : IViewportTool
         // Keep the visible rails clear of the supporting wall.
         if (s.Normal is { } normal && Math.Abs(normal.Z) < 0.7)
         {
-            foot += n * (Geometry ? Appearance().Radius + 2 : 2);
+            double clearance = Geometry ? Appearance().Radius + 2 : 2;
+            if (Geometry && Kind == GeKinds.Pipe)
+            {
+                clearance += Appearance().Radius + 35 * (Math.Abs(n.X) + Math.Abs(n.Y)) - 35;
+            }
+            foot += n * clearance;
         }
 
         return GeShapes.ClimbPoints(foot, top, n);

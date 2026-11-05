@@ -3,14 +3,12 @@ using OpenScctEditor.Shell;
 
 namespace OpenScctEditor.Panels;
 
-/// <summary>A row of number boxes (X Y Z, Pitch Yaw Roll, R G B A), or one plain number box. A blank box with a dash
-/// means the selected objects differ there. <see cref="Edited"/> reports one component at a time, so multi-edit
-/// changes only that component, and only once the box was typed in: focusing a box and leaving it never writes the
-/// rounded display value back. A value too long for its box drops decimals to fit, in amber and with a leading ≈ when
-/// there is room; the tooltip and a focused box show it whole.</summary>
+/// <summary>Numeric spinners for scalar and vector properties. Mixed selections show a dash; typing and stepping
+/// edit one component at a time. Programmatic refreshes and untouched focus changes never commit an edit.</summary>
 public partial class AxisFields : HBoxContainer
 {
     private readonly List<LineEdit> _boxes = new();
+    private readonly List<SpinBox> _spinners = new();
     private readonly List<bool> _typed = new();
     private readonly List<double?> _values = new();
     private readonly List<string> _names = new();
@@ -40,13 +38,26 @@ public partial class AxisFields : HBoxContainer
                 f.AddChild(label);
             }
 
-            var box = new LineEdit
+            var spin = new SpinBox
             {
                 SizeFlagsHorizontal = SizeFlags.ExpandFill,
-                // No floor: the boxes share the row, so three of them fit a narrow dock.
                 CustomMinimumSize = Vector2.Zero,
+                AllowGreater = true,
+                AllowLesser = true,
+                Step = 0.000000001,
+                CustomArrowStep = 1,
                 SelectAllOnFocus = true,
                 TooltipText = axes[i],
+            };
+            LineEdit box = spin.GetLineEdit();
+            box.CustomMinimumSize = Vector2.Zero;
+            box.AddThemeConstantOverride("minimum_character_width", 1);
+            spin.ValueChanged += value =>
+            {
+                if (f._setting) { return; }
+                f._values[axis] = value;
+                f._typed[axis] = false;
+                f.Edited?.Invoke(axis, value, true);
             };
             box.TextChanged += t => f.Report(axis, t, final: false);
             box.TextSubmitted += t => f.Report(axis, t, final: true);
@@ -61,7 +72,8 @@ public partial class AxisFields : HBoxContainer
             f._typed.Add(false);
             f._values.Add(null);
             f._names.Add(axes[i]);
-            f.AddChild(box);
+            f._spinners.Add(spin);
+            f.AddChild(spin);
         }
 
         return f;
@@ -73,7 +85,7 @@ public partial class AxisFields : HBoxContainer
     {
         set
         {
-            foreach (LineEdit b in _boxes)
+            foreach (SpinBox b in _spinners)
             {
                 b.Editable = value;
             }
@@ -114,6 +126,7 @@ public partial class AxisFields : HBoxContainer
         _setting = true;
         if (_values[axis] is not { } v)
         {
+            _spinners[axis].SetValueNoSignal(0);
             box.Text = "";
             box.PlaceholderText = "—";
             box.TooltipText = _names[axis];
@@ -121,20 +134,10 @@ public partial class AxisFields : HBoxContainer
         else
         {
             string whole = PanelUi.Num(v);
-            string shown = Fitted(box, v, whole);
-            bool rounded = shown != whole;
-            box.Text = shown;
+            _spinners[axis].SetValueNoSignal(v);
+            box.Text = whole;
             box.PlaceholderText = "";
-            box.TooltipText = rounded ? $"{_names[axis]}: {whole} (rounded to fit the box)" : $"{_names[axis]}: {whole}";
-            // Amber says the number is rounded even when there is no room for the ≈.
-            if (rounded)
-            {
-                box.AddThemeColorOverride("font_color", EditorTheme.Warning);
-            }
-            else
-            {
-                box.RemoveThemeColorOverride("font_color");
-            }
+            box.TooltipText = $"{_names[axis]}: {whole}";
         }
 
         _setting = setting;
@@ -152,32 +155,6 @@ public partial class AxisFields : HBoxContainer
             _boxes[axis].SelectAll();
             _setting = setting;
         }
-    }
-
-    /// <summary>The value as it fits the box: whole when it can, else with fewer decimals and a leading ≈, so a rounded
-    /// number never passes for the exact one; a whole number with no room for the ≈ goes bare (the caller colours it).</summary>
-    private static string Fitted(LineEdit box, double v, string whole)
-    {
-        float room = box.Size.X - box.GetThemeStylebox("normal").GetMinimumSize().X;
-        Font font = box.GetThemeFont("font");
-        int size = box.GetThemeFontSize("font_size");
-        bool Fits(string text) => font.GetStringSize(text, HorizontalAlignment.Left, -1, size).X <= room;
-        if (room <= 0 || Fits(whole))
-        {
-            return whole;
-        }
-
-        string rounded = whole;
-        for (int decimals = 3; decimals >= 0; decimals--)
-        {
-            rounded = v.ToString(decimals == 0 ? "0" : "0." + new string('#', decimals), System.Globalization.CultureInfo.InvariantCulture);
-            if (rounded != whole && Fits("≈" + rounded))
-            {
-                return "≈" + rounded;
-            }
-        }
-
-        return rounded;
     }
 
     private void Report(int axis, string text, bool final)

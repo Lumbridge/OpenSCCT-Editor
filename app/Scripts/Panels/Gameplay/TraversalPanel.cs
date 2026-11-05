@@ -5,6 +5,8 @@ using OpenScct.Editor.Core.Model;
 using OpenScctEditor.Core;
 using OpenScctEditor.Gameplay;
 using OpenScctEditor.Shell;
+using OpenScctEditor.Viewports;
+using OpenScctEditor.Viewports.Overlays;
 
 namespace OpenScctEditor.Panels;
 
@@ -67,10 +69,19 @@ public partial class TraversalPanel : EditorPanel
         PanelUi.Columns(_proposals, ("Ledge", 120, true), ("Length", 64, false), ("Drop", 56, false));
         _proposals.ItemActivated += () =>
         {
-            if (Chosen().FirstOrDefault() is { } lip)
+            if (_proposals.GetSelected() is not { } item) { return; }
+            int index = item.GetMetadata(0).AsInt32();
+            if ((uint)index >= (uint)State.Proposals.Count) { return; }
+            Lip lip = State.Proposals[index];
+            State.HighlightProposal(lip);
+            if (ViewOverlays.All.FirstOrDefault(o => o.Id == "ge") is { } overlay)
             {
-                Context.JumpTo(lip.Mid);
+                ViewOverlays.Set(overlay, true);
             }
+            Vec3 pad = new(64, 64, 64);
+            ViewportLayout.Instance?.FrameAll((new Vec3(Math.Min(lip.A.X, lip.B.X), Math.Min(lip.A.Y, lip.B.Y), Math.Min(lip.A.Z, lip.B.Z)) - pad,
+                new Vec3(Math.Max(lip.A.X, lip.B.X), Math.Max(lip.A.Y, lip.B.Y), Math.Max(lip.A.Z, lip.B.Z)) + pad));
+            ViewOverlays.Invalidate();
         };
         box.AddChild(_proposals);
         _noProposals = PanelUi.EmptyState(_proposals, "traversal", "No proposals", "Detect finds ledges a player can grab; review them here before adding.");

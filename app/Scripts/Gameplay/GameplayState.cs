@@ -41,6 +41,13 @@ public sealed class GameplayState
     /// <summary>Lips the last detection found that no LG covers yet.</summary>
     public IReadOnlyList<Lip> Proposals { get; private set; } = [];
 
+    private Lip? _highlightedProposal;
+
+    /// <summary>The proposal being inspected in the viewport, until it is added, discarded or replaced.</summary>
+    public Lip? HighlightedProposal => _highlightedProposal is { } lip && Proposals.Contains(lip) ? lip : null;
+
+    public void HighlightProposal(Lip lip) => _highlightedProposal = Proposals.Contains(lip) ? lip : null;
+
     /// <summary>The last detection's summary line.</summary>
     public string LastDetection { get; private set; } = "";
 
@@ -193,6 +200,7 @@ public sealed class GameplayState
             _world = null;
             _building = null;
             Proposals = [];
+            _highlightedProposal = null;
             LastDetection = "";
         }
 

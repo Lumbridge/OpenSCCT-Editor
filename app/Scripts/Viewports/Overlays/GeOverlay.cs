@@ -72,8 +72,18 @@ public sealed class GeOverlay : IViewOverlay
         Color proposal = WorldScene.GeColor(GeKinds.LedgeGrab).Lightened(0.3f);
         foreach (Lip lip in GameplayState.Instance.Proposals)
         {
-            batch.Line(lip.A, lip.B, proposal, 2, dashed: true);
-            batch.Line(lip.Mid, lip.Mid + lip.Out * 16, proposal, 1);
+            bool highlighted = GameplayState.Instance.HighlightedProposal == lip;
+            Color colour = highlighted ? EditorTheme.AccentHover : proposal;
+            batch.Line(lip.A, lip.B, colour, highlighted ? 5 : 2, dashed: !highlighted);
+            batch.Line(lip.Mid, lip.Mid + lip.Out * 16, colour, highlighted ? 3 : 1);
+            if (highlighted)
+            {
+                foreach (Vec3 end in new[] { lip.A, lip.B })
+                {
+                    batch.Line(end - Vec3.UnitZ * 8, end + Vec3.UnitZ * 8, colour, 3);
+                }
+                batch.Label(lip.Mid + Vec3.UnitZ * 16, "Detected ledge", colour, pinned: true);
+            }
         }
     }
 

@@ -298,7 +298,7 @@ public partial class MatchPanel : EditorPanel
                 string id = m.Id;
                 int size = s;
                 int[] win = m.Match?.WinBySize() ?? new int[MatchRuleSet.TeamSizes];
-                SpinBox box = PanelUi.Spin(grid, 0, 255, 1, win[s], $"{id} at {s + 1}v{s + 1}", EditorTheme.SpinCompactWidth, scrub: true);
+                SpinBox box = PanelUi.Spin(grid, 0, 255, 1, win[s], $"{id} at {s + 1}v{s + 1}", EditorTheme.SpinCompactWidth);
                 box.SizeFlagsHorizontal = SizeFlags.ExpandFill;
                 box.ValueChanged += v => SetWin(id, size, (int)v);
                 _winBoxes[(id, s)] = box;

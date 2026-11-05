@@ -75,8 +75,8 @@ public static class GeGeometry
     }
 
     /// <summary>
-    /// Ordinary brushes in world space, with stable names local to this GE. Climbing visuals are non-solid: the
-    /// pawn's collision cylinder overlaps a pipe while climbing it. Fences have a two-unit solid panel (a wider
+    /// Ordinary brushes in world space, with stable names local to this GE. Pipes are solid and sit behind the
+    /// grab line so their front surface leaves room for the climbing cylinder. Fences have a two-unit solid panel (a wider
     /// panel blocks the native top-out sweep); their material must be climbable for climbing the fence body.
     /// </summary>
     public static IReadOnlyList<Brush> Build(Ge ge)
@@ -122,6 +122,20 @@ public static class GeGeometry
                 }
 
                 break;
+            case GeKinds.Pipe:
+                Vec3 climber = ge.Points.Count >= 3 ? (ge.Points[2] - a).With(2, 0).Normalized() : Vec3.UnitX;
+                if (climber == Vec3.Zero) { climber = Vec3.UnitX; }
+                // The standing cylinder has radius 35 and the pipe hold is 37 from the GE. Keeping the
+                // front surface on the line blocks walking through without trapping the climb in the pole.
+                // Generated brush collision uses an axis-aligned box, whose reach along diagonal facing
+                // directions is wider than 35. Account for it as well as the visual pole radius.
+                double boxReach = 35 * (Math.Abs(climber.X) + Math.Abs(climber.Y));
+                Vec3 offset = -climber * (look.Radius + boxReach - 35);
+                Tube(a + offset, b + offset, look.Radius, solid: true);
+                break;
+            case GeKinds.Pole:
+                Tube(a, b, look.Radius, solid: true);
+                break;
             case GeKinds.Fence:
                 Vec3 side = Vec3.Cross(direction, Vec3.UnitZ).Normalized();
                 if (side == Vec3.Zero)
@@ -149,7 +163,7 @@ public static class GeGeometry
 
         return pieces;
 
-        void Tube(Vec3 from, Vec3 to, double radius)
+        void Tube(Vec3 from, Vec3 to, double radius, bool solid = false)
         {
             Vec3 axis = (to - from).Normalized();
             (Vec3 u, Vec3 v) = Poly.Basis(axis);
@@ -177,7 +191,7 @@ public static class GeGeometry
                 }
             }
 
-            Add(polys);
+            Add(polys, solid);
         }
 
         void Add(List<List<Vec3>> polygons, bool solid = false)

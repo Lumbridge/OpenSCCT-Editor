@@ -540,6 +540,7 @@ public partial class PropertyGrid : VBoxContainer
 
     private RowEditor CreateEditor(PropField f) => f.Kind switch
     {
+        PropKind.Int or PropKind.Float => new(NumberEditor(f)),
         PropKind.Bool => new(BoolEditor(f)),
         PropKind.Enum => new(EnumEditor(f)),
         PropKind.Vector or PropKind.Rotator => new(AxisEditor(f)),
@@ -850,6 +851,20 @@ public partial class PropertyGrid : VBoxContainer
     {
         float d = Math.Abs(a - b) % 1f;
         return Math.Min(d, 1f - d);
+    }
+
+    private (Control, Action<RowState>, Func<bool>) NumberEditor(PropField f)
+    {
+        AxisFields field = AxisFields.Number(f.Name);
+        field.Edited += (_, value, final) =>
+        {
+            if (PropText.TryParse(PanelUi.Num(value), f.Kind, out SvJsonNode? parsed))
+            {
+                Apply(f, (_, _) => parsed, final);
+            }
+        };
+        return (field, state => field.SetValues([state.Mixed ? null : PropValues.Num(state.Values.FirstOrDefault())]),
+            () => field.HasFocusInside);
     }
 
     private (Control, Action<RowState>, Func<bool>) TextEditor(PropField f)
