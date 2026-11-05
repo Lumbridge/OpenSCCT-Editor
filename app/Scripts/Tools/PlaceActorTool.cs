@@ -12,11 +12,11 @@ namespace OpenScctEditor.Tools;
 
 /// <summary>
 /// Places an actor of the chosen class where you click (P): on the surface under the cursor in the perspective view
-/// (standing on floors, off walls), on the view plane at the selection's depth in the 2D views. A class of the
-/// placeables palette (cameras, lasers, objectives...; a palette tile's click arms it) goes by the palette's rule
-/// instead (<see cref="PlaceableLanding"/>): a faint copy shows where it would go as the pointer moves, and the click
-/// also makes the links the selection asks for and says what still needs wiring. The new actor is selected, so W/E/R
-/// adjust it at once.
+/// (standing on floors, off walls), on the view plane at the selection's depth in the 2D views. Armed by a placeables
+/// palette tile (cameras, lasers, objectives...: <see cref="ToolManager.PlaceFromPalette"/>), it goes by the palette's
+/// rule instead (<see cref="PlaceableLanding"/>): a faint copy shows where it would go as the pointer moves, and the
+/// click also makes the links the selection asks for and says what still needs wiring. A class typed or picked in the
+/// tool places the plain way. The new actor is selected, so W/E/R adjust it at once.
 /// </summary>
 public sealed class PlaceActorTool : IViewportTool
 {
@@ -46,8 +46,8 @@ public sealed class PlaceActorTool : IViewportTool
         return t.Contains('.') ? t : "Engine." + t;
     }
 
-    /// <summary>The palette entry of the class to place, or null for a class the palette does not list.</summary>
-    private Placeable? Palette => Placeables.Find(ResolveClass(_tools.PlaceClass), EditorServices.Classes);
+    /// <summary>The palette entry of the class to place when a palette tile armed the tool, else null.</summary>
+    private Placeable? Palette => _tools.PlaceFromPalette ? Placeables.Find(ResolveClass(_tools.PlaceClass), EditorServices.Classes) : null;
 
     /// <summary>Builds the collision world in the background, so the first hover of a palette class does not wait.</summary>
     public void Activate()
@@ -76,6 +76,10 @@ public sealed class PlaceActorTool : IViewportTool
             {
                 SetGhost(entry, PlaceableLanding.Find(view, motion.Position, entry, wait: false).Spot);
             }
+            else
+            {
+                SetGhost(null, null);
+            }
 
             return false;
         }
@@ -87,6 +91,15 @@ public sealed class PlaceActorTool : IViewportTool
 
         PlaceAt(view, press.Position);
         return true;
+    }
+
+    /// <summary>The pointer left the view: the preview goes until it is back over one.</summary>
+    public void PointerLeft(EditorViewport view)
+    {
+        if (view == _view)
+        {
+            SetGhost(null, null);
+        }
     }
 
     public void Draw(EditorViewport view, Control canvas)
@@ -163,7 +176,7 @@ public sealed class PlaceActorTool : IViewportTool
         {
             bar.AddChild(new TextureRect
             {
-                Texture = ActorIcons.For(palette.Class, EditorTheme.Text),
+                Texture = ActorIcons.For(Placeables.Kind(palette, EditorServices.Classes), EditorTheme.Text),
                 StretchMode = TextureRect.StretchModeEnum.KeepCentered,
                 TooltipText = $"{palette.Title} ({palette.Class}), from the placeables palette",
                 MouseFilter = Control.MouseFilterEnum.Pass,
@@ -180,9 +193,15 @@ public sealed class PlaceActorTool : IViewportTool
         };
         edit.TextSubmitted += t =>
         {
+            bool palette = _tools.PlaceFromPalette;
             _tools.PlaceClass = ResolveClass(t);
             edit.Text = _tools.PlaceClass;
             edit.ReleaseFocus();
+            if (palette)
+            {
+                SetGhost(null, null);
+                _tools.RefreshOptions();
+            }
         };
         bar.AddChild(edit);
 
@@ -199,8 +218,14 @@ public sealed class PlaceActorTool : IViewportTool
             };
             pick.Pressed += () => ClassPicker.Open(pick, names, _tools.PlaceClass, name =>
             {
+                bool palette = _tools.PlaceFromPalette;
                 _tools.PlaceClass = name;
                 edit.Text = name;
+                if (palette)
+                {
+                    SetGhost(null, null);
+                    _tools.RefreshOptions();
+                }
             });
             bar.AddChild(pick);
         }
@@ -208,8 +233,15 @@ public sealed class PlaceActorTool : IViewportTool
         if (Palette is { } entry)
         {
             ToolOptions.Action(bar, _tools.Context, PlaceablesActions.Open, "Palette").Icon = Icons.Get("palette", EditorTheme.Text);
-            ToolOptions.Hint(bar, $"Click in a view to place {entry.InSentence}",
-                "Select its mission, objective, alarm or network first to wire it", "The new actor is selected");
+            string wiring = PlaceableWiring.Hint(entry, EditorServices.Classes);
+            if (wiring.Length > 0)
+            {
+                ToolOptions.Hint(bar, $"Click in a view to place {entry.InSentence}", wiring, "The new actor is selected");
+            }
+            else
+            {
+                ToolOptions.Hint(bar, $"Click in a view to place {entry.InSentence}", "The new actor is selected");
+            }
             return;
         }
 

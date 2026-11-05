@@ -371,11 +371,15 @@ icon at 48 px in `TextDim` with a count badge.
 each tile is the class's mesh picture at thumbnail size with its kind icon in a badge at the top-left, or the kind icon
 alone at `IconSizeTile` in `Text` when the class has no mesh, over a centred name of at most two lines (every tile
 two lines tall, so a row lines up). A tile lights with `RowHover` under the pointer and shows the pointing hand; it
-is a `PanelContainer`, not a button, so it can be dragged as well as clicked. Favourites have their name in `Accent`
-and a star in their tooltip. The tooltip is the name, the class and group, then what it does, how it is placed and
-how many stock maps and this map use it, wrapped at 80 characters. Group headings (`PanelUi.Header`) only when more
-than one group shows; a group's tab needs none. One line of `Caption` help at the bottom, ellipsised, the whole of it
-in its tooltip.
+is a `PanelContainer`, not a button, so it can be dragged as well as clicked. A favourite has a `star` in `Accent` at
+the picture's top-right, comes first in its group and is listed on the Favourites tab; its name stays in `Text` (an
+accent-coloured name reads as a link). The tabs are named as the group headings are. The tooltip is the name, the class
+and group, then what it does, how it is placed and how many stock maps and this map use it, wrapped at 80 characters.
+Group headings (`PanelUi.Header`) only when more than one group shows; a group's tab needs none. One footer line: a
+flat `pin` button (Keep Wiring To Selection) or, while actors are pinned, "Wiring to: ..." in `Accent` with a `close`
+button, then one line of `Caption` help, ellipsised, the whole of it in its tooltip. While a tile is dragged over a
+view, a class with no mesh shows its kind icon at `IconSizeTile` in `DropTarget` where it would land, as the faint
+copy of a mesh would.
 
 **Tabs and docks.** Dock tabs: `Panel` selected with 2 px `Accent` top line (existing), quieter padding, visible hover.
 Every dock has an overflow menu (`TabContainer.SetPopup`) listing all its panels. Nested tabs use `SubTabs`.

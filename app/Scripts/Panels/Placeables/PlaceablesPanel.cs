@@ -17,14 +17,17 @@ namespace OpenScctEditor.Panels;
 /// mesh's picture, its English name, and a tooltip with the class, what it does, how it is placed and how many stock
 /// maps and this map use it. Drag a tile into a view to place it there by its class's rule (the views' drop pipeline,
 /// <see cref="Viewports.AssetDropTarget"/>); click one to arm the place tool with it. Search filters by name, class
-/// and description; right-click a tile to keep it in the favourites, which come first.
+/// and description; right-click a tile to keep it in the favourites (starred, first in their group, and on a tab of
+/// their own). The footer pins the selection as what the next placeables are wired to, as the selection moves to each
+/// new actor (<see cref="Gameplay.PlaceableLanding.Pinned"/>).
 /// </summary>
 [Panel("Placeables", DockSide.Bottom, Order = 3)]
 public partial class PlaceablesPanel : EditorPanel
 {
     private const int FavouritesTab = 5;
 
-    private static readonly string[] s_tabs = ["All", "Security", "Objectives", "Stations", "Interactive", "Favourites"];
+    private static readonly string[] s_tabs =
+        ["All", .. Enum.GetValues<PlaceableGroup>().Select(Placeables.GroupTitle), "Favourites"];
 
     private readonly List<PlaceableTile> _tiles = new();
     private TabBar _tabs = null!;
@@ -34,6 +37,9 @@ public partial class PlaceablesPanel : EditorPanel
     private EmptyStateView _empty = null!;
     private DeferredAction _rebuild = null!;
     private DeferredAction _retip = null!;
+    private Button _pin = null!;
+    private Label _pinned = null!;
+    private Button _unpin = null!;
 
     public static PlaceablesPanel? Instance { get; private set; }
 
@@ -77,16 +83,85 @@ public partial class PlaceablesPanel : EditorPanel
         _groups.AddThemeConstantOverride("separation", EditorTheme.SpaceS);
         _empty = (EmptyStateView)PanelUi.EmptyState(holder, "search", "", "");
         _empty.Visible = false;
-        // One line, so the tiles keep the dock's height; the whole of it is the tooltip.
+        // One line, so the tiles keep the dock's height: the wiring pin, then the help (the whole of it is the tooltip).
+        var footer = new HBoxContainer();
+        footer.AddThemeConstantOverride("separation", EditorTheme.SpaceS);
+        AddChild(footer);
+        _pin = new Button
+        {
+            Text = "Keep Wiring To Selection",
+            Icon = Icons.Get("pin", EditorTheme.Text),
+            Flat = true,
+            FocusMode = FocusModeEnum.None,
+            TooltipText = "Wire the next placeables to the selected actors (an alarm, a mission, an objective, a disk, a network camera)\n" +
+                "while you place several: each new actor is selected after placing, so without this the next one is wired to it",
+        };
+        _pin.Pressed += PinSelection;
+        footer.AddChild(_pin);
+        _pinned = PanelUi.Caption(footer, "", wrap: false);
+        _pinned.SizeFlagsVertical = SizeFlags.ShrinkCenter;
+        _pinned.SizeFlagsHorizontal = SizeFlags.ShrinkBegin;
+        _pinned.TextOverrunBehavior = TextServer.OverrunBehavior.NoTrimming;
+        _pinned.AddThemeColorOverride("font_color", EditorTheme.Accent);
+        _pinned.MouseFilter = MouseFilterEnum.Pass;
+        _unpin = new Button
+        {
+            Icon = Icons.Get("close", EditorTheme.TextDim),
+            Flat = true,
+            FocusMode = FocusModeEnum.None,
+            TooltipText = "Stop: wire new placeables to the selection again",
+        };
+        _unpin.Pressed += () => Gameplay.PlaceableLanding.Pin([]);
+        footer.AddChild(_unpin);
         const string Hint = "Drag a tile into a view to place it, or click it to place with the place tool (P). " +
-            "Select a mission, objective, disk, alarm or network camera first to wire the new actor to it.";
-        Label hint = PanelUi.Caption(this, Hint, wrap: false);
+            "Select what it is wired to first: its mission or objective, the alarm it sets off, its disk, the network camera before it.";
+        Label hint = PanelUi.Caption(footer, Hint, wrap: false);
+        hint.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        hint.SizeFlagsVertical = SizeFlags.ShrinkCenter;
         hint.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         hint.TooltipText = Hint;
         hint.MouseFilter = MouseFilterEnum.Pass;
+        ShowPinned();
 
         AssetService.Instance.CatalogChanged += () => _rebuild.Queue();
         Context.ProjectChanged += _ => _retip.Queue();
+        Context.SelectionChanged += ShowPinned;
+        Gameplay.PlaceableLanding.PinnedChanged += ShowPinned;
+        TreeExiting += () =>
+        {
+            Context.SelectionChanged -= ShowPinned;
+            Gameplay.PlaceableLanding.PinnedChanged -= ShowPinned;
+        };
+    }
+
+    /// <summary>Pins the selected actors as what the next placeables are wired to.</summary>
+    private void PinSelection()
+    {
+        List<string> ids = Context.Selection.Items.Where(r => r.Kind == ObjectKind.Actor).Select(r => r.Id).ToList();
+        Gameplay.PlaceableLanding.Pin(ids);
+        Context.SetStatus(ids.Count == 0 ? "Select the actors to wire new placeables to first"
+            : $"New placeables are wired to {string.Join(", ", ids.Take(3))}{(ids.Count > 3 ? $" and {ids.Count - 3} more" : "")} until you stop it");
+    }
+
+    /// <summary>The footer: what new placeables are wired to (the pinned actors), else the pin button.</summary>
+    private void ShowPinned()
+    {
+        if (!IsInstanceValid(_pinned))
+        {
+            return;
+        }
+
+        IReadOnlyList<string> pinned = Gameplay.PlaceableLanding.PinnedIn(Context.Project);
+        bool on = pinned.Count > 0;
+        _pin.Visible = !on;
+        _pin.Disabled = !Context.Selection.Items.Any(r => r.Kind == ObjectKind.Actor);
+        _pinned.Visible = on;
+        _unpin.Visible = on;
+        if (on)
+        {
+            _pinned.Text = $"Wiring to: {string.Join(", ", pinned.Take(3))}{(pinned.Count > 3 ? $" +{pinned.Count - 3}" : "")}";
+            _pinned.TooltipText = $"New placeables are wired to {string.Join(", ", pinned)}, whatever is selected";
+        }
     }
 
     public override void Refresh() => _rebuild.Queue();
@@ -113,7 +188,7 @@ public partial class PlaceablesPanel : EditorPanel
         int tab = _tabs.CurrentTab;
         var sections = new List<(string Title, List<Placeable> Items)>();
         List<Placeable> starred = all.Where(p => favourites.Contains(p.Class)).ToList();
-        if (starred.Count > 0 && (tab == 0 || tab == FavouritesTab))
+        if (starred.Count > 0 && tab == FavouritesTab)
         {
             sections.Add(("Favourites", starred));
         }
@@ -127,7 +202,8 @@ public partial class PlaceablesPanel : EditorPanel
                     continue;
                 }
 
-                List<Placeable> items = all.Where(p => p.Group == group).ToList();
+                // Favourites first in their group (starred), the rest in the palette's order.
+                List<Placeable> items = all.Where(p => p.Group == group).OrderBy(p => favourites.Contains(p.Class) ? 0 : 1).ToList();
                 if (items.Count > 0)
                 {
                     sections.Add((Placeables.GroupTitle(group), items));
@@ -155,7 +231,7 @@ public partial class PlaceablesPanel : EditorPanel
             }
         }
 
-        int shown = sections.Where(s => s.Title != "Favourites" || tab == FavouritesTab).Sum(s => s.Items.Count);
+        int shown = sections.Sum(s => s.Items.Count);
         _count.Text = PanelUi.Count(shown, query.Length > 0 ? "match" : "class", query.Length > 0 ? "matches" : "classes");
         _empty.Visible = sections.Count == 0;
         if (sections.Count == 0)
@@ -172,11 +248,14 @@ public partial class PlaceablesPanel : EditorPanel
     /// <summary>The tooltips count this map's uses: brought up to date after edits.</summary>
     private void Retip()
     {
-        MapProject p = Context.Project;
+        Dictionary<string, int> counts = Context.Project.Actors.GroupBy(a => a.Class, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
         foreach (PlaceableTile tile in _tiles)
         {
-            tile.Retip(p.Actors.Count(a => string.Equals(a.Class, tile.Entry.Class, StringComparison.OrdinalIgnoreCase)));
+            tile.Retip(counts.GetValueOrDefault(tile.Entry.Class));
         }
+
+        ShowPinned();
     }
 
     /// <summary>A tile's click: the place tool, armed with the tile's class.</summary>
@@ -187,7 +266,7 @@ public partial class PlaceablesPanel : EditorPanel
             return;
         }
 
-        tools.PlaceClass = p.Class;
+        tools.ArmPalette(p.Class);
         tools.Activate("place");
         tools.RefreshOptions();
         Context.SetStatus($"Place tool: click in a view to place {p.InSentence} {p.MountWords}");
@@ -238,6 +317,9 @@ public sealed partial class PlaceableTile : PanelContainer
     private readonly StyleBoxFlat _rest = EditorTheme.Box(Colors.Transparent, padX: EditorTheme.SpaceXs, padY: EditorTheme.SpaceXs);
     private readonly StyleBoxFlat _hover = EditorTheme.Box(EditorTheme.RowHover, padX: EditorTheme.SpaceXs, padY: EditorTheme.SpaceXs);
 
+    /// <summary>A favourite's star, kept on top of the mesh picture's badge.</summary>
+    private readonly TextureRect? _star;
+
     /// <summary>A left press on the tile that has not become a drag: its release is a click.</summary>
     private bool _pressed;
 
@@ -263,7 +345,7 @@ public sealed partial class PlaceableTile : PanelContainer
         box.AddChild(frame);
         _picture = new TextureRect
         {
-            Texture = ActorIcons.For(entry.Class, EditorTheme.Text, EditorTheme.IconSizeTile),
+            Texture = ActorIcons.For(Placeables.Kind(entry, EditorServices.Classes), EditorTheme.Text, EditorTheme.IconSizeTile),
             ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
             StretchMode = TextureRect.StretchModeEnum.KeepCentered,
             MouseFilter = MouseFilterEnum.Ignore,
@@ -283,12 +365,21 @@ public sealed partial class PlaceableTile : PanelContainer
             CustomMinimumSize = new Vector2(Width - 2 * EditorTheme.SpaceXs, 0),
             MouseFilter = MouseFilterEnum.Ignore,
         };
+        box.AddChild(_caption);
         if (favourite)
         {
-            _caption.AddThemeColorOverride("font_color", EditorTheme.Accent);
+            // A star in the picture's top-right corner (the kind badge takes the top-left).
+            _star = new TextureRect
+            {
+                Texture = Icons.Get("star", EditorTheme.Accent),
+                StretchMode = TextureRect.StretchModeEnum.KeepCentered,
+                MouseFilter = MouseFilterEnum.Ignore,
+                Position = new Vector2(Picture - Badge, 0),
+                Size = new Vector2(Badge, Badge),
+            };
+            frame.AddChild(_star);
         }
 
-        box.AddChild(_caption);
         RequestPicture(frame);
     }
 
@@ -426,11 +517,15 @@ public sealed partial class PlaceableTile : PanelContainer
             badge.AddThemeStyleboxOverride("panel", EditorTheme.Box(new Color(EditorTheme.Background, 0.8f), radius: EditorTheme.RadiusS, padX: 0, padY: 0));
             badge.AddChild(new TextureRect
             {
-                Texture = ActorIcons.For(Entry.Class, EditorTheme.Text),
+                Texture = ActorIcons.For(Placeables.Kind(Entry, EditorServices.Classes), EditorTheme.Text),
                 StretchMode = TextureRect.StretchModeEnum.KeepCentered,
                 MouseFilter = MouseFilterEnum.Ignore,
             });
             frame.AddChild(badge);
+            if (_star is not null && IsInstanceValid(_star))
+            {
+                frame.MoveChild(_star, -1);
+            }
         }, () => IsInstanceValid(this) && IsInsideTree());
     }
 }

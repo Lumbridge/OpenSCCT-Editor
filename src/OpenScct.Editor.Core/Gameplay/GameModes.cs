@@ -13,6 +13,10 @@ public sealed class GameModes
 {
     public const int DiskHunt = 4;
 
+    public const int DeathMatch = 6;
+
+    public const int MercDeathMatch = 7;
+
     private readonly Dictionary<string, HashSet<int>> _modes;
 
     private GameModes(Dictionary<string, HashSet<int>> modes) => _modes = modes;

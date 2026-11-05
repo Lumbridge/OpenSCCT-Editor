@@ -31,6 +31,11 @@ public interface IViewportTool
     /// <summary>Handles an event in a view; returns true when it used it.</summary>
     bool Input(EditorViewport view, InputEvent e);
 
+    /// <summary>The pointer left a view (a hover preview over it can go).</summary>
+    void PointerLeft(EditorViewport view)
+    {
+    }
+
     /// <summary>Draws over a view (handles, rubber bands, pending points), in view pixels.</summary>
     void Draw(EditorViewport view, Control canvas)
     {

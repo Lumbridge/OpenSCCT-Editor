@@ -367,6 +367,15 @@ public sealed partial class EditorViewport : Control
         }
     }
 
+    /// <summary>The pointer left the view: the active tool drops its hover preview.</summary>
+    public override void _Notification(int what)
+    {
+        if (what == NotificationMouseExit && ToolManager.Instance?.Active is { } tool)
+        {
+            tool.PointerLeft(this);
+        }
+    }
+
     /// <summary>Assets dragged over the view (a mesh shows its ghost where it would land): <see cref="AssetDropTarget"/>.</summary>
     public override bool _CanDropData(Vector2 atPosition, Variant data) => AssetDropTarget.Instance?.CanDrop(this, atPosition, data) ?? false;
 

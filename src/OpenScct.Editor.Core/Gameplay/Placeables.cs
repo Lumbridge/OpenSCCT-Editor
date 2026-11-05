@@ -30,8 +30,13 @@ public enum PlaceableMount
 /// </summary>
 /// <param name="Gap">How far off the surface a <see cref="PlaceableMount.Surface"/> placeable sits.</param>
 /// <param name="Pitch">The pitch a surface placeable gets on a wall (rotator units; cameras look down a little).</param>
+/// <param name="OnFloors">A surface placeable that may also go on a floor, facing up (a laser shining up, a presence
+/// trigger, an ammo crate); the others go on walls and ceilings only.</param>
+/// <param name="WallHeight">How high above the floor a surface placeable goes on a wall found for it in the top, front
+/// or side view (below the ceiling there); <see cref="double.PositiveInfinity"/> puts it just under the ceiling.</param>
+/// <param name="Icon">The tile's icon kind when it is not the class's own (a plain mover tile shown as a door).</param>
 public sealed record Placeable(string Class, string Title, PlaceableGroup Group, PlaceableMount Mount, string Summary, int StockMaps,
-    double Gap = 8, int Pitch = 0)
+    double Gap = 8, int Pitch = 0, bool OnFloors = false, double WallHeight = 112, ActorKind? Icon = null)
 {
     public string ShortClass => Class[(Class.LastIndexOf('.') + 1)..];
 
@@ -43,9 +48,9 @@ public sealed record Placeable(string Class, string Title, PlaceableGroup Group,
         ?? new DeviceSpec(SecurityDevices.KindOf(Class) ?? DeviceKind.Other, Class, Title, Gap, Pitch);
 
     /// <summary>How it is placed, in words for tooltips.</summary>
-    public string MountWords => Mount == PlaceableMount.Surface
-        ? "on the wall, ceiling or floor under the pointer, facing out of it"
-        : "standing on the floor under the pointer, facing you";
+    public string MountWords => Mount == PlaceableMount.Floor ? "standing on the floor under the pointer, facing you"
+        : OnFloors ? "on the wall, ceiling or floor under the pointer, facing out of it"
+        : "on the wall or ceiling under the pointer, facing out of it (the nearest wall in the top, front and side views)";
 
     /// <summary>True when every word of <paramref name="query"/> is in its name, class, group or description.</summary>
     public bool Matches(string query)
@@ -71,18 +76,18 @@ public static class Placeables
         // Security.
         new("SBase.SCamera", "Security camera", PlaceableGroup.Security, PlaceableMount.Surface,
             "Sweeps to and fro and fires its Event (usually an alarm) when it sees a spy. The game puts its wall mount on the "
-            + "wall up to 200 units behind it.", 37, 24, -2048),
+            + "wall up to 200 units behind it.", 37, 24, -2048, WallHeight: double.PositiveInfinity),
         new("SBase.SCamNetwork", "Network camera", PlaceableGroup.Security, PlaceableMount.Surface,
             "A globe camera of the mercenaries' network: they look through it from anywhere with the CamNet gadget, stepping "
-            + "round the ring its NextCam and PrevCam make.", 75, 16, -2048),
+            + "round the ring its NextCam and PrevCam make.", 75, 16, -2048, WallHeight: double.PositiveInfinity),
         new("SBase.SLaserTrigger", "Laser tripwire", PlaceableGroup.Security, PlaceableMount.Surface,
-            "A laser beam LaserLength long; a spy who breaks it fires its Event (usually an alarm).", 53),
+            "A laser beam LaserLength long; a spy who breaks it fires its Event (usually an alarm).", 53, 4, OnFloors: true, WallHeight: 48),
         new("SBase.SVolumetricSensor", "Motion sensor", PlaceableGroup.Security, PlaceableMount.Surface,
-            "Watches the volumes in its Volumes list and fires its Event when someone moves in them.", 33),
+            "Watches the volumes in its Volumes list and fires its Event when someone moves in them.", 33, WallHeight: 224),
         new("SBase.SPresenceTrigger", "Presence trigger", PlaceableGroup.Security, PlaceableMount.Surface,
-            "Fires its Event when a player comes within its radius.", 77),
+            "Fires its Event when a player comes within its radius.", 77, 48, OnFloors: true, WallHeight: 48),
         new("SBase.SAlarm", "Alarm", PlaceableGroup.Security, PlaceableMount.Surface,
-            "Goes off when a sender fires it: locks the movers and objectives in its lists, fires its Events and shows on the HUD.", 73),
+            "Goes off when a sender fires it: locks the movers and objectives in its lists, fires its Events and shows on the HUD.", 73, 16, WallHeight: 192),
         new("SBase.SGPOControl", "Security zone", PlaceableGroup.Security, PlaceableMount.Floor,
             "A named area (“Library”) grouping security devices: a device that names it in its ERControl passes "
             + "a jam (chaff, sticky shocker) on to the zone.", 15),
@@ -107,15 +112,15 @@ public static class Placeables
 
         // Pickups and stations.
         new("SBase.SAmmoStock", "Ammo stock", PlaceableGroup.Stations, PlaceableMount.Surface,
-            "An ammo crate the mercenaries refill their weapon and bomb charges from.", 76, 4),
+            "An ammo crate the mercenaries refill their weapon and bomb charges from.", 76, 4, OnFloors: true, WallHeight: 96),
         new("SBase.SInfirmary", "Infirmary", PlaceableGroup.Stations, PlaceableMount.Surface,
-            "A wall medkit that heals either team and cures poison.", 76, 4),
+            "A wall medkit that heals either team and cures poison.", 76, 4, WallHeight: 96),
 
         // Interactive.
         new("SBase.SInterrupteur", "Switch", PlaceableGroup.Interactive, PlaceableMount.Surface,
-            "A switch players use: it fires its Event (a door, a light, a lift).", 72, 4),
+            "A switch players use: it fires its Event (a door, a light, a lift).", 72, 4, WallHeight: 96),
         new("Engine.Mover", "Door", PlaceableGroup.Interactive, PlaceableMount.Floor,
-            "A mover: a mesh that moves between its keys when triggered or bumped (doors, gates, shutters).", 77),
+            "A mover: a mesh that moves between its keys when triggered or bumped (doors, gates, shutters).", 77, Icon: ActorKind.Door),
         new("SBase.SLiftDoor", "Lift door", PlaceableGroup.Interactive, PlaceableMount.Floor,
             "A lift's door: a mover that opens and closes with its lift.", 26),
         new("SBase.SLift", "Lift", PlaceableGroup.Interactive, PlaceableMount.Floor,
@@ -123,11 +128,11 @@ public static class Placeables
         new("Engine.MoverRotating", "Rotating mover", PlaceableGroup.Interactive, PlaceableMount.Floor,
             "A mover that turns on and on (fans, wheels).", 5),
         new("SBase.SExtincteur", "Fire extinguisher", PlaceableGroup.Interactive, PlaceableMount.Surface,
-            "A wall extinguisher that sprays a cloud and makes a bang when shot, then re-arms.", 39),
+            "A wall extinguisher that sprays a cloud and makes a bang when shot, then re-arms.", 39, WallHeight: 64),
         new("SBase.SVitre", "Window", PlaceableGroup.Interactive, PlaceableMount.Surface,
-            "Breakable glass: it shatters when shot or crashed through.", 47, 0),
+            "Breakable glass: it shatters when shot or crashed through.", 47, 0, WallHeight: 96),
         new("SBase.SSprinkler", "Sprinkler", PlaceableGroup.Interactive, PlaceableMount.Surface,
-            "A ceiling sprinkler that rains and leaves puddles when its Tag is fired.", 5, 4),
+            "A ceiling sprinkler that rains and leaves puddles when its Tag is fired.", 5, 4, WallHeight: double.PositiveInfinity),
     ];
 
     /// <summary>The group's name for people.</summary>
@@ -185,7 +190,7 @@ public static class Placeables
                 if (catalog.Chain(info.Name).Skip(1).Select(c => list.FirstOrDefault(p => string.Equals(p.Class, c.Name, StringComparison.OrdinalIgnoreCase)))
                         .FirstOrDefault(p => p is not null) is { } parent)
                 {
-                    list.Add(parent with { Class = info.Name, Title = info.ShortName, StockMaps = 0, Summary = $"A kind of {parent.Title.ToLowerInvariant()}: {parent.Summary}" });
+                    list.Add(parent with { Class = info.Name, Title = info.ShortName, StockMaps = 0, Icon = null, Summary = $"A kind of {parent.Title.ToLowerInvariant()}: {parent.Summary}" });
                 }
             }
         }
@@ -208,7 +213,7 @@ public static class Placeables
     }
 
     /// <summary>The kind of a placeable, for its icon.</summary>
-    public static ActorKind Kind(Placeable p, IClassCatalog? catalog) => ActorKinds.OfClass(p.Class, catalog);
+    public static ActorKind Kind(Placeable p, IClassCatalog? catalog) => p.Icon ?? ActorKinds.OfClass(p.Class, catalog);
 
     private static bool CanPlace(IClassCatalog catalog, ClassInfo info) =>
         !info.Abstract && (info.Placeable || catalog.IsA(info.Name, "Engine.Mover"));

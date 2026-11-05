@@ -46,12 +46,26 @@ public sealed class TraversalWorld
     {
         _worlds = worlds;
         Surfaces = surfaces;
+        double top = double.NegativeInfinity;
+        foreach (SurfacePoly poly in surfaces)
+        {
+            foreach (Vec3 v in poly.Verts)
+            {
+                top = Math.Max(top, v.Z);
+            }
+        }
+
+        Top = double.IsNegativeInfinity(top) ? null : top;
     }
 
     /// <summary>Every colliding surface: CSG polygons, the baked world BSP and the static meshes players collide with.</summary>
     public IReadOnlyList<SurfacePoly> Surfaces { get; }
 
     public bool HasGeometry => _worlds.Count > 0;
+
+    /// <summary>The highest point of any colliding surface (worked out when the world is built), or null when there are
+    /// none.</summary>
+    public double? Top { get; }
 
     /// <summary>The world of a project. <paramref name="projectFolder"/> resolves a relative baked source path.</summary>
     public static TraversalWorld Build(MapProject project, string? projectFolder = null)

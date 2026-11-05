@@ -174,7 +174,8 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     private void OverControls(Vector2 pointer)
     {
         _pointer = pointer;
-        if (DragName(GetViewport().GuiGetDragData()) is not { } name)
+        Variant data = GetViewport().GuiGetDragData();
+        if (DragName(data) is not { } name)
         {
             HideGhost();
             return;
@@ -189,7 +190,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         EditorViewport? view = _over;
         HideGhost();
         _over = view;
-        _refused = "Not applied: " + why;
+        _refused = (AssetDragData.ReadPlaceable(data) is not null ? "Not placed: " : "Not applied: ") + why;
         _shown = NotHere + why;
         _ctx.SetStatus(_shown);
     }
@@ -399,22 +400,30 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
     /// <summary><paramref name="hit"/>, or a static mesh the ray meets before it (beyond <paramref name="from"/>), but
     /// not one whose world box <paramref name="skip"/> says to leave out.</summary>
-    private SurfaceHit? Nearest(SurfaceHit? hit, (Vec3 Origin, Vec3 Direction) ray, double from, Func<(Vec3 Min, Vec3 Max), bool>? skip = null)
+    private SurfaceHit? Nearest(SurfaceHit? hit, (Vec3 Origin, Vec3 Direction) ray, double from, Func<(Vec3 Min, Vec3 Max), bool>? skip = null) =>
+        Nearest(_ctx.Project, hit, ray, from, double.MaxValue, skip);
+
+    /// <summary>The nearest visible static mesh (of those drawn, so loaded) a ray from <paramref name="o"/> along the
+    /// unit direction <paramref name="d"/> meets between <paramref name="from"/> and <paramref name="to"/>, or null: what
+    /// a palette placeable lands on where the level's collision has no meshes (a map whose meshes are its own actors).</summary>
+    public static SurfaceHit? NearestMesh(MapProject p, Vec3 o, Vec3 d, double from, double to) => Nearest(p, null, (o, d), from, to, null);
+
+    private static SurfaceHit? Nearest(MapProject p, SurfaceHit? hit, (Vec3 Origin, Vec3 Direction) ray, double from, double to,
+        Func<(Vec3 Min, Vec3 Max), bool>? skip)
     {
-        MapProject p = _ctx.Project;
         (Vec3 o, Vec3 d) = ray;
         SurfaceHit? best = hit;
         foreach (Actor a in p.Actors)
         {
             // The box test first: it is cheap, and most actors are nowhere near the ray.
             (Vec3 min, Vec3 max) = ObjectGeometry.ActorBounds(a);
-            if (!Picking.RayBox(o, d, min, max, out double entry) || (best is { } b && entry > b.Distance)
+            if (!Picking.RayBox(o, d, min, max, out double entry) || entry > (best?.Distance ?? to)
                 || StaticMeshDrawing.Loaded(a) is not { } mesh || !ObjectFilter.IsVisible(p, a.Editor) || skip?.Invoke((min, max)) == true)
             {
                 continue;
             }
 
-            if (MeshHit(a, mesh, o, d, from, best?.Distance ?? double.MaxValue) is { } m)
+            if (MeshHit(a, mesh, o, d, from, best?.Distance ?? to) is { } m)
             {
                 best = m;
             }
