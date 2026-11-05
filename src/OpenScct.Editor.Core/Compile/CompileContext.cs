@@ -99,6 +99,11 @@ public sealed class CompileContext
 
     public void Count(string key, long n) => Stats[key] = n;
 
+    /// <summary>"no converted map ships <paramref name="asset"/>", naming the source map too when a baked project's
+    /// source map was searched.</summary>
+    public string NothingShips(string asset) =>
+        Library.Source is null ? $"no converted map ships {asset}" : $"neither a converted map nor the source map ships {asset}";
+
     public void Progress(string line) => Options.Progress?.Invoke(line);
 
     /// <summary>The zone actor of a point, or the LevelInfo.</summary>

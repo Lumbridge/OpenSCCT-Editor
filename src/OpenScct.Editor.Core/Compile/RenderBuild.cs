@@ -588,7 +588,7 @@ public sealed partial class RenderBuild
             if (node is null)
             {
                 missing++;
-                _ctx.Warn("render.mesh-missing", $"actor {a.Id}: no converted map ships static mesh {path}; it is not drawn", ObjectRef.Actor(a.Id));
+                _ctx.Warn("render.mesh-missing", $"actor {a.Id}: {_ctx.NothingShips($"static mesh {path}")}; it is not drawn", ObjectRef.Actor(a.Id));
                 continue;
             }
 

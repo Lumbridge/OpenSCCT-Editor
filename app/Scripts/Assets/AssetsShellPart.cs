@@ -22,6 +22,7 @@ public sealed class AssetsShellPart : IShellPart
         _source = AssetService.BakedSourceMap;
         window.AddChild(AssetThumbnails.Create());
         context.SessionReplaced += OnSessionReplaced;
+        context.ProjectChanged += _ => OnProjectChanged();
         AssetService.Instance.AssetsChanged += () =>
         {
             ClearCaches();
@@ -43,6 +44,18 @@ public sealed class AssetsShellPart : IShellPart
         }
 
         AssetService.Instance.Reload();
+    }
+
+    /// <summary>An edit, undo or redo (or a script) that changes the baked world's source map, or drops the baked world:
+    /// meshes found in the old source, or missing without it, are stale, so resolve again and redraw.</summary>
+    private void OnProjectChanged()
+    {
+        string? source = AssetService.BakedSourceMap;
+        if (!string.Equals(source, _source, StringComparison.OrdinalIgnoreCase))
+        {
+            _source = source;
+            AssetService.Instance.ProjectAssetsChanged();
+        }
     }
 
     private static void ClearCaches()

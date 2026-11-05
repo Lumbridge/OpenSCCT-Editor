@@ -31,10 +31,11 @@ public sealed class BakedSource
 
     public CollisionData Collision { get; }
 
-    /// <summary>Finds the source map (a folder path, or a map id in the content library) and reads its collision.</summary>
+    /// <summary>Finds the source map (a folder path, a relative one read against the project folder first, or a map id in
+    /// the content library) and reads its collision.</summary>
     public static BakedSource? Open(CompileContext ctx, BakedWorld settings)
     {
-        string? folder = FolderOf(settings.SourceMap, ctx.Library);
+        string? folder = FolderOf(settings.SourceMap, ctx.Library, ctx.Options.ProjectFolder);
         if (folder is null)
         {
             ctx.Error("baked.missing", $"the baked world's source map '{settings.SourceMap}' was not found (a map folder or a map in {ctx.ContentRoot ?? "no content folder"})");

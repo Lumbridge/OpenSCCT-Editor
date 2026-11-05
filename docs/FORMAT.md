@@ -1005,8 +1005,8 @@ are copied, about 210 MB per render. A game whose script assembly has no
 `--svm-mapshot` (0.8.84 and older) is not started, and the game is not started at all when its background copy cannot be
 made. A game that fails, takes more than 3 minutes or cannot be copied gives each picture an error. The pictures go to `.cache/pictures/<key>.png`, where the key is made
 of the recipe, the bookmark (at the float precision the project stores) and the size, and `<key>.map` holds the key of
-the built map the render was made from: the hash of its `sim/` and `render/` files without `sim/classes.json`, so
-`--no-classes` changes nothing. A build finds the pictures without a GPU:
+the built map the render was made from: the hash of its `sim/` and `render/` files, `sim/classes.json` included (it
+decides which devices the game draws), so pictures rendered from a build without it are stale. A build finds the pictures without a GPU:
 
 | Render | Build | Map Check |
 |---|---|---|
@@ -1098,12 +1098,15 @@ rules, which 1.2 keeps. What it writes:
 | Everything | `manifest.json` file digests and group hashes. No timestamps, so the same project gives the same bytes. |
 
 `sim/classes.json` holds the class defaults of every class the map's gameplay actors use (with their super chains), as
-OpenSCCT's converter writes it for every converted map. Every build writes it (`ose build --no-classes` leaves it out):
-the simulation would load without it, with the generated class defaults, but OpenSCCT's renderer reads an actor's
-`DrawType` and `StaticMesh` from it when the actor stores none, so without it the gameplay objects that draw their
-class's mesh (cameras and their wall mounts, laser triggers, laptops, bomb targets, disks, window panes,
-extinguishers, first-aid boxes) are invisible in the game, though they still work. Without OpenSCCT's
-`shared/classes.json` the build warns (`classes.missing`) and writes none.
+OpenSCCT's converter writes it for every converted map. Every build writes it (`ose build --no-classes` leaves it out).
+OpenSCCT reads it twice: its renderer takes an actor's `DrawType` and `StaticMesh` from it when the actor stores none,
+so without it the gameplay objects that draw their class's mesh (cameras and their wall mounts, laser triggers,
+laptops, bomb targets, disks, window panes, extinguishers, first-aid boxes) are invisible in the game, though they
+still work; and its map loader applies every class default in it that differs from the game's generated defaults to
+the actors it creates, before their own props, so the table also sets gameplay values an actor does not store, as on
+a converted map. Without OpenSCCT's `shared/classes.json` the build writes none, with a `classes.missing` warning when
+an actor would draw its class's mesh from it (or, without any class data, when the map has gameplay actors), else a
+note.
 
 ### Lighting
 

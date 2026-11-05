@@ -58,6 +58,12 @@ public sealed class AssetService
                 _resolver = source is not null && BakedSource.FolderOf(source, resolver, folder) is { } map ? resolver.WithSource(map) : resolver;
                 _resolverFolder = folder;
                 _resolverSource = source;
+                if (_resolver.Source is { } sourceLibrary)
+                {
+                    // Index the source map's materials and meshes off the main thread (its glb JSON can be megabytes),
+                    // before the first brush face or mesh actor looks something up in it.
+                    BackgroundJobs.Start(_ => sourceLibrary.Warm());
+                }
             }
 
             return _resolver;

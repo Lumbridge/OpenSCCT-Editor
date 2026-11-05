@@ -97,7 +97,9 @@ public sealed record CompileOptions
     /// Write sim/classes.json (the class defaults of every class the map's gameplay actors use), as OpenSCCT's converter
     /// does for every converted map. On by default: OpenSCCT's renderer reads an actor's DrawType and StaticMesh from
     /// it when the actor stores none, so without it the gameplay objects that draw their class's mesh (cameras, laser
-    /// triggers, laptops, bomb targets, disks, window panes) are invisible in the game, though they still work.
+    /// triggers, laptops, bomb targets, disks, window panes) are invisible in the game, though they still work. Its map
+    /// loader also applies the table's class defaults where they differ from the generated ones, so the table sets the
+    /// gameplay values an actor does not store, as on a converted map.
     /// </summary>
     public bool WriteClassTable { get; init; } = true;
 }

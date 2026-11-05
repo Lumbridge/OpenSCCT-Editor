@@ -255,12 +255,30 @@ public static class GameplayBuild
         return obj;
     }
 
+    /// <summary>True when OpenSCCT draws <paramref name="a"/> with a static mesh it takes from the class table: DrawType 8
+    /// and a StaticMesh, at least one of them a class default the actor does not store.</summary>
+    private static bool DrawsClassMesh(CompileContext ctx, Actor a) =>
+        a.Shape is null && (a.Props["DrawType"] is null || a.Props["StaticMesh"] is null) &&
+        (int)ctx.Rules.Number(a, "DrawType") == 8 && PropValues.AssetPath(ctx.Rules.Value(a, "StaticMesh")) is not null;
+
     private static void WriteClassTable(CompileContext ctx)
     {
         if (ctx.Classes.ClassFile is not { } file)
         {
-            ctx.Warn("classes.missing", "no shared/classes.json was found, so the map has no class table (sim/classes.json): OpenSCCT will draw " +
-                "none of the gameplay objects that show their class's mesh (cameras, laser triggers, objectives), though they still work");
+            // Only a map with an actor that draws its class's mesh loses something it shows; without any class data
+            // that cannot be told, so any gameplay actor counts.
+            Actor? drawn = ctx.Classes.HasData ? ctx.Gameplay.FirstOrDefault(a => DrawsClassMesh(ctx, a)) : ctx.Gameplay.FirstOrDefault();
+            if (drawn is not null)
+            {
+                ctx.Warn("classes.missing", "no shared/classes.json was found, so the map has no class table (sim/classes.json): OpenSCCT will draw " +
+                    "none of the gameplay objects that show their class's mesh (cameras, laser triggers, objectives), though they still work",
+                    ObjectRef.Actor(drawn.Id));
+            }
+            else
+            {
+                ctx.Info("classes.missing", "no shared/classes.json was found, so the map has no class table (sim/classes.json)");
+            }
+
             return;
         }
 

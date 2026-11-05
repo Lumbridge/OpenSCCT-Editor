@@ -32,9 +32,14 @@ public static class StaticMeshes
     public static bool IsMissing(string path) => s_loaded.TryGetValue(path, out LoadedMesh? m) && m is null;
 
     /// <summary>Calls <paramref name="ready"/> with the mesh of <paramref name="path"/> on the main thread (at once when
-    /// loaded). A missing mesh never calls back.</summary>
+    /// loaded). A missing mesh never calls back. The lookup runs on the worker too: the first one in a library builds
+    /// its index (a baked map's source map reads its whole glb JSON for it).</summary>
     public static void Request(string path, Action<LoadedMesh> ready) =>
-        Load(path, "Static mesh", ready, () => AssetService.Instance.Resolver.FindViewMesh(path) is { } lib ? () => MeshSections.Read(lib) : null);
+        Load(path, "Static mesh", ready, () =>
+        {
+            AssetResolver resolver = AssetService.Instance.Resolver;
+            return () => resolver.FindViewMesh(path) is { } lib ? MeshSections.Read(lib) : null;
+        });
 
     /// <summary>As <see cref="Request"/>, for the skeletal mesh <paramref name="asset"/> in its reference pose.</summary>
     /// <remarks>The file is read on the worker; its placement (RotOrigin, scale) is cached there for the caller.</remarks>
