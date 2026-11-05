@@ -367,6 +367,16 @@ meshes on a `Hover`-coloured backdrop; one or two caption lines that break only 
 after `_` and `.`), then "…"; full name in the item tooltip. Prefabs without geometry show their main actor's type
 icon at 48 px in `TextDim` with a count badge.
 
+**Palette tiles (Placeables).** A palette of classes to place is a flow of borderless tiles, not a thumbnail grid:
+each tile is the class's mesh picture at thumbnail size with its kind icon in a badge at the top-left, or the kind icon
+alone at `IconSizeTile` in `Text` when the class has no mesh, over a centred name of at most two lines (every tile
+two lines tall, so a row lines up). A tile lights with `RowHover` under the pointer and shows the pointing hand; it
+is a `PanelContainer`, not a button, so it can be dragged as well as clicked. Favourites have their name in `Accent`
+and a star in their tooltip. The tooltip is the name, the class and group, then what it does, how it is placed and
+how many stock maps and this map use it, wrapped at 80 characters. Group headings (`PanelUi.Header`) only when more
+than one group shows; a group's tab needs none. One line of `Caption` help at the bottom, ellipsised, the whole of it
+in its tooltip.
+
 **Tabs and docks.** Dock tabs: `Panel` selected with 2 px `Accent` top line (existing), quieter padding, visible hover.
 Every dock has an overflow menu (`TabContainer.SetPopup`) listing all its panels. Nested tabs use `SubTabs`.
 A dock's width and height belong to the splitter; panels clamp their minimum width to 0 and clip or wrap.
@@ -477,6 +487,7 @@ New UI icons:
 | `settings` | Gear (Preferences) |
 | `help` | Circle with "?" |
 | `keyboard` | Keyboard outline (Shortcuts page) |
+| `palette` | Three rounded tiles and a pointer over the fourth corner (Placeables panel, its command and the tools' Palette button) |
 
 Object type icons (outliner, classes, inspector title, prefab placeholders, place picker):
 
