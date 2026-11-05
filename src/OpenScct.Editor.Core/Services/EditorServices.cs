@@ -93,8 +93,13 @@ public sealed record CompileOptions
     /// <summary>The game the map is for: Original reports the stock engine's limits (zones, BSP size) as errors.</summary>
     public TargetGame Target { get; init; } = TargetGame.OpenScct;
 
-    /// <summary>Also write sim/classes.json (the class defaults of every class the map uses).</summary>
-    public bool WriteClassTable { get; init; }
+    /// <summary>
+    /// Write sim/classes.json (the class defaults of every class the map's gameplay actors use), as OpenSCCT's converter
+    /// does for every converted map. On by default: OpenSCCT's renderer reads an actor's DrawType and StaticMesh from
+    /// it when the actor stores none, so without it the gameplay objects that draw their class's mesh (cameras, laser
+    /// triggers, laptops, bomb targets, disks, window panes) are invisible in the game, though they still work.
+    /// </summary>
+    public bool WriteClassTable { get; init; } = true;
 }
 
 public sealed record CompileResult(bool Ok, string OutputFolder, IReadOnlyList<Finding> Findings, TimeSpan Elapsed,

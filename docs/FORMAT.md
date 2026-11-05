@@ -1006,7 +1006,7 @@ are copied, about 210 MB per render. A game whose script assembly has no
 made. A game that fails, takes more than 3 minutes or cannot be copied gives each picture an error. The pictures go to `.cache/pictures/<key>.png`, where the key is made
 of the recipe, the bookmark (at the float precision the project stores) and the size, and `<key>.map` holds the key of
 the built map the render was made from: the hash of its `sim/` and `render/` files without `sim/classes.json`, so
-`--classes` changes nothing. A build finds the pictures without a GPU:
+`--no-classes` changes nothing. A build finds the pictures without a GPU:
 
 | Render | Build | Map Check |
 |---|---|---|
@@ -1071,7 +1071,7 @@ rules, which 1.2 keeps. What it writes:
 
 | Project data | SVMap output |
 |---|---|
-| `map.json` `id`, `title` | `manifest.json` `map` and `title`, `formatVersion` `1.2.0` (as in `sim/gameplay.json` and `sim/traversal.json`), `requires` (the shared class table, with `--classes`). `source` is `{"kind": "authored", "generator": "openscct-editor", "generatorVersion"}`; the schema needs all three. |
+| `map.json` `id`, `title` | `manifest.json` `map` and `title`, `formatVersion` `1.2.0` (as in `sim/gameplay.json` and `sim/traversal.json`), `requires` (the shared class table, unless `--no-classes`). `source` is `{"kind": "authored", "generator": "openscct-editor", "generatorVersion"}`; the schema needs all three. |
 | `levelInfo` | `sim/gameplay.json` `levelInfo` (class LevelInfo, `GEActivationMask` always written). |
 | `mapSettings` | `sim/gameplay.json` `mapSettings`. |
 | `mapInfo` | `ui/mapinfo.json`, with `LegendMap` and `LegendMapInBrief` from the identity's dossier and places when it has them. |
@@ -1097,8 +1097,13 @@ rules, which 1.2 keeps. What it writes:
 | Conveyors (`Svm.Conveyor`) | A gameplay actor in `sim/gameplay.json`. The built look (`Core/Gameplay/ConveyorGeometry`): the static part as a library mesh `<MapId>.Conveyor.<id>_Frame` with an instance (actor `<id>.Frame`), the moving belt, steps and drums as instances with `gameplay` true (actors `<id>.Belt`, `<id>.Steps`, `<id>.Rollers`, class `Conveyor`), all vertex-lit, the steps at belt phase 0 (the game moves them); item meshes as library meshes. Its collision is one world collider with no actor id; the belt, drums and escalator slope are `SURFACE_Conveyor` unless their material names a surface type. Scroll targets' mesh instances get `gameplay` true. This is SVMap 1.2 data (OpenSCCT `spec/svmap/1.2/conveyors.md`), so a map with a conveyor is SVMap 1.2; a 1.1 reader draws and collides with the look but nothing moves. |
 | Everything | `manifest.json` file digests and group hashes. No timestamps, so the same project gives the same bytes. |
 
-`sim/classes.json` is optional and written only with `ose build --classes`; native maps such as OpenSCCT's Hub leave it
-out and load with the generated class defaults.
+`sim/classes.json` holds the class defaults of every class the map's gameplay actors use (with their super chains), as
+OpenSCCT's converter writes it for every converted map. Every build writes it (`ose build --no-classes` leaves it out):
+the simulation would load without it, with the generated class defaults, but OpenSCCT's renderer reads an actor's
+`DrawType` and `StaticMesh` from it when the actor stores none, so without it the gameplay objects that draw their
+class's mesh (cameras and their wall mounts, laser triggers, laptops, bomb targets, disks, window panes,
+extinguishers, first-aid boxes) are invisible in the game, though they still work. Without OpenSCCT's
+`shared/classes.json` the build warns (`classes.missing`) and writes none.
 
 ### Lighting
 

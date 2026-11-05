@@ -39,7 +39,7 @@ public static class IdentityCommands
             "unless --link, and the build crops it to the slot's shape around --focus; loading pictures are added to the side's " +
             "list unless --replace.",
             IdentityAsync),
-        new("mapshot", "mapshot <project.osmap> [--only menu,loading-spy-1] [--force] [--exe <OpenSCCT.exe>] [--out <folder>] [--fast] [--classes] [--dry-run]",
+        new("mapshot", "mapshot <project.osmap> [--only menu,loading-spy-1] [--force] [--exe <OpenSCCT.exe>] [--out <folder>] [--fast] [--no-classes] [--dry-run]",
             "Builds the project, renders its camera pictures with OpenSCCT in a background window (a linked copy of the game " +
             "started minimised beside a background override.cfg, so it never takes the focus) into the project's " +
             ".cache/pictures, then builds again so the map carries them. Pictures already rendered from this version of the map " +

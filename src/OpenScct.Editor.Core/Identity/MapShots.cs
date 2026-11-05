@@ -78,7 +78,8 @@ public static class MapShots
     public static (int Width, int Height) SizeOf(string slot) => slot == "banner" ? (BannerWidth, BannerHeight) : (Size, Size);
 
     /// <summary>The key of a compiled map's look: the hash of its sim and render files (what a render shows), without
-    /// the class table <c>ose build --classes</c> adds, which changes nothing on screen.</summary>
+    /// the class table: it follows from the classes <c>sim/gameplay.json</c> names and the shared class data, so keys
+    /// stay the same whether a build wrote it or not (<c>ose build --no-classes</c>).</summary>
     public static string MapKey(IEnumerable<KeyValuePair<string, byte[]>> files) =>
         SvMapHash.GroupHash(files.Where(f => IsShown(f.Key)).Select(f => (f.Key, SvMapHash.FileDigest(f.Key, f.Value))));
 

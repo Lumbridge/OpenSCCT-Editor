@@ -5,10 +5,11 @@ using OpenScct.Editor.Core.Model;
 namespace OpenScct.Editor.Core.Compile;
 
 /// <summary>
-/// Sorts the project's actors into gameplay and render ones and writes <c>sim/gameplay.json</c> (and, on request,
-/// <c>sim/classes.json</c>): the LevelInfo, every gameplay actor with its stored props plus its transform, effective
+/// Sorts the project's actors into gameplay and render ones and writes <c>sim/gameplay.json</c> and
+/// <c>sim/classes.json</c>: the LevelInfo, every gameplay actor with its stored props plus its transform, effective
 /// Tag, Level and Region, the map settings, and the derived indexes (tag index, event edges, mission tree) rebuilt by
-/// OpenSCCT's own reader.
+/// OpenSCCT's own reader; and the class defaults of the classes those actors use, which OpenSCCT's renderer reads for
+/// what an actor does not store (a camera's or laser trigger's DrawType and StaticMesh).
 /// </summary>
 public static class GameplayBuild
 {
@@ -258,7 +259,8 @@ public static class GameplayBuild
     {
         if (ctx.Classes.ClassFile is not { } file)
         {
-            ctx.Warn("classes.missing", "sim/classes.json was asked for but no shared/classes.json was found");
+            ctx.Warn("classes.missing", "no shared/classes.json was found, so the map has no class table (sim/classes.json): OpenSCCT will draw " +
+                "none of the gameplay objects that show their class's mesh (cameras, laser triggers, objectives), though they still work");
             return;
         }
 
@@ -305,6 +307,7 @@ public static class GameplayBuild
         {
             ClassTable.FromJson(root);
             ctx.Files[ClassTable.RelativePath] = CanonicalJson.ToFileBytes(root);
+            ctx.Count("classes", classes.Count);
         }
         catch (SvMapFormatException e)
         {
