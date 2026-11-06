@@ -266,6 +266,10 @@ a cache keyed by the recipe and bookmark; each render records the map it was mad
 pictures are out of date. The map key excludes lighting bake diagnostics (including cache-dependent ray counts),
 while retaining the lightmaps, lights, geometry and class table that affect the image.
 
+`Assets > Refresh Assets` (`assets.reindex`) resets the resolver and all viewport mesh, material, texture and
+thumbnail caches before redrawing and rebuilding the index. Reopening even the same project also resets these
+caches before its scene rebuild, so assets imported by a separate CLI appear without restarting the editor.
+
 `ose play --headless` (and the `playtest` API method) runs the game itself with no window: `OpenSCCT.console.exe
 --headless -- --svm-maps <build> --svm-play <map> --svm-host=inline --svm-test-round` with the side, mode, rules and
 bots (the last keeps the round on default settings, signed out, writing nothing of the player's). It reads the game's `SVM_PLAY` lines (render warnings, then one status line per bot after 10 s of play) and its `ERROR:` lines, and

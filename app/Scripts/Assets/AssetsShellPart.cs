@@ -13,12 +13,10 @@ namespace OpenScctEditor.Assets;
 [ShellPart(Order = -22)]
 public sealed class AssetsShellPart : IShellPart
 {
-    private string? _folder;
     private string? _source;
 
     public void Attach(MainWindow window, EditorContext context)
     {
-        _folder = AssetService.ProjectFolder;
         _source = AssetService.BakedSourceMap;
         window.AddChild(AssetThumbnails.Create());
         context.SessionReplaced += OnSessionReplaced;
@@ -33,17 +31,10 @@ public sealed class AssetsShellPart : IShellPart
 
     private void OnSessionReplaced()
     {
-        string? folder = AssetService.ProjectFolder;
-        string? source = AssetService.BakedSourceMap;
-        if (!string.Equals(folder, _folder, StringComparison.OrdinalIgnoreCase) || !string.Equals(source, _source, StringComparison.OrdinalIgnoreCase))
-        {
-            // Map-local assets differ per project folder and baked source map, so resolved materials and meshes are stale.
-            _folder = folder;
-            _source = source;
-            ClearCaches();
-        }
-
-        AssetService.Instance.Reload();
+        // Reopening the same map must see assets imported by a separate CLI while it was open.
+        _source = AssetService.BakedSourceMap;
+        ClearCaches();
+        AssetService.Instance.ProjectAssetsChanged(redraw: false);
     }
 
     /// <summary>An edit, undo or redo (or a script) that changes the baked world's source map, or drops the baked world:
