@@ -41,7 +41,7 @@ default), `"cells"` or `"off"` (the baked world only).
 
 ## MCP for mapping agents
 
-For live editing, open the map and choose **Tools → Scripting → Copy MCP Configuration**. Paste the entry into
+For live editing, open the map and choose **Tools → Agents and Scripting → Copy MCP Configuration**. Paste the entry into
 your client's local stdio MCP configuration. For a project on disk, use the same executable with `mcp` and the
 project path in place of `--live`. For example:
 
@@ -92,7 +92,7 @@ The editor listens on 127.0.0.1 only,
 on a free port, and writes `%LOCALAPPDATA%\OpenSCCT Editor\live\editor-<pid>.json` with the port and a random token
 (`OSE_LIVE_DIR` moves it; an automated run, headless or in the background, writes it to the `live` folder of its own
 user data folder, so the user's `ose live` never lists it). With no editor running, `--live` stops with a clear error.
-`Tools > Scripting > Allow Live Script Connections` turns it off.
+`Tools > Agents and Scripting > Allow Live Agent and Script Connections` turns it off.
 
 - Every call runs on the editor's main thread against its open session. An applied document is one step on the
   editor's own undo stack, every view updates, the log names it by its `label`, and what it created is selected.
@@ -100,7 +100,7 @@ user data folder, so the user's `ose live` never lists it). With no editor runni
   on a copy of the map taken when the call arrives, off the main thread, so the editor stays responsive meanwhile.
 - `open` and `new` are refused while the open map has unsaved changes, even with `discard:true`. Save first (method
   `save`), or have the user save or discard their changes in the editor.
-- The status bar shows the connected scripts.
+- The status bar shows the connected agents and scripts.
 - If the editor closes, the call in flight fails and the next call connects again (to a restarted editor, say), so
   a server started once keeps working. A failed call is never resent.
 - If that reconnect reaches a different editor (another pid), the first call is not sent. It returns an error that
@@ -112,7 +112,7 @@ Live adds three methods:
 |---|---|
 | `propose` | Takes a change document and shows it as a translucent ghost in every view (green new, cyan changed, red deleted) with Accept, Reject and Frame over the views. Returns the dry-run diff and a `proposal` id. `wait` (seconds) waits for the user's answer. Accept applies it as one undo step. A new proposal replaces a pending one. |
 | `proposal` | `{id?, wait?}`: `pending`, `accepted` (with the applied diff), `rejected`, `superseded` or `failed`. While it is pending the ghost follows the user's edits; when an edit means it no longer applies, `problem` says why and Accept is off until it applies again. |
-| `editor` | The open map, unsaved changes, the selection, the camera, `viewCenter` (the surface under the centre of the active view: place things there with `at`), the cursor, connected scripts, the pending proposal, and `matchGrey` (`players`, `mode`, `greyed`) while the Match panel greys out what a match leaves out (the ids: the `match` query's `absent`). |
+| `editor` | The open map, unsaved changes, the selection, the camera, `viewCenter` (the surface under the centre of the active view: place things there with `at`), the cursor, connected agents and scripts, the pending proposal, and `matchGrey` (`players`, `mode`, `greyed`) while the Match panel greys out what a match leaves out (the ids: the `match` query's `absent`). |
 
 Three more methods let a script look at the editor and drive it like a user. They work only in an editor started in
 the background (below). The user's own editor refuses them: synthetic clicks and keys there would land
@@ -151,7 +151,7 @@ described in [SCREENSHOTS.md](SCREENSHOTS.md#background-mode). A background edit
 its own folders, so it never shows up in the user's own `ose live` list.
 
 A change document pasted into the command palette (text starting with `{` or `[`) is previewed the same way (Enter)
-or applied at once (Ctrl+Enter). The `Tools > Scripting` menu has the same from the clipboard (Preview / Apply Change
+or applied at once (Ctrl+Enter). The `Tools > Agents and Scripting` menu has the same from the clipboard (Preview / Apply Change
 Document from Clipboard), plus Accept Proposal, Reject Proposal and Frame Proposal. Started with
 `-- --changes=<file>`, the app's `live.previewFile` action previews that file.
 
