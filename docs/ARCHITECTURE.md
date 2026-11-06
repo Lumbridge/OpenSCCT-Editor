@@ -263,11 +263,13 @@ snapshot camera), traversal, render, the side files (mapinfo legends from the id
 then the identity and its pictures. The build never starts the game: camera pictures come from `ose mapshot`, which
 runs OpenSCCT in a window started off-screen (`--svm-background`, never `--headless`, which has no renderer) and fills
 a cache keyed by the recipe and bookmark; each render records the map it was made from, so a build can say which
-pictures are out of date.
+pictures are out of date. The map key excludes lighting bake diagnostics (including cache-dependent ray counts),
+while retaining the lightmaps, lights, geometry and class table that affect the image.
 
 `ose play --headless` (and the `playtest` API method) runs the game itself with no window: `OpenSCCT.console.exe
 --headless -- --svm-maps <build> --svm-play <map> --svm-host=inline --svm-test-round` with the side, mode, rules and
 bots (the last keeps the round on default settings, signed out, writing nothing of the player's). It reads the game's `SVM_PLAY` lines (render warnings, then one status line per bot after 10 s of play) and its `ERROR:` lines, and
-stops once every bot has reported or the time is up.
+stops once every bot has reported or the time is up. These background tests set `SVM_AUDIO_MUTE=1`: the game's
+native OpenAL backend otherwise plays sound even with Godot's headless or Dummy audio driver.
 
 Never start the app or the game windowed on someone else's screen for a test.

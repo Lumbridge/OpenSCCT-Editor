@@ -501,6 +501,8 @@ public static partial class HeadlessPlay
                 RedirectStandardError = true,
                 WorkingDirectory = Path.GetDirectoryName(exe)!,
             };
+            // The native OpenAL backend still opens audio with Godot's --headless/Dummy driver.
+            start.Environment["SVM_AUDIO_MUTE"] = "1";
             foreach (string arg in args)
             {
                 start.ArgumentList.Add(arg);
