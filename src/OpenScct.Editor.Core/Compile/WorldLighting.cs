@@ -31,7 +31,10 @@ public sealed class WorldLighting
     private readonly Dictionary<string, List<Glb.UePrimitive>?> _meshPrimitives = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<int, Vec3> _lightmapAmbient = new();
     private HashSet<string>? _scrolled;
-    private readonly ConcurrentDictionary<string, Vec3> _albedo = new(StringComparer.OrdinalIgnoreCase);
+    // Bounce samples revisit the same immutable faces millions of times. Resolve each face once for this bake;
+    // resolving the material on every sample repeatedly scans project assets and allocates short-name strings.
+    private readonly ConcurrentDictionary<Surface, Lazy<Vec3>> _surfaceAlbedo = new(ReferenceEqualityComparer.Instance);
+    private readonly ConcurrentDictionary<string, Lazy<Vec3>> _albedo = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>The leaf light lists of the compiled world (an authored map's; a baked map's world is the source map's,
     /// whose own lists <see cref="SourceLightLists"/> reads), with a note for each baked light standing in solid
@@ -579,28 +582,35 @@ public sealed class WorldLighting
     }
 
     /// <summary>The mean colour of a surface's texture (its opaque texels), mid grey without one.</summary>
-    private Vec3 Albedo(Surface s)
+    private Vec3 Albedo(Surface s) => _surfaceAlbedo.GetOrAdd(s,
+        static (surface, lighting) => new Lazy<Vec3>(() => lighting.ResolveAlbedo(surface)), this).Value;
+
+    private Vec3 ResolveAlbedo(Surface s)
     {
         string? file = SurfaceLook.Resolve(_ctx.Library, s.Material, s.Flags).TextureFile;
-        return file is null ? Grey : _albedo.GetOrAdd(file, f =>
+        // ConcurrentDictionary can run its factory more than once. Only the winning Lazy decodes the texture,
+        // so surfaces sharing a large image do not all allocate their own decoder buffers at the first bounce.
+        return file is null ? Grey : _albedo.GetOrAdd(file, static f => new Lazy<Vec3>(() => ReadAlbedo(f))).Value;
+    }
+
+    private static Vec3 ReadAlbedo(string file)
+    {
+        if (!File.Exists(file) || Png.Decode(File.ReadAllBytes(file)) is not { } image)
         {
-            if (!File.Exists(f) || Png.Decode(File.ReadAllBytes(f)) is not { } image)
-            {
-                return Grey;
-            }
+            return Grey;
+        }
 
-            double r = 0, g = 0, b = 0;
-            long n = 0;
-            for (int i = 0; i + 3 < image.Rgba.Length; i += 4)
+        double r = 0, g = 0, b = 0;
+        long n = 0;
+        for (int i = 0; i + 3 < image.Rgba.Length; i += 4)
+        {
+            if (image.Rgba[i + 3] >= 128)
             {
-                if (image.Rgba[i + 3] >= 128)
-                {
-                    (r, g, b, n) = (r + image.Rgba[i], g + image.Rgba[i + 1], b + image.Rgba[i + 2], n + 1);
-                }
+                (r, g, b, n) = (r + image.Rgba[i], g + image.Rgba[i + 1], b + image.Rgba[i + 2], n + 1);
             }
+        }
 
-            return n == 0 ? Grey : new Vec3(r / n / 255, g / n / 255, b / n / 255);
-        });
+        return n == 0 ? Grey : new Vec3(r / n / 255, g / n / 255, b / n / 255);
     }
 
     private void Count(BakeStats stats, string prefix)
