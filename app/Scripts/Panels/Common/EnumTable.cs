@@ -10,6 +10,8 @@ internal static class EnumTable
 {
     private static Dictionary<string, IReadOnlyList<string>>? s_fromFile;
 
+    public static void Reset() => s_fromFile = null;
+
     public static IReadOnlyList<string>? Values(string? enumName)
     {
         if (string.IsNullOrEmpty(enumName))

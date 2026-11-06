@@ -2,6 +2,7 @@ using OpenScct.Content;
 using OpenScct.Content.Collision;
 using OpenScct.Content.Json;
 using OpenScct.Core.Match;
+using OpenScct.Editor.Core.Compile;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
@@ -25,7 +26,7 @@ namespace OpenScct.Editor.Core.Interop.Svmap;
 /// </summary>
 public static class SvMapImport
 {
-    /// <summary>The key of the SVMap leftovers in <see cref="MapProject.Extra"/> (animations, particle systems).</summary>
+    /// <summary>The key of the SVMap leftovers in <see cref="MapProject.Extra"/> (animations and level info).</summary>
     public const string ExtraKey = "svmap";
 
     /// <summary>The layer name the baked world is shown on.</summary>
@@ -112,7 +113,7 @@ public static class SvMapImport
         var counts = new RenderCounts();
         options.Progress?.Invoke("reading render actors");
         AddLighting(root, p, ids, schema, counts);
-        AddEmitters(root, p, ids, schema, extra, counts);
+        AddEmitters(root, p, ids, schema, counts);
         AddStaticMeshes(root, p, ids, map.Collision, counts);
         AddSounds(root, p, ids, schema, counts);
         p.Extra.Add(ExtraKey, extra);
@@ -361,39 +362,38 @@ public static class SvMapImport
     }
 
     /// <summary>Emitter actors of render/fx.json; every emitter's particle systems are kept for the compile.</summary>
-    private static void AddEmitters(string root, MapProject p, HashSet<string> ids, UeSchema? schema, SvJsonObject extra, RenderCounts counts)
+    private static void AddEmitters(string root, MapProject p, HashSet<string> ids, UeSchema? schema, RenderCounts counts)
     {
         if (ReadJson(root, "render/fx.json") is not SvJsonObject fx || fx["emitters"] is not SvJsonObject emitters)
         {
             return;
         }
 
-        var systems = new SvJsonObject();
+        string? origin = EmitterBuild.MapOrigin(root);
         foreach ((string id, SvJsonNode node) in emitters)
         {
-            if (node is not SvJsonObject e)
+            if (node is not SvJsonObject e || Str(e["class"]) is not { } cls)
             {
                 continue;
+            }
+
+            EditorActor? actor = p.FindActor(id);
+            if (actor is null)
+            {
+                if (!ids.Add(id))
+                {
+                    continue;
+                }
+
+                actor = FromProps(id, InteropValues.ResolveClass(schema, cls), e["props"], EmittersFolder, "render/fx.json");
+                p.Actors.Add(actor);
+                counts.Emitters++;
             }
 
             if (e["emitters"] is SvJsonArray parts)
             {
-                systems.TryAdd(id, parts);
+                EmitterBuild.WithSystems(actor, EmitterBuild.WithTextureOrigin(parts, origin));
             }
-
-            if (ids.Contains(id) || Str(e["class"]) is not { } cls)
-            {
-                continue;
-            }
-
-            p.Actors.Add(FromProps(id, InteropValues.ResolveClass(schema, cls), e["props"], EmittersFolder, "render/fx.json"));
-            ids.Add(id);
-            counts.Emitters++;
-        }
-
-        if (systems.Count > 0)
-        {
-            extra.Add("emitters", systems);
         }
     }
 

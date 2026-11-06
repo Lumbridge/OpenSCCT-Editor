@@ -18,6 +18,7 @@ public static class DockTabs
         ["Classes"] = "classes",
         ["Prefabs"] = "grid",
         ["Storeys"] = "storeys",
+        ["Emitter Library"] = "type-emitter",
         ["Inspector"] = "inspector",
         ["Map"] = "map",
         ["Identity"] = "id-card",

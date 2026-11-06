@@ -76,6 +76,7 @@ public sealed partial class RenderBuild
 
         r.AddMeshActors();
         r.AddConveyors();
+        r.WriteEmitters(baked);
         r.Finish(baked);
     }
 
@@ -874,18 +875,10 @@ public sealed partial class RenderBuild
         if (baked is null)
         {
             _ctx.Files["render/lighting.json"] = Json(LightingJson());
-            _ctx.Files["render/fx.json"] = Json(new JsonObject
-            {
-                ["emitters"] = new JsonObject(),
-                ["patches"] = new JsonArray(),
-                ["projectors"] = new JsonArray(),
-                ["rain"] = new JsonArray(),
-                ["spawnParticles"] = new JsonObject(),
-            });
         }
         else
         {
-            FollowBakedFx(baked);
+            FollowBakedLighting(baked);
         }
 
         _ctx.Count("render.lights", _lighting.Lights.Count(l => !l.BakeOnly));
@@ -911,11 +904,10 @@ public sealed partial class RenderBuild
     public static byte[] Json(JsonNode node) => Encoding.UTF8.GetBytes(node.ToJsonString(s_compact) + "\n");
 
     /// <summary>
-    /// Baked mode: the source's lighting.json and fx.json without the lights and emitters the project deleted, and
-    /// with records for the lights added in the editor. The converter's records of kept lights and emitters stay as
-    /// they are (lightmaps, zones, fog, patches and projectors too).
+    /// Baked mode: the source's lighting.json without the lights the project deleted, and with records for new lights.
+    /// The converter's kept light records, lightmaps, zones and fog stay as they are.
     /// </summary>
-    private void FollowBakedFx(BakedSource baked)
+    private void FollowBakedLighting(BakedSource baked)
     {
         var ids = new HashSet<string>(_ctx.Render.Select(a => a.Id), StringComparer.OrdinalIgnoreCase);
         ids.UnionWith(_ctx.GameplayIds);
@@ -954,17 +946,6 @@ public sealed partial class RenderBuild
             }
 
             _ctx.Files["render/lighting.json"] = Json(lighting);
-        }
-
-        if (_ctx.Files.TryGetValue("render/fx.json", out byte[]? fxBytes) && JsonNode.Parse(fxBytes) is JsonObject fx &&
-            fx["emitters"] is JsonObject emitters)
-        {
-            foreach (string id in emitters.Select(kv => kv.Key).Where(id => !ids.Contains(id)).ToList())
-            {
-                emitters.Remove(id);
-            }
-
-            _ctx.Files["render/fx.json"] = Json(fx);
         }
     }
 

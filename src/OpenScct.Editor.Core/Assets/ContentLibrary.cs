@@ -54,6 +54,8 @@ public sealed class ContentLibrary
         return svmap is null || !Directory.Exists(svmap) ? Empty : s_libraries.GetOrAdd(Path.GetFullPath(svmap), p => new ContentLibrary(p));
     }
 
+    internal static void Invalidate(string contentRoot) => s_libraries.TryRemove(Path.GetFullPath(Path.Combine(contentRoot, "svmap")), out _);
+
     /// <summary>A library of one converted map folder, wherever it is (a baked project's source map). Not cached: an
     /// import can replace the folder.</summary>
     public static ContentLibrary ForMap(string mapDir)

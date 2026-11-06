@@ -17,6 +17,7 @@ public sealed class TransformTool : IViewportTool
 {
     private const float AxisPixels = 90;
     private const float RingPixels = 80;
+    private const int RingSteps = 64;
     private const float HitPixels = 7;
     private const float CenterPixels = 7;
     private const float DragSlop = 3;
@@ -219,34 +220,32 @@ public sealed class TransformTool : IViewportTool
         var rings = new Vector2[]?[3];
         for (int axis = 0; axis < 3; axis++)
         {
-            Vec3 e = Vec3.Zero.With(axis, 1);
-            if (cam.ToScreen(pivot + e * (AxisPixels * upp)) is { } end && end.DistanceTo(center) > 14)
-            {
-                ends[axis] = end;
-            }
-
             if (Mode == TransformMode.Rotate)
             {
                 rings[axis] = Ring(cam, pivot, axis, RingPixels * upp, center);
+            }
+            else if (cam.ToScreen(pivot.With(axis, pivot[axis] + AxisPixels * upp)) is { } end && end.DistanceTo(center) > 14)
+            {
+                ends[axis] = end;
             }
         }
 
         return new Gizmo(center, ends, rings);
     }
 
-    /// <summary>The screen polyline of the ring about <paramref name="axis"/>, or null when it is seen edge-on.</summary>
+    /// <summary>The screen polyline of the ring, ordered in the direction of positive rotation.</summary>
     private static Vector2[]? Ring(ViewCamera cam, Vec3 pivot, int axis, double radius, Vector2 center)
     {
-        Vec3 u = Vec3.Zero.With((axis + 1) % 3, 1), v = Vec3.Zero.With((axis + 2) % 3, 1);
-        const int steps = 48;
-        var pts = new Vector2[steps + 1];
+        Vec3 u = Vec3.Zero.With((axis + 1) % 3, 1);
+        Vec3 v = RotationMath.About(axis, Rot.UnitsPerTurn / 4).Rotate(u);
+        var pts = new Vector2[RingSteps + 1];
         double area = 0;
-        for (int i = 0; i <= steps; i++)
+        for (int i = 0; i <= RingSteps; i++)
         {
-            double a = i * Math.PI * 2 / steps;
+            double a = i * Math.PI * 2 / RingSteps;
             if (cam.ToScreen(pivot + (u * Math.Cos(a) + v * Math.Sin(a)) * radius) is not { } s)
             {
-                return null;
+                return PerspectiveRing(cam, pivot, Vec3.Cross(u, v), center, pts);
             }
 
             pts[i] = s;
@@ -256,7 +255,34 @@ public sealed class TransformTool : IViewportTool
             }
         }
 
-        return Math.Abs(area) < RingPixels * RingPixels * 0.25 ? null : pts;
+        return Math.Abs(area) < RingPixels * RingPixels * 0.25
+            ? PerspectiveRing(cam, pivot, Vec3.Cross(u, v), center, pts)
+            : pts;
+    }
+
+    /// <summary>Keeps a grazing or clipped ring pickable in perspective. Orthographic views keep their visible axis.</summary>
+    private static Vector2[]? PerspectiveRing(ViewCamera cam, Vec3 pivot, Vec3 normal, Vector2 center, Vector2[] pts)
+    {
+        if (cam.IsOrtho)
+        {
+            return null;
+        }
+
+        Vec3 toPivot = (pivot - cam.Location).Normalized();
+        (_, Vec3 right, Vec3 up) = cam.Axes;
+        Vec3 side = Vec3.Cross(normal, toPivot);
+        var major = new Vector2((float)Vec3.Dot(side, right), -(float)Vec3.Dot(side, up));
+        major = major.LengthSquared() > 1e-6f ? major.Normalized() : Vector2.Right;
+        double facing = Vec3.Dot(normal, toPivot);
+        Vector2 minor = new Vector2(-major.Y, major.X) * (facing > 0 ? -1 : 1);
+        float minorRadius = RingPixels * (float)Math.Max(Math.Abs(facing), 0.12);
+        for (int i = 0; i <= RingSteps; i++)
+        {
+            double a = i * Math.PI * 2 / RingSteps;
+            pts[i] = center + major * (RingPixels * (float)Math.Cos(a)) + minor * (minorRadius * (float)Math.Sin(a));
+        }
+
+        return pts;
     }
 
     private Handle? HitTest(EditorViewport view, Vec3 pivot, Vector2 mouse)
@@ -355,32 +381,26 @@ public sealed class TransformTool : IViewportTool
     private static void SetupRotate(Drag drag, ViewCamera cam, Vec3 pivot, int axis, Vector2 mouse)
     {
         double radius = RingPixels * cam.UnitsPerPixelAt(pivot);
-        Vec3 u = Vec3.Zero.With((axis + 1) % 3, 1), v = Vec3.Zero.With((axis + 2) % 3, 1);
-        Vec3 nearest = pivot + u * radius;
-        double best = double.MaxValue;
-        for (int i = 0; i < 64; i++)
+        drag.ScreenDir = Vector2.Right;
+        drag.UnitsPerPixel = 64;
+        if (cam.ToScreen(pivot) is not { } center || Ring(cam, pivot, axis, radius, center) is not { } ring)
         {
-            double a = i * Math.PI * 2 / 64;
-            Vec3 p = pivot + (u * Math.Cos(a) + v * Math.Sin(a)) * radius;
-            if (cam.ToScreen(p) is { } s && s.DistanceTo(mouse) < best)
-            {
-                best = s.DistanceTo(mouse);
-                nearest = p;
-            }
+            return;
         }
 
-        // Dragging along the ring's screen tangent at the grabbed point turns it (pixels to rotator units).
-        const int probe = 1024;
-        Vec3 turned = pivot + RotationMath.About(axis, probe).Rotate(nearest - pivot);
-        if (cam.ToScreen(nearest) is { } a0 && cam.ToScreen(turned) is { } a1 && a0.DistanceTo(a1) > 0.5f)
+        // Use the tangent of the same polyline that was drawn and hit, including an edge-on handle.
+        double best = double.MaxValue;
+        for (int i = 0; i < RingSteps; i++)
         {
-            drag.ScreenDir = (a1 - a0).Normalized();
-            drag.UnitsPerPixel = probe / a0.DistanceTo(a1);
-        }
-        else
-        {
-            drag.ScreenDir = Vector2.Right;
-            drag.UnitsPerPixel = 64;
+            Vector2 segment = ring[i + 1] - ring[i];
+            float length = segment.Length();
+            double distance = Picking.SegmentDistance(ring[i], ring[i + 1], mouse);
+            if (length > 0.5f && distance < best)
+            {
+                best = distance;
+                drag.ScreenDir = segment / length;
+                drag.UnitsPerPixel = (Rot.UnitsPerTurn / RingSteps) / length;
+            }
         }
     }
 

@@ -22,5 +22,6 @@
   <ItemGroup>
     <!-- The starter prefab library (PrefabStore.Builtin). -->
     <EmbeddedResource Include="Prefabs\Library\*.json" LogicalName="OpenScct.Editor.Core.Prefabs.Library.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Emitters\StockEmitters.json" LogicalName="OpenScct.Editor.Core.Emitters.StockEmitters.json" />
   </ItemGroup>
 </Project>

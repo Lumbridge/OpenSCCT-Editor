@@ -54,7 +54,9 @@ The compiled-map brush recovery in `src/OpenScct.Editor.Core/Interop/Sdc/Recover
 its steps, ordering and tolerances. `src/OpenScct.Editor.Core/Interop/ReConveyors.cs` follows RE+ 2.8.0's conveyor
 belt model (`ConveyorModel.h`) and its limits. `src/OpenScct.Editor.Core/Assets/AssetGlossary.cs`'s built-in word
 list draws on RE+'s `tools/asset_names/fr-en.txt`, and `src/OpenScct.Editor.Core/Gameplay/CameraNetworks.cs` follows
-RE+'s camera network model (`CameraNetworkModel.h`). RE+ ([source](https://github.com/Lumbridge/SCCT_Versus_Reloaded_Editor))
+RE+'s camera network model (`CameraNetworkModel.h`). The emitter catalogue metadata in
+`src/OpenScct.Editor.Core/Emitters/StockEmitters.json` follows `tools/emitter_library/defaults_manifest.json`. The
+editor reads the particle data and textures from installed OpenSCCT content. RE+ ([source](https://github.com/Lumbridge/SCCT_Versus_Reloaded_Editor))
 is distributed under this licence:
 
 ```

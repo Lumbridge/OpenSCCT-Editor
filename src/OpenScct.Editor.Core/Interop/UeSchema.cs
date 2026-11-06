@@ -72,6 +72,14 @@ public sealed class UeSchema
         }
     }
 
+    internal static void Invalidate(string contentRoot)
+    {
+        lock (s_lock)
+        {
+            s_cache.Remove(Path.GetFullPath(Path.Combine(contentRoot, "shared", "classes.json")));
+        }
+    }
+
     public static UeSchema Parse(SvJsonNode root, string source)
     {
         var s = new UeSchema(source);

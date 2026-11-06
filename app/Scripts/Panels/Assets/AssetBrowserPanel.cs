@@ -70,6 +70,9 @@ public partial class AssetBrowserPanel : EditorPanel
     /// no material shows leaves it as it was).</summary>
     public static string? CurrentMaterial { get; private set; }
 
+    /// <summary>The last texture explicitly picked in Assets, for texture fields that store its asset path.</summary>
+    public static string? CurrentTexture { get; private set; }
+
     /// <summary>Raised when <see cref="CurrentMaterial"/> changes.</summary>
     public static event Action? CurrentMaterialChanged;
 
@@ -79,6 +82,7 @@ public partial class AssetBrowserPanel : EditorPanel
         set
         {
             _selectedAsset = value;
+            if (value is { Kind: AssetKind.Texture } texture) CurrentTexture = texture.Path;
             if (value is { Kind: AssetKind.Material or AssetKind.Texture } m
                 && AssetService.Instance.SurfaceMaterial(m.Kind, m.Path).Material is { } material
                 && !string.Equals(material, CurrentMaterial, StringComparison.Ordinal))
@@ -126,6 +130,7 @@ public partial class AssetBrowserPanel : EditorPanel
         _origin.CustomMinimumSize = new Vector2(EditorTheme.NumberFieldWidth + EditorTheme.SpaceXxl, 0);
         _origin.ItemSelected += _ => KindChanged();
         _inMap = PanelUi.Toggle(bar, "In this map", "Only the assets this map uses", false, _ => _rebuild.Queue());
+        PanelUi.Button(bar, "Get Packs…", "Download asset libraries from OpenSCCT-Content", () => ContentPacksPart.Open());
         _count = PanelUi.Caption(bar, "", wrap: false);
         _count.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 

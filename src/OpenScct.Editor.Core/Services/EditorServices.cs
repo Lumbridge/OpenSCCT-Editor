@@ -1,5 +1,8 @@
 using System.Reflection;
 using OpenScct.Content.Json;
+using OpenScct.Editor.Core.Assets;
+using OpenScct.Editor.Core.Classes;
+using OpenScct.Editor.Core.Interop;
 using OpenScct.Editor.Core.Model;
 
 namespace OpenScct.Editor.Core.Services;
@@ -330,6 +333,22 @@ public static class EditorServices
     /// <summary>The .content folder of an OpenSCCT checkout or install (shared/classes.json, svmap/...), when known.</summary>
     public static string? ContentRoot { get; set; }
 
+    /// <summary>Adopts a newly populated content folder and invalidates indexes after files change in place.</summary>
+    public static void RefreshContent(string root)
+    {
+        string full = Path.GetFullPath(root);
+        ContentRoot = full;
+        AssetCatalog.Invalidate(full);
+        ContentLibrary.Invalidate(full);
+        GameplayPack.Invalidate(full);
+        SkeletalLibrary.Invalidate(full);
+        UeSchema.Invalidate(full);
+        if (Classes is ClassCatalog)
+        {
+            Classes = ClassCatalog.FromContent(full);
+        }
+    }
+
     /// <summary>The OpenSCCT checkout or install root (for launching the game), when known.</summary>
     public static string? OpenScctRoot { get; set; }
 
@@ -448,21 +467,24 @@ public static class ContentLocator
 
     public static string? FindContentRoot()
     {
+        static bool HasContent(string root) => File.Exists(Path.Combine(root, "shared", "classes.json")) ||
+            File.Exists(Path.Combine(root, "installed.json"));
+
         if (GameExe.ManagedLauncherRoot is { } managed)
         {
             string downloaded = Path.Combine(managed, "packs");
-            return File.Exists(Path.Combine(downloaded, "shared", "classes.json")) ? downloaded : null;
+            return HasContent(downloaded) ? downloaded : null;
         }
         foreach (string? c in Candidates("OSE_CONTENT", ".content"))
         {
-            if (c is not null && File.Exists(Path.Combine(c, "shared", "classes.json")))
+            if (c is not null && HasContent(c))
             {
                 return Path.GetFullPath(c);
             }
         }
 
         string packs = Path.Combine(GameExe.LauncherRoot, "packs");
-        return File.Exists(Path.Combine(packs, "shared", "classes.json")) ? packs : null;
+        return HasContent(packs) ? packs : null;
     }
 
     public static string? FindOpenScctRoot()

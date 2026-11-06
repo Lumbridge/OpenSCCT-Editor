@@ -1,5 +1,6 @@
 using System.Globalization;
 using OpenScct.Content.Json;
+using OpenScct.Editor.Core.Compile;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
 
@@ -167,6 +168,10 @@ public static class T3dImport
             var src = new SvJsonObject();
             src.Add(ObjectsKey, new SvJsonArray(a.Objects.Select(o => (SvJsonNode)new SvJsonArray(o.Select(SvJsonNode.String)))));
             actor.Source = InteropValues.Compact(src);
+            if (ParticleSystemsOf(a.Objects, a.Props, types) is { } systems)
+            {
+                EmitterBuild.WithSystems(actor, systems, preserveOriginalObjects: true);
+            }
         }
 
         // The shape as the file had it, so the round-trip lint can tell a face the source already had.
@@ -196,6 +201,68 @@ public static class T3dImport
         }
 
         return blocks;
+    }
+
+    /// <summary>Reads the typed systems of an older import which only kept the original object blocks.</summary>
+    public static SvJsonArray? ParticleSystemsOf(Actor actor, T3dTypes types) =>
+        ParticleSystemsOf(ObjectsOf(actor), types.FromProps(actor.Class, actor.Props), types);
+
+    private static SvJsonArray? ParticleSystemsOf(List<List<string>> blocks, IEnumerable<T3dField> actorFields, T3dTypes types)
+    {
+        T3dField[] bindings = actorFields.Where(f => f.Name.Equals("Emitters", StringComparison.OrdinalIgnoreCase))
+            .OrderBy(f => f.Index).ToArray();
+        if (bindings.Length == 0)
+        {
+            return null;
+        }
+
+        var objects = new Dictionary<string, SvJsonObject>(StringComparer.OrdinalIgnoreCase);
+        foreach (List<string> block in blocks)
+        {
+            if (block.Count < 2 || !block[0].StartsWith("Begin Object ", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            Dictionary<string, string> header = T3dReader.HeaderValues(block[0]);
+            if (header.GetValueOrDefault("Class") is not { } rawClass || header.GetValueOrDefault("Name") is not { } name)
+            {
+                continue;
+            }
+
+            string cls = InteropValues.ResolveClass(types.Schema, rawClass);
+            var fields = block.Skip(1).SkipLast(1)
+                .Select(line => T3dValueParser.ParseField(T3dValueParser.StripNameNotes(line.Trim())))
+                .OfType<T3dField>()
+                .Where(f => !s_dropped.Contains(f.Name));
+            var system = new SvJsonObject();
+            system.Add("class", SvJsonNode.String(cls));
+            system.Add("object", SvJsonNode.String($"{types.MapId}.{name}"));
+            system.Add("props", types.ToProps(cls, fields).ToJson());
+            objects.TryAdd(name, system);
+        }
+
+        var systems = new SvJsonArray();
+        foreach (T3dField field in bindings)
+        {
+            string? reference = field.Value switch
+            {
+                T3dRef r => r.Path,
+                T3dAtom atom => atom.Text,
+                _ => null,
+            };
+            if (reference is not null && objects.TryGetValue(InteropValues.ShortClass(reference.Trim('"')), out SvJsonObject? system))
+            {
+                if (field.Index is int index)
+                {
+                    system.TryAdd("index", SvJsonNode.Integer(index));
+                }
+
+                systems.Add(system);
+            }
+        }
+
+        return systems.Count > 0 ? systems : null;
     }
 
     /// <summary>A brush's faces; a level-local material (<c>MyLevel.X</c>) becomes the map's own (<c>&lt;Map&gt;.X</c>),

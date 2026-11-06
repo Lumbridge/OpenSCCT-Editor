@@ -67,7 +67,10 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 - **Analysis.** Map Check with stable rule codes and fixes, a deep check of the compiled map (leaks, void, floating
   meshes, collision caps), the stealth light map, reachability and routes for each side, and the bots' nav graph.
 - **Assets and prefabs.** An asset catalogue of the materials, meshes, textures and sounds a map can use, glTF and OBJ
-  mesh import with generated collision, and prefabs with a starter library.
+  mesh import with generated collision, and prefabs with a starter library. Use **Get Packs…** in Assets to download
+  shared data and map asset libraries from [OpenSCCT-Content](https://github.com/Lumbridge/OpenSCCT-Content). The editor
+  indexes the new assets as soon as installation finishes. Open **Tools > Emitter Library** to browse,
+  preview and place the 37 RE+ stock effects from installed OpenSCCT maps, save your own effects or import RE+ effect packs.
 - **Command line, scripting and MCP.** Everything the app does is also an `ose` command
   ([docs/CLI.md](docs/CLI.md)). Scripts edit maps through change documents and queries, one shot or over a JSON-lines
   server, and can edit the map open in the editor as ghost proposals to accept or reject

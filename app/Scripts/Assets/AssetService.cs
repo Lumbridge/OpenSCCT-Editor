@@ -2,6 +2,7 @@ using OpenScct.Editor.Core.Assets;
 using OpenScct.Editor.Core.Compile;
 using OpenScct.Editor.Core.Services;
 using OpenScctEditor.Core;
+using OpenScctEditor.Panels;
 using OpenScctEditor.Shell;
 
 namespace OpenScctEditor.Assets;
@@ -17,6 +18,7 @@ public sealed class AssetService
     private string? _resolverFolder;
     private string? _resolverSource;
     private int _generation;
+    private bool _redrawAfterIndex;
 
     private AssetService() => _favourites = new HashSet<string>(AppSettings.GetStrings("assets", "favourites"), StringComparer.OrdinalIgnoreCase);
 
@@ -33,6 +35,9 @@ public sealed class AssetService
     /// <summary>Raised on the main thread when the project's own assets changed (an import): drawn materials and
     /// meshes must be resolved again.</summary>
     public event Action? AssetsChanged;
+
+    /// <summary>Raised on the main thread when a content pack installation changed the available packs.</summary>
+    public event Action? PacksChanged;
 
     public event Action? FavouritesChanged;
 
@@ -104,6 +109,7 @@ public sealed class AssetService
         int generation = ++_generation;
         string? content = EditorServices.ContentRoot;
         string? folder = ProjectFolder;
+        bool redraw = _redrawAfterIndex;
         Loading = true;
         CatalogChanged?.Invoke();
         BackgroundJobs.Start(_ =>
@@ -112,6 +118,10 @@ public sealed class AssetService
             try
             {
                 catalog = AssetCatalog.For(content, folder);
+                if (redraw)
+                {
+                    ContentLibrary.For(content).Warm();
+                }
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException)
             {
@@ -128,6 +138,12 @@ public sealed class AssetService
 
                 Catalog = catalog;
                 Loading = false;
+                if (redraw)
+                {
+                    _redrawAfterIndex = false;
+                    AssetsChanged?.Invoke();
+                }
+
                 CatalogChanged?.Invoke();
             });
         });
@@ -139,6 +155,16 @@ public sealed class AssetService
         _resolver = null;
         AssetsChanged?.Invoke();
         Reload();
+    }
+
+    public void ContentPacksChanged(string root)
+    {
+        EditorServices.RefreshContent(root);
+        EnumTable.Reset();
+        _resolver = null;
+        _redrawAfterIndex = true;
+        Reload();
+        PacksChanged?.Invoke();
     }
 
     public bool IsFavourite(AssetEntry e) => _favourites.Contains(Key(e));

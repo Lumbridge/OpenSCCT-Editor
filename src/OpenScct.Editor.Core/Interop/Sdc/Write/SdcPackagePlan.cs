@@ -3,6 +3,7 @@ using OpenScct.Content.Json;
 using OpenScct.Editor.Core.Compile;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Geometry;
+using OpenScct.Editor.Core.Interop.T3d;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
 
@@ -1818,6 +1819,18 @@ internal sealed class SdcPackagePlan
     private List<KeyValuePair<string, SvJsonNode>> ActorProps(Actor a, SdcActor? n)
     {
         var props = a.Props.Where(kv => !s_engineState.Contains(kv.Key)).ToList();
+        if (EmitterBuild.SystemsOf(a, _p) is { Count: > 0 } &&
+            (n is null || n.SubObjects.Count == 0 || T3dImport.ObjectsOf(a).Count == 0))
+        {
+            _findings.Add(Finding.Warning("sdc.emitterComponents",
+                $"actor {a.Id}: write this map through T3D or the RE+ export folder to keep new or edited particle systems",
+                ObjectRef.Actor(a.Id)));
+            if (n is null || n.SubObjects.Count == 0)
+            {
+                props.RemoveAll(kv => kv.Key.Equals("Emitters", StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
         if (n is not null)
         {
             StoredText(props, a.Source);

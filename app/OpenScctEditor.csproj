@@ -18,4 +18,9 @@
   <ItemGroup>
     <ProjectReference Include="..\src\OpenScct.Editor.Core\OpenScct.Editor.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Use the same simulation and particle geometry as the game, without its full scene or render pipeline. -->
+    <Compile Include="$(OpenScctDir)game\Scripts\Render\Particles\ParticleParams.cs;$(OpenScctDir)game\Scripts\Render\Particles\ParticleEmitterSim.cs;$(OpenScctDir)game\Scripts\Render\Particles\ParticleSystemSim.cs;$(OpenScctDir)game\Scripts\Render\Particles\ParticleGeometry.cs" Link="Shared\Particles\%(Filename)%(Extension)" />
+    <Compile Include="$(OpenScctDir)game\Scripts\Space\UeSpace.cs" Link="Shared\UeSpace.cs" />
+  </ItemGroup>
 </Project>

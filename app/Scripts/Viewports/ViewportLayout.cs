@@ -601,6 +601,11 @@ public sealed partial class ViewportLayout : Node, IShellPart
             Item("edit.cut");
             Item("edit.delete");
             Item("edit.selectSameClass");
+            if (_ctx.FindAction("emitter.saveSelection")?.IsEnabled() == true)
+            {
+                Item("emitter.saveSelection", "Save to Emitter Library…");
+            }
+
             if (_ctx.Selection.Items.Any(r => r.Kind == ObjectKind.Brush))
             {
                 Separator();

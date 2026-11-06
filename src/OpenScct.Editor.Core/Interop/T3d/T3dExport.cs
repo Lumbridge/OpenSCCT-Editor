@@ -198,13 +198,44 @@ public static partial class T3dExport
         AddTransform(a, actor.Location, actor.Rotation, actor.DrawScale, actor.DrawScale3D, actor.PrePivot);
         // A lifted RE+ actor carries the outfits or match rules as they are now (as imported when unchanged).
         a.Props.AddRange(types.FromProps(actor.Class, LiftedWriteBack.Props(p, actor, projectFolder: projectFolder).Where(kv => !s_skipped.Contains(kv.Key))));
-        AddSubObjects(a, T3dImport.ObjectsOf(actor), names);
+        List<List<string>> blocks = T3dImport.ObjectsOf(actor);
+        if (blocks.Count > 0)
+        {
+            AddSubObjects(a, blocks, names);
+        }
+        else if (Compile.EmitterBuild.SystemsOf(actor, p) is { } systems)
+        {
+            AddParticleSystems(a, types, systems, names);
+        }
         if (actor.Shape is not null)
         {
             a.Brush = Model(actor.Shape, ModelName(actor.Props["Brush"], actor.Id, p.Id, names), types);
         }
 
         return a;
+    }
+
+    private static void AddParticleSystems(T3dActor actor, T3dTypes types, SvJsonArray systems, HashSet<string> names)
+    {
+        actor.Props.RemoveAll(f => f.Name.Equals("Emitters", StringComparison.OrdinalIgnoreCase));
+        int nextIndex = 0;
+        foreach (SvJsonObject system in Compile.EmitterBuild.ValidSystems(systems))
+        {
+            string cls = Compile.EmitterBuild.Text(system["class"])!;
+            string shortClass = InteropValues.ShortClass(cls);
+            string name = Unique(shortClass, names);
+            var props = (SvJsonObject)system["props"]!;
+            var block = new List<string> { $"Begin Object Class={shortClass} Name={name}" };
+            block.AddRange(types.FromProps(cls, props.Where(kv => !kv.Key.Equals("Name", StringComparison.OrdinalIgnoreCase)))
+                .Select(field => "    " + field));
+            block.Add($"    Name=\"{name}\"");
+            block.Add("End Object");
+            actor.Objects.Add(block);
+
+            int index = system["index"] is SvJsonNumber n && n.TryGetInt32(out int slot) && slot >= nextIndex ? slot : nextIndex;
+            actor.Props.Add(new T3dField("Emitters", index, new T3dRef(shortClass, T3dTypes.LevelPackage + "." + name)));
+            nextIndex = index + 1;
+        }
     }
 
     /// <summary>

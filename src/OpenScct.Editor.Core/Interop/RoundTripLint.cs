@@ -632,13 +632,34 @@ public static class RoundTripLint
         ConveyorHandoff handoff = ConveyorHandoff.Of(p);
         foreach (Actor a in p.Actors.Where(handoff.Writes))
         {
-            // An emitter's own sub-objects (Begin Object blocks) are written with it, not imported.
+            // An emitter's own sub-objects are written with it. The assets they use still need to be available.
             HashSet<string> own = SubObjectNames(a);
+            SvJsonArray? systems = Compile.EmitterBuild.SystemsOf(a, p);
             foreach ((string key, SvJsonNode value) in T3d.LiftedWriteBack.Props(p, a, projectFolder: projectFolder).Where(kv => Original.LocalAssets.IsAssetProperty(kv.Key)))
             {
+                if (systems is not null && key.Equals("Emitters", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 foreach (string path in AssetsIn(value).Where(x => !own.Contains(AssetPaths.Split(x).Name)))
                 {
                     yield return (path, key, ObjectRef.Actor(a.Id));
+                }
+            }
+
+            if (systems is not null)
+            {
+                foreach (SvJsonObject part in Compile.EmitterBuild.ValidSystems(systems))
+                {
+                    var props = (SvJsonObject)part["props"]!;
+                    foreach ((string key, SvJsonNode value) in props.Where(kv => Original.LocalAssets.IsAssetProperty(kv.Key)))
+                    {
+                        foreach (string path in AssetsIn(value))
+                        {
+                            yield return (path, key, ObjectRef.Actor(a.Id));
+                        }
+                    }
                 }
             }
 

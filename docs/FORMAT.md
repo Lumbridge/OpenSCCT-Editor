@@ -262,6 +262,10 @@ What `ose new` writes:
 **Tag rule:** when `Tag` is not stored, the effective Tag is the short class name (UE2 rule). The compiler writes the
 effective Tag of every actor, as SVMap requires.
 
+Particle emitters keep their systems in the JSON inside `src`, under `particleSystems`. Each system has a `class`,
+an `object` name and typed `props`. A converted sprite can also name its `texture` path and `textureOrigin` map so
+the compiler can copy the right texture. The systems travel with the actor when it is copied or saved as a preset.
+
 ### Player-count settings (`match`)
 
 Any actor can be kept to matches of some sizes, and a mission can ask for a different number of objectives at each
