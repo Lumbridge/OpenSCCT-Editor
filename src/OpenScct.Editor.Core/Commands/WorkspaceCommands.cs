@@ -61,6 +61,11 @@ public sealed class WorkspaceCommand : IEditCommand
 
     public string? MergeKey { get; }
 
+    /// <summary>Whether this edit deliberately moved the view, rather than merely saving the camera
+    /// alongside unrelated workspace settings. Available after its first Do.</summary>
+    public bool ChangesCamera => _before is not null && _after is not null &&
+        (_before.CameraLocation != _after.CameraLocation || _before.CameraRotation != _after.CameraRotation);
+
     public void Do(MapProject project)
     {
         if (_after is null)
