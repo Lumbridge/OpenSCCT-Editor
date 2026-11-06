@@ -2,7 +2,8 @@ namespace OpenScct.Editor.Core.Scripting.Live;
 
 /// <summary>The methods only a running editor answers: ghost previews for the user to accept or reject, the editor's
 /// own state (selection, camera, the point under the view centre), and its user interface (<c>ui.*</c>: look at the
-/// window, act on it, list its controls; only in an editor started in the background).</summary>
+/// window, act on it, list its controls; UI input/inspection requires an isolated background editor, while read-only
+/// viewport screenshots are also available in the live editor).</summary>
 public static class LiveMethods
 {
     public static readonly IReadOnlyList<ApiMethod> All =
@@ -23,12 +24,14 @@ public static class LiveMethods
             "panel greys out a match's absent actors, its players, mode and how many (the ids: the match query's absent).",
             """{"type":"object","properties":{}}"""),
         new("ui.shot", "Screenshot the editor",
-            "Only in an editor started in the background (tools/Start-BackgroundEditor.ps1). Writes the editor window " +
+            "In the live editor, views:true captures only visible map viewports and returns PNG paths, modes, camera poses " +
+            "and sky-preview state without changing the map or UI. No crop or UI lint in this mode. " +
+            "In an isolated background editor (tools/Start-BackgroundEditor.ps1), writes the editor window " +
             "as a PNG (from the editor's own image, so it works off-screen) " +
             "and returns its path, plus automatic UI checks (clipped text, hidden tabs, controls outside their box, missing glyphs). " +
             "crop takes a target as ui.input does and saves that part too; views:true also saves each 3D view as shown and bare. " +
-            "The reply gives the PNG's path.",
-            """{"type":"object","properties":{"name":{"type":"string"},"dir":{"type":"string","description":"folder for the PNGs (default: shots in the run's own user folder)"},"crop":{"description":"a target: [x,y] or \"action:<id>\", \"tab:<panel>\", \"menu:<title>\", \"item:<menu item>\", \"view:<Perspective|Top|Front|Side>\", \"text:<label>\" or a control path from ui.tree"},"views":{"type":"boolean"},"lint":{"type":"boolean","description":"run the UI checks (default true)"}}}"""),
+            "viewportsOnly:true also selects the viewport-only path in a background editor. The reply gives the PNG's path.",
+            """{"type":"object","properties":{"name":{"type":"string"},"dir":{"type":"string","description":"folder for the PNGs (default: shots in the run's own user folder)"},"crop":{"description":"a target: [x,y] or \"action:<id>\", \"tab:<panel>\", \"menu:<title>\", \"item:<menu item>\", \"view:<Perspective|Top|Front|Side>\", \"text:<label>\" or a control path from ui.tree"},"views":{"type":"boolean"},"viewportsOnly":{"type":"boolean","description":"capture only map viewports, also in a background editor"},"lint":{"type":"boolean","description":"run the UI checks (background full UI only; default true)"}}}"""),
         new("ui.input", "Click and type in the editor",
             "Only in an editor started in the background. Sends synthetic mouse and keyboard input to the editor " +
             "window (never the real pointer or keyboard); unknown keys in a step are an error. steps is a list, " +

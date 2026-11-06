@@ -57,6 +57,10 @@ public sealed partial class UiDriver : Node, IShellPart
         {
             return ApiReply.Error(ex);
         }
+        catch (TimeoutException) when (method == "ui.shot")
+        {
+            return ApiReply.Error(new ApiException("The editor did not draw a frame within five seconds; restore its window and try again."));
+        }
         catch (Exception ex) when (method == "ui.shot" && ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
         {
             return ApiReply.Error(new ApiException($"cannot write the screenshot: {ex.Message}", "dir"));
@@ -75,6 +79,11 @@ public sealed partial class UiDriver : Node, IShellPart
     /// as shown and its bare 3D frame), <c>lint</c> (default true).</summary>
     public async Task<SvJsonObject> Shot(SvJsonObject args)
     {
+        if (!BackgroundMode.Active || ApiJson.GetBool(args, "viewportsOnly", false))
+        {
+            return await ViewportsShot(args);
+        }
+
         await Frames(1);
         string dir = Path.GetFullPath(ApiJson.GetString(args, "dir") ?? OutputFolder);
         string name = Safe(ApiJson.GetString(args, "name") ?? DateTime.Now.ToString("HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture));
@@ -122,6 +131,46 @@ public sealed partial class UiDriver : Node, IShellPart
         }
 
         return result;
+    }
+
+    /// <summary>Captures only visible map viewports, without reading the window image, changing the camera, selecting
+    /// objects, focusing the app, opening panels or running UI lint. The same path can be tested off-screen.</summary>
+    private async Task<SvJsonObject> ViewportsShot(SvJsonObject args)
+    {
+        if (args["crop"] is { } crop && !ApiJson.IsNull(crop))
+        {
+            throw new ApiException("Viewport-only captures do not take crop; use the returned view images.", "crop");
+        }
+
+        await Frames(1).WaitAsync(TimeSpan.FromSeconds(5));
+        if (ViewportLayout.Instance is not { } layout)
+        {
+            throw new ApiException("No map viewports are available.");
+        }
+
+        var visible = layout.Views.Where(v => v.IsVisibleInTree()).OrderBy(v => v == layout.Active ? 0 : 1).ToList();
+        if (visible.Count == 0) throw new ApiException("No map viewport is visible.");
+        string dir = Path.GetFullPath(ApiJson.GetString(args, "dir") ?? OutputFolder);
+        string name = Safe(ApiJson.GetString(args, "name") ?? DateTime.Now.ToString("HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture));
+        Directory.CreateDirectory(dir);
+        var views = new SvJsonArray();
+        string? first = null;
+        foreach (EditorViewport view in visible)
+        {
+            using Image frame = view.Sub.GetTexture().GetImage();
+            string path = Path.Combine(dir, $"{name}.view-{view.Kind}.raw.png");
+            Save(frame, path);
+            first ??= path;
+            views.Add(ApiJson.Obj(("view", ApiJson.Str(view.Kind.ToString())), ("mode", ApiJson.Str(view.Mode.ToString())),
+                ("raw", ApiJson.Str(path)), ("width", SvJsonNode.Integer(frame.GetWidth())), ("height", SvJsonNode.Integer(frame.GetHeight())),
+                ("camera", view.Cam.IsOrtho
+                    ? ApiJson.Obj(("center", ApiJson.Vec(view.Cam.Center)), ("unitsPerPixel", ApiJson.Num(view.Cam.UnitsPerPixel)))
+                    : ApiJson.Obj(("loc", ApiJson.Vec(view.Cam.Location)), ("rot", ApiJson.Rotator(view.Cam.Rotation)))),
+                ("skyPreview", ApiJson.Bool((view.Cam.Camera.CullMask & VisualLayers.SkyBackdrop) != 0))));
+        }
+
+        return ApiJson.Obj(("path", ApiJson.Str(first!)), ("scope", ApiJson.Str("viewports")),
+            ("map", ApiJson.Str(EditorContext.Instance.Project.Id)), ("views", views));
     }
 
     /// <summary>Sends input steps (<c>steps</c>, or the arguments as one step). A step names its kind in <c>op</c>:

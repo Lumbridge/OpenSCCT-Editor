@@ -169,15 +169,15 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
         }
     }
 
-    /// <summary>ui.* calls drive the editor's own window with synthetic input, so they are for an editor started in the
-    /// background only: in the user's editor they would click and type while the user works, outside the
-    /// proposal model, and they need background mode's embedded popups, synthetic pointer and steady redraws.</summary>
+    /// <summary>The live editor allows read-only viewport captures. UI inspection and synthetic input still require
+    /// an isolated background editor, where embedded popups, a synthetic pointer and steady redraws are available.</summary>
     public Task<ApiReply> Ui(string method, SvJsonObject args) =>
-        UiDriver.Instance is { } driver && DisplayServer.GetName() != "headless" && BackgroundMode.Active
+        UiDriver.Instance is { } driver && DisplayServer.GetName() != "headless" &&
+            (BackgroundMode.Active || method == "ui.shot" && ApiJson.GetBool(args, "views", false))
             ? driver.Call(method, args)
             : Task.FromResult(ApiReply.Error(new ApiException(
-                "ui.* calls work only in an editor started in the background (tools/Start-BackgroundEditor.ps1); " +
-                "in the user's editor, propose changes instead")));
+                "In the live editor, use ui.shot with views:true to capture only the map viewports. " +
+                "UI inspection and input require an isolated background editor (tools/Start-BackgroundEditor.ps1).")));
 
     // ---- proposals ------------------------------------------------------------------------------------------------
 

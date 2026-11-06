@@ -59,7 +59,11 @@ project path in place of `--live`. For example:
 From source, use `dotnet` as the command and the full path to `ose.dll` as the first argument. Use
 `ose live` to list running editors and add `--pid N` to pin a live session. Without a PID the newest editor is
 selected. For an isolated editor, pass the background script's `OSE_LIVE_DIR` to the client in the server entry's
-`env` and use `mcp --live`. Only the background editor allows `ui_tree`, `ui_shot` and `ui_input`.
+`env` and use `mcp --live`. Only the background editor allows `ui_tree`, `ui_input` and full UI screenshots.
+In the user's live editor, `ui_shot` with `views:true` captures only the visible map viewports without moving the
+camera, changing selection, focusing the app or reading its surrounding UI. It returns PNG paths, render modes,
+camera poses and sky-preview state. `crop` is unavailable and UI lint is skipped. A minimized editor may need to be
+restored before it can produce a fresh frame; the request returns an error after five seconds instead of hanging.
 
 Start with `map_summary` (or `editor_state` for the active selection and camera). Request only the IDs and fields
 you need. For example, find a surface and read nearby brushes with one `map_query` call:
@@ -114,15 +118,19 @@ Live adds three methods:
 | `proposal` | `{id?, wait?}`: `pending`, `accepted` (with the applied diff), `rejected`, `superseded` or `failed`. While it is pending the ghost follows the user's edits; when an edit means it no longer applies, `problem` says why and Accept is off until it applies again. |
 | `editor` | The open map, unsaved changes, the selection, the camera, `viewCenter` (the surface under the centre of the active view: place things there with `at`), the cursor, connected agents and scripts, the pending proposal, and `matchGrey` (`players`, `mode`, `greyed`) while the Match panel greys out what a match leaves out (the ids: the `match` query's `absent`). |
 
-Three more methods let a script look at the editor and drive it like a user. They work only in an editor started in
-the background (below). The user's own editor refuses them: synthetic clicks and keys there would land
-while the user works, could accept a proposal or save without the user, and would bypass the proposal model.
+Three more methods let a script look at the editor and drive an isolated background instance like a user.
+The live editor permits read-only map viewport captures. It refuses UI inspection and synthetic input, which
+could otherwise click or type while the user works or accept a proposal outside the change-document workflow.
 
 | method | does |
 |---|---|
-| `ui.shot` | `{name?, dir?, crop?, views?, lint?}`: saves a PNG of the window (from the editor's own image, so it works off-screen) and returns its path and size. Without `dir` the PNGs go to `shots` in the run's own user folder. `crop` (a target) also saves that part; `views` also saves each view as shown and its bare 3D frame. `lint` (default on) returns the automatic UI checks: clipped text, hidden tabs, missing glyphs, controls outside their box. |
+| `ui.shot` | `{name?, dir?, crop?, views?, viewportsOnly?, lint?}`: saves a PNG of the window (from the editor's own image, so it works off-screen) and returns its path and size. Without `dir` the PNGs go to `shots` in the run's own user folder. `crop` (a target) also saves that part; `views` also saves each view as shown and its bare 3D frame. `lint` (default on) returns the automatic UI checks: clipped text, hidden tabs, missing glyphs, controls outside their box. |
 | `ui.input` | `{steps:[...]}` or one step: `move`, `click`, `rightClick`, `doubleClick`, `press`, `release`, `drag` (`to`, `hold`), `scroll` (`clicks`), `key` (`"Ctrl+Z"`), `type` (`text`), `hold` (`key`, `down`), `hover` (waits for the tooltip), `escape` (closes popups). Synthetic events: the real mouse and keyboard are never touched. A key a step does not take (a typo such as `ofset`) fails the call. |
 | `ui.tree` | `{under?, all?, limit?}`: the visible controls with paths, kinds, rectangles, texts and states, popups included. |
+
+The `ui.shot` table entry describes an isolated background editor. In a live editor `views:true` is required and
+only raw viewport PNGs are written, with `scope:"viewports"` in the reply. A background editor can use the same
+path explicitly with `viewportsOnly:true`; its ordinary full-window screenshot behavior remains available.
 
 A target (`at`, `to`, `crop`) is `[x, y]` in window coordinates, `action:<id>` (a toolbar button), `tab:<title>` (a
 dock tab, or a tab of a panel's own tab bar), `dock:<title>` (the dock holding that panel, wherever the layout put it),

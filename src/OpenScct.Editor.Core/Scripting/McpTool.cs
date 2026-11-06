@@ -24,7 +24,7 @@ internal sealed record McpTool(ApiMethod Method)
         ["propose"] = new("Show a ghost edit for a user to accept or reject.", """{"label":"Preview camera","ops":[{"op":"create","class":"SCamera","at":[0,0,128]}]}"""),
         ["proposal"] = new("Read the latest proposal status or look up an id.", "{}", true),
         ["editor"] = new("Read the active map, selection, view and proposal state.", "{}", true),
-        ["ui.shot"] = new("Write a screenshot and optionally lint the background editor UI.", """{"name":"overview","lint":false}"""),
+        ["ui.shot"] = new("Capture live map viewports with views:true, or the full UI in an isolated background editor.", """{"name":"overview","views":true,"lint":false}"""),
         ["ui.input"] = new("Send synthetic input to an isolated background editor.", """{"steps":[{"op":"escape"}]}"""),
         ["ui.tree"] = new("Inspect controls and target paths in a background editor.", """{"limit":20}""", true),
         ["help"] = new("List available names, or get one method, op or query example.", """{"kind":"op","name":"create"}""", true),
