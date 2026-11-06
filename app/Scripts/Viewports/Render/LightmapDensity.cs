@@ -45,13 +45,13 @@ public static class LightmapDensity
         var materials = new List<ShaderMaterial>();
         foreach (Section s in sections.Values)
         {
-            var arrays = new Godot.Collections.Array();
+            using var arrays = new Godot.Collections.Array();
             arrays.Resize((int)Mesh.ArrayType.Max);
             arrays[(int)Mesh.ArrayType.Vertex] = s.Points.ToArray();
             arrays[(int)Mesh.ArrayType.Normal] = s.Normals.ToArray();
             arrays[(int)Mesh.ArrayType.TexUV] = s.Uvs.ToArray();
             arrays[(int)Mesh.ArrayType.Color] = s.Colors.ToArray();
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays);
             materials.Add(StoreyClip.Fresh(Material(s.Width, s.Height)));
         }
 

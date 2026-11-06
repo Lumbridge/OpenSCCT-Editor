@@ -176,7 +176,7 @@ public static class ConveyorLook
             }
         }
 
-        var arrays = new Godot.Collections.Array();
+        using var arrays = new Godot.Collections.Array();
         arrays.Resize((int)Mesh.ArrayType.Max);
         arrays[(int)Mesh.ArrayType.Vertex] = points;
         arrays[(int)Mesh.ArrayType.Normal] = normals;
@@ -184,7 +184,7 @@ public static class ConveyorLook
         var built = new ArrayMesh();
         if (n > 0)
         {
-            built.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            MeshUpload.AddSurface(built, Mesh.PrimitiveType.Triangles, arrays);
         }
 
         return built;

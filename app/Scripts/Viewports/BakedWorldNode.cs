@@ -243,13 +243,13 @@ public sealed partial class BakedWorldNode : Node3D
                 return null;
             }
 
-            var arrays = new Godot.Collections.Array();
+            using var arrays = new Godot.Collections.Array();
             arrays.Resize((int)Mesh.ArrayType.Max);
             arrays[(int)Mesh.ArrayType.Vertex] = V.ToArray();
             arrays[(int)Mesh.ArrayType.Normal] = N.ToArray();
             arrays[(int)Mesh.ArrayType.Color] = C.ToArray();
             var mesh = new ArrayMesh();
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays);
             return mesh;
         }
     }

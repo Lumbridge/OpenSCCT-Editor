@@ -229,7 +229,7 @@ public static class StaticMeshDrawing
         var copy = new ArrayMesh();
         for (int i = 0; i < mesh.Mesh.GetSurfaceCount(); i++)
         {
-            Godot.Collections.Array arrays = mesh.Mesh.SurfaceGetArrays(i);
+            using Godot.Collections.Array arrays = mesh.Mesh.SurfaceGetArrays(i);
             int count = ((Vector3[])arrays[(int)Mesh.ArrayType.Vertex]).Length;
             if (!light.Colours.TryGetValue(mesh.Primitives[i], out byte[]? rgba) || rgba.Length != count * 4)
             {
@@ -243,7 +243,7 @@ public static class StaticMeshDrawing
             }
 
             arrays[(int)Mesh.ArrayType.Color] = colours;
-            copy.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            MeshUpload.AddSurface(copy, Mesh.PrimitiveType.Triangles, arrays);
             copy.SurfaceSetName(i, mesh.Mesh.SurfaceGetName(i));
         }
 

@@ -83,6 +83,9 @@ A Godot 4.7.2 .NET project (`Godot.NET.Sdk/4.7.2`, net10.0, Forward+). It refere
 Rules:
 
 - Core never references Godot. Anything that can run headless lives in Core.
+- App meshes upload through `Viewports/MeshUpload`: Godot 4.7.2's generated `AddSurfaceFromArrays` binding passes
+  native collection handles without keeping their managed owners alive. The helper explicitly supplies the optional
+  collections and keeps the owners alive through the call; callers dispose their temporary surface arrays afterward.
 - The app never edits the model directly. It builds a command and runs it through `EditorContext.Execute`.
 - Panels never talk to each other. They listen to `EditorContext` events (`ProjectChanged`, `SelectionChanged`,
   `SessionReplaced`, `FindingsChanged`, `FocusRequested`, `JumpRequested`).
