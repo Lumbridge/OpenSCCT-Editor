@@ -325,7 +325,13 @@ public sealed class TriangleBvh
 
     /// <summary>How far along the segment a blocking triangle is (the first one found, not always the nearest), or -1
     /// when nothing blocks it; <see cref="Occluded"/> with the distance.</summary>
-    public float Blocker(Vector3 origin, Vector3 dir, float length, bool sun)
+    public float Blocker(Vector3 origin, Vector3 dir, float length, bool sun) => BlockingDistance(origin, dir, length, sun, farthest: false);
+
+    /// <summary>The farthest blocking triangle along the segment, or -1. Its distance bounds the widest soft-shadow
+    /// penumbra; unlike the first hit encountered, it does not depend on BVH layout or triangle order.</summary>
+    public float FarthestBlocker(Vector3 origin, Vector3 dir, float length, bool sun) => BlockingDistance(origin, dir, length, sun, farthest: true);
+
+    private float BlockingDistance(Vector3 origin, Vector3 dir, float length, bool sun, bool farthest)
     {
         if (Count == 0)
         {
@@ -335,6 +341,7 @@ public sealed class TriangleBvh
         Vector3 inv = Inverse(dir);
         Span<int> stack = _stackSize <= 256 ? stackalloc int[256] : new int[_stackSize];
         int sp = 0;
+        float distance = -1;
         stack[sp++] = 0;
         while (sp > 0)
         {
@@ -361,15 +368,22 @@ public sealed class TriangleBvh
 
                 if (Intersect(t, origin, dir, length, out float at, out Vector2 bary) && Solid(t, bary))
                 {
-                    return at;
+                    if (!farthest)
+                    {
+                        return at;
+                    }
+
+                    distance = Math.Max(distance, at);
                 }
             }
         }
 
-        return -1;
+        return distance;
     }
 
-    /// <summary>The nearest triangle along the ray within <paramref name="length"/>, either side, or null.</summary>
+    /// <summary>The nearest triangle along the ray within <paramref name="length"/>, either side, or null. Coincident
+    /// hits prefer a front face (a visible face must not become buried because a back face was visited first), then
+    /// geometry and source keys, so BVH layout does not change burial or bounce-light sampling.</summary>
     public BvhHit? Closest(Vector3 origin, Vector3 dir, float length)
     {
         if (Count == 0)
@@ -400,7 +414,9 @@ public sealed class TriangleBvh
 
             for (int t = node.Start; t < node.Start + node.Count; t++)
             {
-                if (Intersect(t, origin, dir, bestT, out float at, out Vector2 bary) && Solid(t, bary))
+                // Use the original length so equal-distance hits are considered too. Bounds still prune beyond bestT.
+                if (Intersect(t, origin, dir, length, out float at, out Vector2 bary) &&
+                    (at < bestT || (at == bestT && Prefer(t, best, dir))) && Solid(t, bary))
                 {
                     bestT = at;
                     best = t;
@@ -409,6 +425,18 @@ public sealed class TriangleBvh
         }
 
         return best < 0 ? null : new BvhHit(best, bestT, Vector3.Dot(_n[best], dir) < 0);
+    }
+
+    private bool Prefer(int candidate, int current, Vector3 direction)
+    {
+        if (current < 0)
+        {
+            return true;
+        }
+
+        bool front = Vector3.Dot(_n[candidate], direction) < 0, currentFront = Vector3.Dot(_n[current], direction) < 0;
+        return front != currentFront ? front : _hash[candidate] != _hash[current]
+            ? _hash[candidate] < _hash[current] : _order[candidate] < _order[current];
     }
 
     /// <summary>An order-independent key of the triangles whose bounds touch <paramref name="box"/>: a light whose

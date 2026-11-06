@@ -38,7 +38,7 @@ public sealed class LightmapBaker
     private const int MaxPenumbra = 24;
 
     /// <summary>Changes whenever shadow masks would come out differently, so an older cache file is not read.</summary>
-    private const int CacheVersion = 6;
+    private const int CacheVersion = 7;
 
     private static readonly byte[] s_cacheMagic = "OSLMSHAD"u8.ToArray();
 
@@ -442,7 +442,7 @@ public sealed class LightmapBaker
 
             reached[i] = true;
             rays++;
-            double blocker = Blocker(l, p, c.Normal, c.TwoSided, l.Location, -l.Direction, bvh, q.Faithful);
+            double blocker = Blocker(l, p, c.Normal, c.TwoSided, l.Location, -l.Direction, bvh, q.Faithful, farthest: soft);
             if (blocker < 0)
             {
                 vis[i] = 255;
@@ -452,8 +452,9 @@ public sealed class LightmapBaker
             anyShadow = true;
             if (soft)
             {
-                // Similar triangles: a blocker t from the surface and L - t from a light of radius R casts a
-                // penumbra R t / (L - t) wide; the sun's is t tan(half its angle).
+                // The farthest blocker gives a conservative band and keeps the result independent of BVH traversal
+                // order (the shadow cache keys geometry, not tree layout). A blocker t from the surface and L - t
+                // from a light of radius R casts a penumbra R t / (L - t) wide; the sun's is t tan(half its angle).
                 double width = l.IsSun ? blocker * sunSpread : q.LightSize * blocker / Math.Max(1, (l.Location - p).Length - blocker);
                 spread[i] = (float)Math.Min(MaxPenumbra, width / c.TexelSize);
             }
@@ -624,7 +625,8 @@ public sealed class LightmapBaker
     /// <summary>How far from the surface point something blocks the way to the light, or -1 when nothing does. With
     /// <paramref name="depthSlack"/> (faithful bakes) whatever lies within the original's depth precision of the
     /// surface lets the light through (<see cref="FaithfulDepthSlack"/>).</summary>
-    private static double Blocker(BakeLight l, Vec3 p, Vec3 n, bool twoSided, Vec3 target, Vec3 sunDir, TriangleBvh bvh, bool depthSlack = false)
+    private static double Blocker(BakeLight l, Vec3 p, Vec3 n, bool twoSided, Vec3 target, Vec3 sunDir, TriangleBvh bvh,
+        bool depthSlack = false, bool farthest = false)
     {
         Vec3 toLight = l.IsSun ? sunDir : target - p;
         Vec3 side = twoSided && Vec3.Dot(n, toLight) < 0 ? -n : n;
@@ -636,12 +638,16 @@ public sealed class LightmapBaker
 
         if (l.IsSun)
         {
-            return bvh.Blocker(F(origin), F(sunDir.Normalized()), (float)BakeLight.SunTraceLength, sun: true);
+            return farthest
+                ? bvh.FarthestBlocker(F(origin), F(sunDir.Normalized()), (float)BakeLight.SunTraceLength, sun: true)
+                : bvh.Blocker(F(origin), F(sunDir.Normalized()), (float)BakeLight.SunTraceLength, sun: true);
         }
 
         Vec3 d = target - origin;
         double len = d.Length;
-        return len < 1e-3 ? -1 : bvh.Blocker(F(origin), F(d / len), (float)(len - 0.5), sun: false);
+        return len < 1e-3 ? -1 : farthest
+            ? bvh.FarthestBlocker(F(origin), F(d / len), (float)(len - 0.5), sun: false)
+            : bvh.Blocker(F(origin), F(d / len), (float)(len - 0.5), sun: false);
     }
 
     /// <summary>
