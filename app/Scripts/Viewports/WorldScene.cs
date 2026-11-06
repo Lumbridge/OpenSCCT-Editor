@@ -43,6 +43,7 @@ public sealed partial class WorldScene : Node3D
     private bool _showOffTriggerLights;
     private bool _previewDirty;
     private bool _previewRunning;
+    private string? _previewError;
     private double _previewWait;
     private MapProject? _project;
     private string? _folder;
@@ -55,6 +56,7 @@ public sealed partial class WorldScene : Node3D
     private int _skyRevision;
     private bool _skyDirty;
     private bool _skyRunning;
+    private string? _skyError;
     private MeshInstance3D? _skyUnlit;
     private MeshInstance3D? _skyLit;
     private MeshInstance3D? _skyBaked;
@@ -63,6 +65,10 @@ public sealed partial class WorldScene : Node3D
     public SkyPreviewScene? Sky { get; private set; }
     private CancellationTokenSource? _lightCancel;
     private bool _lightDirty;
+    private bool _lightRunning;
+    private string? _lightError;
+    private int _lightVersion;
+    private int? _completedLightVersion;
     private double _lightWait;
     private List<object> _lightInputs = new();
 
@@ -105,6 +111,24 @@ public sealed partial class WorldScene : Node3D
     /// <summary>True while some view is in Lit Preview, so the light bake is worth running.</summary>
     public bool LitNeeded { get; set; }
 
+    /// <summary>Actual asynchronous preview state, independent of the last status-bar message. A queued preview
+    /// is paused when its render mode is not visible. These describe geometry, sky and baked light, not texture IO.</summary>
+    public string GeometryPreviewState => _previewDirty ? SurfacesNeeded ? "queued" : "paused"
+        : _previewRunning ? "building" : _previewError is not null ? "error" : _previewPolys is null ? "empty" : "ready";
+
+    public string SkyPreviewState => _skyDirty ? SurfacesNeeded ? "queued" : "paused"
+        : _skyRunning ? "building" : _skyError is not null ? "error" : "ready";
+
+    public string LightingPreviewState => _previewError is not null && !_previewDirty && !_previewRunning ? "error"
+        : _previewDirty || _previewRunning || _lightDirty
+        ? LitNeeded ? "queued" : "paused"
+        : _previewError is not null || _lightError is not null ? "error"
+        : _lightRunning ? "baking" : _lastLightPass is { Final: true } ? "ready" : "empty";
+
+    public string? PreviewError => _previewError ?? _skyError ?? _lightError;
+    public int LightingVersion => _lightVersion;
+    public int? CompletedLightingVersion => _completedLightVersion;
+
     /// <summary>Number of drawn objects (status and diagnostics).</summary>
     public int Count => _entries.Count;
 
@@ -128,6 +152,7 @@ public sealed partial class WorldScene : Node3D
         DropObjects();
         DropLightBake();
         _previewPolys = null;
+        _previewError = _skyError = null;
         Sky = null;
         _skyRevision++;
         _skyDirty = true;
@@ -242,6 +267,7 @@ public sealed partial class WorldScene : Node3D
         {
             _previewDirty = true;
             _previewWait = 0.35;
+            QueueLightBake(0.35);
         }
 
         List<object> inputs = LightInputs(p);
@@ -249,8 +275,7 @@ public sealed partial class WorldScene : Node3D
         {
             Render.DynamicWorldLights.Update(p, LightOn);
             _lightInputs = inputs;
-            _lightDirty = true;
-            _lightWait = 0.35;
+            QueueLightBake(0.35);
             _skyRevision++;
             _skyDirty = true;
         }
@@ -563,6 +588,8 @@ public sealed partial class WorldScene : Node3D
 
         _previewDirty = false;
         _previewRunning = true;
+        _previewError = null;
+        Core.EditorContext.Instance.SetStatus("Updating world preview…");
         // The preview reads only the brushes and whether there is a baked world; the brushes are copied because the
         // user keeps editing while it runs.
         MapProject input = _previewInput;
@@ -589,12 +616,14 @@ public sealed partial class WorldScene : Node3D
     private void ApplyPreview(IReadOnlyList<PreviewPolygon>? polys, string? error)
     {
         _previewRunning = false;
+        _previewError = error;
         _previewUnlit?.QueueFree();
         _previewLit?.QueueFree();
         _previewUnlit = _previewLit = null;
         if (polys is null)
         {
             Core.EditorContext.Instance.Log($"World preview failed: {error}", Severity.Warning);
+            Core.EditorContext.Instance.SetStatus("World preview failed — see Log");
             return;
         }
 
@@ -602,11 +631,11 @@ public sealed partial class WorldScene : Node3D
         // not drop to a different lighting model for a moment on every brush edit. A map without brushes (an imported
         // baked world) still bakes, for its static meshes.
         _previewPolys = polys;
-        _lightDirty = true;
-        _lightWait = 0;
+        QueueLightBake(0);
         _geometryVersion++;
 
         DrawPreview();
+        if (!LitNeeded && !_previewDirty) Core.EditorContext.Instance.SetStatus("World preview ready");
     }
 
     private void DrawPreview()
@@ -649,6 +678,7 @@ public sealed partial class WorldScene : Node3D
         if (!_skyDirty || _skyRunning || !SurfacesNeeded || _project is null) return;
         _skyDirty = false;
         _skyRunning = true;
+        _skyError = null;
         int revision = _skyRevision;
         MapProject snapshot = OpenScct.Editor.Core.Session.ProjectSnapshot.Take(_project);
         string? folder = _folder;
@@ -662,6 +692,7 @@ public sealed partial class WorldScene : Node3D
             {
                 _skyRunning = false;
                 if (revision != _skyRevision) return;
+                _skyError = error;
                 if (error is not null) Core.EditorContext.Instance.Log($"Sky preview failed: {error}", Severity.Warning);
                 Sky = sky;
                 foreach (Entry e in _entries.Values)
@@ -678,11 +709,22 @@ public sealed partial class WorldScene : Node3D
 
     // ---- Lit Preview bake ---------------------------------------------------------------------------------------------
 
+    private void QueueLightBake(double wait)
+    {
+        // A pass from the previous inputs must not report ready while the next bake is debouncing.
+        _lightCancel?.Cancel();
+        _lightRunning = false;
+        _lightError = null;
+        _lightDirty = true;
+        _lightWait = wait;
+        if (LitNeeded) Core.EditorContext.Instance.SetStatus("Lit preview queued…");
+    }
+
     /// <summary>Starts a bake of the current surfaces once edits settle; a new one cancels the one running. Each pass
     /// replaces the view's surfaces as it lands, coarse first.</summary>
     private void ProcessLightBake(double delta)
     {
-        if (!_lightDirty || !LitNeeded || _project is null || _previewPolys is null)
+        if (!_lightDirty || !LitNeeded || _project is null || _previewPolys is null || _previewDirty || _previewRunning || _previewError is not null)
         {
             return;
         }
@@ -694,6 +736,9 @@ public sealed partial class WorldScene : Node3D
         }
 
         _lightDirty = false;
+        _lightRunning = true;
+        _lightVersion++;
+        Core.EditorContext.Instance.SetStatus("Baking lit preview…");
         _lightCancel?.Cancel();
         var cancel = new CancellationTokenSource();
         _lightCancel = cancel;
@@ -721,7 +766,14 @@ public sealed partial class WorldScene : Node3D
             }
             catch (Exception ex)
             {
-                BackgroundJobs.Post(() => Core.EditorContext.Instance.Log($"Lit preview bake failed: {ex.Message}", Severity.Warning));
+                BackgroundJobs.Post(() =>
+                {
+                    if (cancel != _lightCancel || cancel.IsCancellationRequested) return;
+                    _lightRunning = false;
+                    _lightError = ex.Message;
+                    Core.EditorContext.Instance.Log($"Lit preview bake failed: {ex.Message}", Severity.Warning);
+                    Core.EditorContext.Instance.SetStatus("Lit preview failed — see Log");
+                });
             }
         });
     }
@@ -739,6 +791,8 @@ public sealed partial class WorldScene : Node3D
 
         if (pass.Final)
         {
+            _lightRunning = false;
+            _completedLightVersion = _lightVersion;
             _previewDensity?.QueueFree();
             _previewDensity = Render.LightmapDensity.Instance(pass, VisualLayers.Density);
             if (_previewDensity is not null)
@@ -780,6 +834,9 @@ public sealed partial class WorldScene : Node3D
     {
         _lightCancel?.Cancel();
         _lightCancel = null;
+        _lightRunning = false;
+        _lightError = null;
+        _completedLightVersion = null;
         _previewBaked?.QueueFree();
         _skyBaked?.QueueFree();
         _previewDensity?.QueueFree();

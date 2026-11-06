@@ -21,7 +21,10 @@ public static class LiveMethods
         new("editor", "Editor state",
             "What the user has in the editor now: the open map, unsaved changes, the selection, the camera, the point under the " +
             "centre of the view (place things there with \"at\"), connected clients, any pending proposal and, while the Match " +
-            "panel greys out a match's absent actors, its players, mode and how many (the ids: the match query's absent).",
+            "panel greys out a match's absent actors, its players, mode and how many (the ids: the match query's absent). " +
+            "preview reports sceneSyncPending, geometry/lighting/sky states, litReady, lightingVersion, completedLightingVersion " +
+            "and errors. Wait for litReady after a change before capturing a baked view; queued/paused/baking are not ready. " +
+            "This tracks geometry and light baking, not asynchronous texture loading.",
             """{"type":"object","properties":{}}"""),
         new("ui.shot", "Screenshot the editor",
             "In the live editor, views:true captures only visible map viewports and returns PNG paths, modes, camera poses " +

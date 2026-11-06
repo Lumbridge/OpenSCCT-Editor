@@ -55,6 +55,9 @@ public sealed partial class ViewportLayout : Node, IShellPart
 
     public WorldScene Scene => _scene;
 
+    /// <summary>An edit has landed but has not yet been synchronized into the drawn scene.</summary>
+    public bool SceneSyncPending => _dirty;
+
     public void Attach(MainWindow window, EditorContext context)
     {
         Instance = this;

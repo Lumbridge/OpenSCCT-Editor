@@ -106,6 +106,7 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
     {
         EditorSession s = _ctx.Session;
         Workspace w = s.Project.Workspace;
+        ViewportLayout? layout = ViewportLayout.Instance;
         Vec3? placement = null;
         try
         {
@@ -127,6 +128,16 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
             ("viewCenter", placement is { } p ? ApiJson.Vec(p) : null),
             ("cursor", ViewportLayout.Instance?.CursorWorld is { } c ? ApiJson.Vec(c) : null),
             ("clients", ApiJson.Strings(_server?.Clients ?? [])),
+            ("preview", layout is null ? null : ApiJson.Obj(
+                ("sceneSyncPending", ApiJson.Bool(layout.SceneSyncPending)),
+                ("geometry", ApiJson.Str(layout.Scene.GeometryPreviewState)),
+                ("lighting", ApiJson.Str(layout.Scene.LightingPreviewState)),
+                ("sky", ApiJson.Str(layout.Scene.SkyPreviewState)),
+                ("litReady", ApiJson.Bool(!layout.SceneSyncPending && layout.Scene.GeometryPreviewState == "ready" &&
+                    layout.Scene.LightingPreviewState == "ready" && layout.Scene.SkyPreviewState == "ready")),
+                ("lightingVersion", SvJsonNode.Integer(layout.Scene.LightingVersion)),
+                ("completedLightingVersion", layout.Scene.CompletedLightingVersion is { } version ? SvJsonNode.Integer(version) : null),
+                ("error", layout.Scene.PreviewError is { } previewError ? ApiJson.Str(previewError) : null))),
             ("matchGrey", MatchGreying.On
                 ? ApiJson.Obj(("players", SvJsonNode.Integer(MatchGreying.Players)),
                     ("mode", MatchGreying.Mode is { } mode ? ApiJson.Str(mode) : null),

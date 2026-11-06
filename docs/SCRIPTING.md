@@ -65,6 +65,14 @@ camera, changing selection, focusing the app or reading its surrounding UI. It r
 camera poses and sky-preview state. `crop` is unavailable and UI lint is skipped. A minimized editor may need to be
 restored before it can produce a fresh frame; the request returns an error after five seconds instead of hanging.
 
+After editing, poll `editor_state.preview.litReady` before capturing a baked viewport. The `preview` object reports
+`sceneSyncPending`, `geometry`, `lighting`, `sky`, `lightingVersion`, `completedLightingVersion` and any `error`.
+States are `empty`, `queued`, `paused`, `building` (geometry/sky), `baking` (lighting), `ready` or `error`.
+`paused` means the required render mode is not visible; waiting alone will not start it. A completed lighting
+version must match the current version, and all three previews must be ready. This covers geometry, sky and
+light baking, not asynchronous texture IO. Do not infer readiness from an old status-bar message or an elapsed
+delay. The status bar now distinguishes queued work, baking and completion.
+
 Start with `map_summary` (or `editor_state` for the active selection and camera). Request only the IDs and fields
 you need. For example, find a surface and read nearby brushes with one `map_query` call:
 
