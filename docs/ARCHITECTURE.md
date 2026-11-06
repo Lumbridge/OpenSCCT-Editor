@@ -83,6 +83,11 @@ A Godot 4.7.2 .NET project (`Godot.NET.Sdk/4.7.2`, net10.0, Forward+). It refere
 Rules:
 
 - Core never references Godot. Anything that can run headless lives in Core.
+- `Compile/SkyPreview` classifies the editor's sky with the compiler's BSP zones. `WorldScene` separates authored sky
+  surfaces and placed meshes onto sky layers; `SkyPreviewView` draws them from the SkyZoneInfo behind textured
+  perspective views. Inside the sky room, and in orthographic views, those layers remain directly editable. The
+  backdrop is disabled while a storey cut is shown. Imported baked BSP still follows `BakedWorldNode`'s existing
+  handling; this preview does not reconstruct the source map's omitted sky BSP.
 - App meshes upload through `Viewports/MeshUpload`: Godot 4.7.2's generated `AddSurfaceFromArrays` binding passes
   native collection handles without keeping their managed owners alive. The helper explicitly supplies the optional
   collections and keeps the owners alive through the call; callers dispose their temporary surface arrays afterward.

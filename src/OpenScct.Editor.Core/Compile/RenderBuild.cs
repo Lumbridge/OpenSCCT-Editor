@@ -598,8 +598,10 @@ public sealed partial class RenderBuild
             bool own = gameplay || _lighting.IsScrolled(a);
             string? variant = _lighting.DrawsVertexLit(a, gameplay) ? VertexLitVariant(a, path, node) : null;
             vertexLit += variant is null ? 0 : 1;
-            _instances.Add(Instance(a.Id, a.ShortClass, own, hidden, variant ?? node, a.Location, a.Rotation,
-                _ctx.Rules.Scale(a), _ctx.Rules.PrePivot(a), variant is not null, mover ? "mover" : "staticmesh"));
+            JsonObject instance = Instance(a.Id, a.ShortClass, own, hidden, variant ?? node, a.Location, a.Rotation,
+                _ctx.Rules.Scale(a), _ctx.Rules.PrePivot(a), variant is not null, mover ? "mover" : "staticmesh");
+            ApplyDrawingFlags(instance, a);
+            _instances.Add(instance);
             _instanced.Add(a.Id);
         }
 
@@ -721,6 +723,14 @@ public sealed partial class RenderBuild
 
     private static JsonArray Floats(Vec3 v) => new((float)v.X, (float)v.Y, (float)v.Z);
 
+    private void ApplyDrawingFlags(JsonObject instance, Actor actor)
+    {
+        // The game puts sky meshes on a separate camera layer. Unlit meshes must also bypass runtime actor
+        // lighting; otherwise a cloud dome has neither baked colours nor the sky camera's static geometry path.
+        instance["skyZone"] = _ctx.InSkyZone(actor.Location);
+        instance["unlit"] = _ctx.Rules.Flag(actor, "bUnlit");
+    }
+
     // ---- baked world ----------------------------------------------------------------------------------------------
 
     /// <summary>
@@ -802,6 +812,7 @@ public sealed partial class RenderBuild
         }
 
         JsonObject o = source.DeepClone().AsObject();
+        ApplyDrawingFlags(o, a);
         o["location"] = Floats(a.Location);
         o["rotation"] = new JsonObject { ["Pitch"] = a.Rotation.Pitch, ["Roll"] = a.Rotation.Roll, ["Yaw"] = a.Rotation.Yaw };
         o["scale"] = Floats(_ctx.Rules.Scale(a));

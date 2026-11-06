@@ -1,11 +1,13 @@
 using Godot;
 using OpenScct.Editor.Core.Classes;
+using OpenScct.Editor.Core.Compile;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Lightmaps;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
 using OpenScctEditor.Shell;
 using OpenScctEditor.Viewports.Render;
+using ClassDefaults = OpenScct.Editor.Core.Gameplay.ClassDefaults;
 
 namespace OpenScctEditor.Viewports;
 
@@ -49,6 +51,16 @@ public sealed partial class WorldScene : Node3D
     // settings change.
     private readonly LightPreview _lightPreview = new();
     private IReadOnlyList<PreviewPolygon>? _previewPolys;
+    private readonly SkyPreview _skyPreview = new();
+    private int _skyRevision;
+    private bool _skyDirty;
+    private bool _skyRunning;
+    private MeshInstance3D? _skyUnlit;
+    private MeshInstance3D? _skyLit;
+    private MeshInstance3D? _skyBaked;
+    private LightPreviewPass? _lastLightPass;
+
+    public SkyPreviewScene? Sky { get; private set; }
     private CancellationTokenSource? _lightCancel;
     private bool _lightDirty;
     private double _lightWait;
@@ -116,6 +128,12 @@ public sealed partial class WorldScene : Node3D
         DropObjects();
         DropLightBake();
         _previewPolys = null;
+        Sky = null;
+        _skyRevision++;
+        _skyDirty = true;
+        _skyUnlit?.QueueFree();
+        _skyLit?.QueueFree();
+        _skyUnlit = _skyLit = null;
         _folder = folder;
         _baked?.Load(p, folder);
         _bakedKeep = Keep(p);
@@ -233,6 +251,14 @@ public sealed partial class WorldScene : Node3D
             _lightInputs = inputs;
             _lightDirty = true;
             _lightWait = 0.35;
+            _skyRevision++;
+            _skyDirty = true;
+        }
+
+        if (brushesChanged)
+        {
+            _skyRevision++;
+            _skyDirty = true;
         }
 
         foreach (string id in _posed.Keys)
@@ -249,7 +275,7 @@ public sealed partial class WorldScene : Node3D
     private static List<object> LightInputs(MapProject p)
     {
         var inputs = new List<object> { p.LevelInfo.ToJson().ToString(), OpenScct.Editor.Core.Project.ProjectStore.LightingToJson(p.Lighting).ToString() };
-        inputs.AddRange(p.Actors.Where(a => ClassDefaults.IsA(a, "Engine.Light") ||
+        inputs.AddRange(p.Actors.Where(a => ClassDefaults.IsA(a, "Engine.Light") || ClassDefaults.IsA(a, "Engine.ZoneInfo") ||
             (a.Props["StaticMesh"] ?? ClassDefaults.Catalog.Default(a.Class, "StaticMesh")) is not null));
         return inputs;
     }
@@ -459,6 +485,10 @@ public sealed partial class WorldScene : Node3D
         {
             _baked.Visible = ShowBaked;
         }
+
+        if (_skyUnlit is not null) _skyUnlit.Visible = ShowBrushes;
+        if (_skyLit is not null) _skyLit.Visible = ShowBrushes && _skyBaked is null;
+        if (_skyBaked is not null) _skyBaked.Visible = ShowBrushes;
     }
 
     /// <summary>The baked-world surface under a ray (UE units), when the baked world is shown and drawn textured; null
@@ -518,6 +548,7 @@ public sealed partial class WorldScene : Node3D
             WriteIcons();
         }
 
+        ProcessSky();
         ProcessLightBake(delta);
         if (!_previewDirty || _previewRunning || !SurfacesNeeded || _project is null || EditorServices.Preview is not { } preview)
         {
@@ -575,22 +606,74 @@ public sealed partial class WorldScene : Node3D
         _lightWait = 0;
         _geometryVersion++;
 
+        DrawPreview();
+    }
+
+    private void DrawPreview()
+    {
+        _previewUnlit?.QueueFree();
+        _previewLit?.QueueFree();
+        _skyUnlit?.QueueFree();
+        _skyLit?.QueueFree();
+        _previewUnlit = _previewLit = _skyUnlit = _skyLit = null;
+        if (_previewPolys is null) return;
+
         // Textured like a build: each material's texture and the compiler's UVs (Render/TexturedSurfaces).
         var surfaces = new Render.TexturedSurfaces();
-        surfaces.Add(polys);
-        if (surfaces.Build() is not { } built)
+        surfaces.Add(_previewPolys.Where(p => Sky?.ContainsPolygon(p) != true));
+        if (surfaces.Build() is { } built)
         {
-            return;
+            _previewUnlit = Render.TexturedSurfaces.Instance(built.Mesh, built.Materials, lit: false, VisualLayers.Unlit);
+            _previewLit = Render.TexturedSurfaces.Instance(built.Mesh, built.Materials, lit: true, VisualLayers.Lit);
+            AddChild(_previewUnlit);
+            AddChild(_previewLit);
         }
 
-        _previewUnlit = Render.TexturedSurfaces.Instance(built.Mesh, built.Materials, lit: false, VisualLayers.Unlit);
-        _previewLit = Render.TexturedSurfaces.Instance(built.Mesh, built.Materials, lit: true, VisualLayers.Lit);
-        AddChild(_previewUnlit);
-        AddChild(_previewLit);
+        var sky = new Render.TexturedSurfaces();
+        sky.Add(_previewPolys.Where(p => Sky?.ContainsPolygon(p) == true));
+        if (sky.Build() is { } skyMesh)
+        {
+            _skyUnlit = Render.TexturedSurfaces.Instance(skyMesh.Mesh, skyMesh.Materials, lit: false, VisualLayers.SkyUnlit);
+            _skyLit = Render.TexturedSurfaces.Instance(skyMesh.Mesh, skyMesh.Materials, lit: true, VisualLayers.SkyLit);
+            AddChild(_skyUnlit);
+            AddChild(_skyLit);
+        }
         if (_project is not null)
         {
             ApplyVisibility(_project);
         }
+    }
+
+    private void ProcessSky()
+    {
+        if (!_skyDirty || _skyRunning || !SurfacesNeeded || _project is null) return;
+        _skyDirty = false;
+        _skyRunning = true;
+        int revision = _skyRevision;
+        MapProject snapshot = OpenScct.Editor.Core.Session.ProjectSnapshot.Take(_project);
+        string? folder = _folder;
+        BackgroundJobs.Start(_ =>
+        {
+            SkyPreviewScene? sky = null;
+            string? error = null;
+            try { sky = _skyPreview.Build(snapshot, folder); }
+            catch (Exception ex) { error = ex.Message; }
+            BackgroundJobs.Post(() =>
+            {
+                _skyRunning = false;
+                if (revision != _skyRevision) return;
+                if (error is not null) Core.EditorContext.Instance.Log($"Sky preview failed: {error}", Severity.Warning);
+                Sky = sky;
+                foreach (Entry e in _entries.Values)
+                {
+                    if (e.Source is Actor a) Render.StaticMeshDrawing.SetSky(e.Root, sky?.Contains(a.Location) == true);
+                }
+
+                DrawPreview();
+                if (_lastLightPass is { } pass) DrawLightPass(pass);
+                if (_project is not null) ApplyVisibility(_project);
+            });
+        });
     }
 
     // ---- Lit Preview bake ---------------------------------------------------------------------------------------------
@@ -650,13 +733,9 @@ public sealed partial class WorldScene : Node3D
             return;
         }
 
-        _previewBaked?.QueueFree();
-        _previewBaked = Render.LitPreviewSurfaces.Instance(pass, VisualLayers.Lit);
+        _lastLightPass = pass;
+        DrawLightPass(pass);
         _bakedGeometryVersion = geometry;
-        if (_previewBaked is not null)
-        {
-            AddChild(_previewBaked);
-        }
 
         if (pass.Final)
         {
@@ -681,14 +760,32 @@ public sealed partial class WorldScene : Node3D
         }
     }
 
+    private void DrawLightPass(LightPreviewPass pass)
+    {
+        _previewBaked?.QueueFree();
+        _skyBaked?.QueueFree();
+        LightPreviewPass Filter(bool sky) => pass with
+        {
+            Lit = pass.Lit.Where(p => (Sky?.ContainsPolygon(p.Source) == true) == sky).ToList(),
+            Unlit = pass.Unlit.Where(p => (Sky?.ContainsPolygon(p) == true) == sky).ToList(),
+        };
+        _previewBaked = Render.LitPreviewSurfaces.Instance(Filter(false), VisualLayers.Lit);
+        _skyBaked = Sky is null ? null : Render.LitPreviewSurfaces.Instance(Filter(true), VisualLayers.SkyLit);
+        if (_previewBaked is not null) AddChild(_previewBaked);
+        if (_skyBaked is not null) AddChild(_skyBaked);
+    }
+
     /// <summary>Cancels the running bake and drops its surfaces.</summary>
     private void DropLightBake()
     {
         _lightCancel?.Cancel();
         _lightCancel = null;
         _previewBaked?.QueueFree();
+        _skyBaked?.QueueFree();
         _previewDensity?.QueueFree();
         _previewBaked = _previewDensity = null;
+        _skyBaked = null;
+        _lastLightPass = null;
         _bakedGeometryVersion = null;
         ShowMeshLight(new Dictionary<string, LitPreviewMesh>());
     }
@@ -855,7 +952,7 @@ public sealed partial class WorldScene : Node3D
                     SetSelected(e, e.Selected);
                     _iconsDirty = true;
                 }
-            });
+            }, () => e.Source is Actor current && Sky?.Contains(current.Location) == true);
         }
 
         if (ConveyorDesign.Is(a))

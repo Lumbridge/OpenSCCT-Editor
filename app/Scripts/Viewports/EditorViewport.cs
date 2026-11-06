@@ -30,6 +30,7 @@ public sealed partial class EditorViewport : Control
     private readonly ViewportOverlay _overlay;
     private readonly ViewGrid _grid;
     private readonly ReferenceLayer _references;
+    private readonly SkyPreviewView _sky = new();
     private readonly MenuButton _menu;
     private readonly StoreySlider _storeys = new() { Name = "Storeys", GrowHorizontal = GrowDirection.Begin };
     private bool _flying;
@@ -82,6 +83,7 @@ public sealed partial class EditorViewport : Control
         _sub.AddChild(_grid);
         _references = new ReferenceLayer { Kind = kind, Name = "References" };
         _sub.AddChild(_references);
+        AddChild(_sky);
 
         _overlay = new ViewportOverlay(this) { MouseFilter = MouseFilterEnum.Ignore };
         _overlay.SetAnchorsPreset(LayoutPreset.FullRect);
@@ -220,6 +222,7 @@ public sealed partial class EditorViewport : Control
 
     public override void _Process(double delta)
     {
+        _sky.Update(this, ViewportLayout.Instance?.Scene.Sky);
         if (!_flying)
         {
             return;
