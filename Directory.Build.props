@@ -7,7 +7,7 @@
     <Deterministic>true</Deterministic>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <InvariantGlobalization>true</InvariantGlobalization>
-    <VersionPrefix>0.2.1</VersionPrefix>
+    <VersionPrefix>0.2.2</VersionPrefix>
     <!-- A local package for trying updates out (tools/Package-Release.ps1 -Local -Version 0.1.1) stamps its own version. -->
     <VersionPrefix Condition="'$(OseVersionPrefix)' != ''">$(OseVersionPrefix)</VersionPrefix>
     <!-- Only release packages (OseRelease=true, set by tools/Package-Release.ps1) carry a plain version; every other
