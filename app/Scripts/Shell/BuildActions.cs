@@ -44,6 +44,12 @@ public sealed class BuildActions : IShellPart
         {
             Shortcut = "Ctrl+P", Order = 110, IsEnabled = CanBuild, Description = "Build, then play it in OpenSCCT with the play options",
         });
+        context.AddAction(new EditorAction("build.playVolumetricSmoke", "Build and Play with Volumetric Smoke", "Build",
+            () => Build(play: true, volumetricSmoke: true))
+        {
+            Order = 111, IsEnabled = CanBuild,
+            Description = "Build, then play it in OpenSCCT with responsive volumetric smoke grenades and the current play options",
+        });
         context.AddAction(new EditorAction("build.playFromCamera", "Build and Play From Camera", "Build", () => PlayFrom(CameraStart()))
         {
             Shortcut = "Alt+P", Order = 115, IsEnabled = CanBuild,
@@ -197,7 +203,7 @@ public sealed class BuildActions : IShellPart
         Build(play: true, grounded);
     }
 
-    private void Build(bool play, PlayStart? startAt = null)
+    private void Build(bool play, PlayStart? startAt = null, bool volumetricSmoke = false)
     {
         if (EditorServices.Compiler is not { } compiler)
         {
@@ -230,14 +236,14 @@ public sealed class BuildActions : IShellPart
             _ctx.SetStatus(result.Ok ? $"Built {snapshot.Id}" : "Build failed");
             if (play && result.Ok && ReferenceEquals(session, _ctx.Session) && FirstMapGuide.Revision(snapshot) == FirstMapGuide.Revision(_ctx.Project))
             {
-                Launch(snapshot.Id, startAt, FirstMapGuide.Revision(snapshot));
+                Launch(snapshot.Id, startAt, FirstMapGuide.Revision(snapshot), volumetricSmoke);
             }
         });
     }
 
     private void PlayLast() => Launch(_ctx.Project.Id);
 
-    private void Launch(string mapId, PlayStart? startAt = null, string? verifiedRevision = null)
+    private void Launch(string mapId, PlayStart? startAt = null, string? verifiedRevision = null, bool volumetricSmoke = false)
     {
         string? exe = GameLauncher.FindGame();
         if (exe is null)
@@ -252,7 +258,7 @@ public sealed class BuildActions : IShellPart
             return;
         }
 
-        IReadOnlyList<string> args = GameLauncher.PlayArguments(BuildsFolder, mapId, _ctx.Project.Workspace.Play, startAt);
+        IReadOnlyList<string> args = GameLauncher.PlayArguments(BuildsFolder, mapId, _ctx.Project.Workspace.Play, startAt, volumetricSmoke);
         try
         {
             int pid = GameLauncher.Play(exe, args);

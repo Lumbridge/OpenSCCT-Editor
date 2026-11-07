@@ -15,9 +15,11 @@ public static class GameLauncher
 
     /// <summary>
     /// The arguments that play <paramref name="mapId"/> from <paramref name="mapsRoot"/> with the map's play options,
-    /// spawning the player once at <paramref name="startAt"/> when given.
+    /// spawning the player once at <paramref name="startAt"/> when given. <paramref name="volumetricSmoke"/> enables
+    /// responsive smoke grenades for this launch.
     /// </summary>
-    public static IReadOnlyList<string> PlayArguments(string mapsRoot, string mapId, PlayOptions play, PlayStart? startAt = null)
+    public static IReadOnlyList<string> PlayArguments(string mapsRoot, string mapId, PlayOptions play, PlayStart? startAt = null,
+        bool volumetricSmoke = false)
     {
         var args = new List<string>
         {
@@ -44,6 +46,11 @@ public static class GameLauncher
         if (startAt is { } at)
         {
             args.Add(at.Argument);
+        }
+
+        if (volumetricSmoke)
+        {
+            args.Add("--svm-responsive-smoke");
         }
 
         return args;
