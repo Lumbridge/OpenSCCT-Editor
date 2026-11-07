@@ -24,9 +24,12 @@ public partial class StairsPanel : EditorPanel
         foreach (string layout in StairDesign.Layouts) foreach (bool rounded in new[] { false, true })
         {
             var s = new StairDesign { Layout = layout, TurnDegrees = layout == "spiral" ? 360 : 90,
-                Overhang = rounded ? 2 : 0, EdgeRadius = rounded ? 2 : 0 };
+                Overhang = rounded ? 4 : 0, EdgeRadius = rounded ? 4 : 0 };
             _presets.Add(s);
             _list.AddItem($"{(layout is "l" or "u" ? layout.ToUpperInvariant() : char.ToUpperInvariant(layout[0]) + layout[1..])} · {(rounded ? "Rounded" : "Square")}", Thumbnail(s));
+            _list.SetItemTooltip(_list.ItemCount - 1, rounded
+                ? "Rounded tread nosings with a 4-unit radius and overhang. Spiral treads and risers are connected."
+                : "Square tread nosings. Spiral treads and risers are connected.");
         }
         _list.ItemSelected += i => Choose((int)i);
         _list.SetDragForwarding(Callable.From<Vector2, Variant>(Drag), Callable.From((Vector2 _, Variant _) => false), Callable.From((Vector2 _, Variant _) => { }));
@@ -65,15 +68,19 @@ public partial class StairsPanel : EditorPanel
     {
         var owner = StairGeometry.Create("Thumbnail", design, Vec3.Zero);
         var paths = new System.Text.StringBuilder();
-        Vector2 Project(Vec3 p) => new((float)(p.X - p.Y) * .6f, (float)(p.X + p.Y) * .25f - (float)p.Z * .7f);
+        Vector2 Project(Vec3 p) => new((float)(p.X - p.Y) * .6f, -(float)(p.X + p.Y) * .25f - (float)p.Z * .7f);
         var points = owner.Shape.Faces.SelectMany(f => f.Vertices).Select(Project).ToArray();
         float minX = points.Min(p => p.X), maxX = points.Max(p => p.X), minY = points.Min(p => p.Y), maxY = points.Max(p => p.Y);
         float scale = Math.Min(96 / Math.Max(1, maxX - minX), 62 / Math.Max(1, maxY - minY));
-        foreach (var f in owner.Shape.Faces.Where(f => Vec3.Dot(f.Normal(), new Vec3(-1, -1, 1)) > .01).OrderByDescending(f => f.Vertices.Average(v => v.X + v.Y - 2 * v.Z)))
+        foreach (var f in GeometryThumbnailFaces.Visible(owner.Shape.Faces, new Vec3(-1, -1, 5.0 / 7)))
         {
             string verts = string.Join(' ', f.Vertices.Select(Project).Select(p => $"{(p.X - minX) * scale + 7:0.##},{(p.Y - minY) * scale + 5:0.##}"));
-            paths.Append($"<polygon points='{verts}' fill='{(f.StairRole == StairGeometry.Tread ? "#83b8d4" : "#405568")}' stroke='#203344' stroke-width='.6'/>");
+            string fill = f.StairRole == StairGeometry.Tread ? "#a5d7e4" : f.StairRole == StairGeometry.Riser ? "#55788c" : "#334959";
+            // BSP splits on a single side are not edges of the staircase.
+            paths.Append($"<polygon points='{verts}' fill='{fill}' stroke='{(f.StairRole == StairGeometry.Tread ? "#365362" : fill)}' stroke-width='.35'/>");
         }
+        paths.Append("<rect x='86' y='2' width='22' height='20' rx='3' fill='#202832' stroke='#405568'/>");
+        paths.Append(design.EdgeRadius > 0 ? "<path d='M89 18V12Q89 6 95 6H105' fill='none' stroke='#a5d7e4' stroke-width='3'/>" : "<path d='M89 18V6H105' fill='none' stroke='#a5d7e4' stroke-width='3'/>");
         var image = new Image(); image.LoadSvgFromString($"<svg xmlns='http://www.w3.org/2000/svg' width='110' height='72'>{paths}</svg>");
         return ImageTexture.CreateFromImage(image);
     }
@@ -121,6 +128,9 @@ public static class StairFields
         Number("Inner radius", s.InnerRadius, 16, 65536, (d, v) => d.InnerRadius = v);
         Number("Total turn degrees", s.TurnDegrees, 1, 1440, (d, v) => d.TurnDegrees = v);
         Number("Headroom", s.Headroom, 1, 65536, (d, v) => d.Headroom = v);
+        Number("Clearance side margin", s.ClearanceMargin, 0, 65536, (d, v) => d.ClearanceMargin = v);
+        Number("Clearance before stairs", s.ClearanceStart, 0, 65536, (d, v) => d.ClearanceStart = v);
+        Number("Clearance after stairs", s.ClearanceEnd, 0, 65536, (d, v) => d.ClearanceEnd = v);
         foreach (string role in new[] { "Tread", "Riser", "Side" })
         {
             var property = typeof(StairDesign).GetProperty(role + "Material")!;

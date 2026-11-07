@@ -1,0 +1,18 @@
+[
+  {"op":"size","w":1600,"h":900},
+  {"op":"wait","idle":true},
+  {"op":"tab","panel":"Stairs"},
+  {"op":"shot","name":"stairs-palette","caption":"Stairs shown from the front with square and rounded nosing profiles"},
+  {"op":"scroll","at":[180,360],"clicks":-10},
+  {"op":"shot","name":"spiral-palette","caption":"Connected spiral starters with square and rounded edge profiles"},
+  {"op":"select","ids":["Stair"],"frame":true},
+  {"op":"tool","id":"scale"},
+  {"op":"tab","panel":"Inspector"},
+  {"op":"wait","idle":true},
+  {"op":"shot","name":"clearance-handles","caption":"Separate clearance headroom, side, start and end handles"},
+  {"op":"size","w":1280,"h":720},
+  {"op":"scale","factor":1.5},
+  {"op":"tab","panel":"Stairs"},
+  {"op":"shot","name":"stairs-toolbar-150","caption":"Direct Stairs and Windows toolbar buttons at 150% scale"},
+  {"op":"quit"}
+]

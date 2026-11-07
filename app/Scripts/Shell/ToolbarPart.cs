@@ -85,9 +85,9 @@ public sealed class ToolbarPart : IShellPart
         Button("edit.undo");
         Button("edit.redo");
         Gap();
-        foreach (string tool in new[] { "select", "move", "rotate", "scale", "place", "brush", "ge", "conveyor", "face", "vertex", "clip", "measure", "security" })
+        foreach (string tool in new[] { "select", "move", "rotate", "scale", "place", "brush", "stairs", "windows", "ge", "conveyor", "face", "vertex", "clip", "measure", "security" })
         {
-            Button("tools." + tool);
+            Button("tools." + tool, tool == "stairs" ? "Stairs" : tool == "windows" ? "Windows" : null);
         }
 
         Gap();

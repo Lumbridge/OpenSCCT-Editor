@@ -296,10 +296,17 @@ public sealed class BrushTool : IViewportTool
             else if (drag.Handle.Size is { } size)
             {
                 double distance = _tools.SnapValue(size.Value(start.Spec) + raw) - size.Value(start.Spec);
+                if (_tools.GridSnap)
+                {
+                    int axis = Enumerable.Range(0, 3).MaxBy(a => Math.Abs(drag.Handle.Direction[a]));
+                    if (Math.Abs(drag.Handle.Direction[axis]) > .99999)
+                        distance = (_tools.SnapValue(drag.Handle.Point[axis] + raw * drag.Handle.Direction[axis]) - drag.Handle.Point[axis]) / drag.Handle.Direction[axis];
+                }
                 SnapFace? face = SizingFace(start, size, drag.Min, drag.Max);
                 if (face is not null && snap.Extrude(face, raw, -size.Value(start.Spec)) is { } stuck) distance = stuck.Value;
                 var candidate = size.Candidate(start, distance);
-                Builder.TryApply(candidate.Spec, candidate.Location, start.Rotation, out _error);
+                if (!Builder.TryApply(candidate.Spec, candidate.Location, start.Rotation, out _error)
+                    || Math.Abs(size.Value(candidate.Spec) - size.Value(start.Spec) - distance) > 1e-5) snap.Release();
             }
             else
             {
@@ -331,7 +338,6 @@ public sealed class BrushTool : IViewportTool
 
     private static SnapFace? SizingFace(BuilderBrush.State start, BuilderSizeHandle size, Vec3 min, Vec3 max)
     {
-        if (start.Spec.Kind == "stairs") return null;
         // A semantic dimension plane, including room interiors rather than the outside of shell walls.
         Vec3 center = size.Point(start.Spec, (min + max) / 2);
         int a = (size.Axis + 1) % 3, b = (size.Axis + 2) % 3;

@@ -77,6 +77,7 @@ public static class StairCommands
         s.StepCount = count; s.TargetStepHeight = spec.Get("stepHeight", 16); s.Rise = spec.Get("rise", count * s.TargetStepHeight);
         s.Run = spec.Get("stepLength", 32) * count; s.Width = spec.Get("width", spec.Get("stepWidth", 192)); s.LandingLength = s.Width;
         s.Layout = spec.Kind == "curvedStair" ? "curved" : spec.Kind == "spiralStair" ? "spiral" : spec.Strings.GetValueOrDefault("layout", "straight");
+        s.LegacyOpenRisers = s.Layout == "spiral";
         s.InnerRadius = spec.Get("innerRadius", spec.Get("wellRadius", 96));
         s.TurnDegrees = s.Layout == "spiral" ? 360 * count / spec.Get("numStepsPer360", spec.Get("stepsPerTurn", 16)) : spec.Get("angleOfCurve", 90);
         s.TreadThickness = spec.Kind == "spiralStair" || s.Layout == "spiral" ? spec.Get("stepThickness", 32) : Math.Min(8, s.Rise / count);

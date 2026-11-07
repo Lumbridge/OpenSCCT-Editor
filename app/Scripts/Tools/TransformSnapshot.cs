@@ -117,7 +117,7 @@ public sealed class TransformSnapshot
     /// DrawScale3D (DrawScale when uniform), GE points; locations spread from <paramref name="pivot"/>. A rotated
     /// object scales along its own axis nearest the world axis, so it never shears. Brushes keep their texture size
     /// (<see cref="TextureLock"/>) unless Surface > Scale Keeps Texture Size is off.</summary>
-    public ReplaceObjectsCommand Scale(MapProject p, Vec3 pivot, int axis, double factor, string? mergeKey)
+    public ReplaceObjectsCommand Scale(MapProject p, Vec3 pivot, int axis, double factor, string? mergeKey, bool preview = false)
     {
         Vec3 world = axis < 0 ? Vec3.One * factor : Vec3.One.With(axis, factor);
         Vec3 Local(Rot r) => axis < 0 ? world : Vec3.One.With(RotationMath.LocalAxisNearest(r, axis), factor);
@@ -128,7 +128,12 @@ public sealed class TransformSnapshot
                 Brush s = _brushes[b.Id];
                 b.MainScale = s.MainScale.Scale(Local(s.Rotation));
                 b.Location = Spread(s.Location);
-                if (SurfaceActions.ScaleKeepsTextures)
+                if (s.Stair is not null)
+                {
+                    b.Stair = s.Stair.Clone();
+                    OpenScct.Editor.Core.Stairs.StairTransforms.Resize(s, b, rebuild: !preview);
+                }
+                else if (!preview && SurfaceActions.ScaleKeepsTextures)
                 {
                     TextureLock.Keep(s, b);
                 }
@@ -138,6 +143,7 @@ public sealed class TransformSnapshot
                 // From the scale it is drawn at (the class default when it has none of its own: a sticky cam's
                 // DrawScale 2 goes to 2 × factor, not to the factor).
                 Actor s = _actors[a.Id];
+                a.Window = s.Window?.Clone();
                 if (axis < 0)
                 {
                     a.DrawScale = StaticMeshDrawing.DrawScale(s) * factor;
@@ -148,9 +154,10 @@ public sealed class TransformSnapshot
                 }
 
                 a.Location = Spread(s.Location);
+                OpenScct.Editor.Core.Windows.WindowTransforms.Follow(s, a, prepare: !preview);
             },
             ge: g => g.Points = _ges[g.Id].Points.Select(Spread).ToList(),
-            mergeKey: mergeKey);
+            mergeKey: mergeKey, followScale: false);
     }
 
     /// <summary>The start location, rotation and scale of an object (for typed values).</summary>
@@ -161,6 +168,27 @@ public sealed class TransformSnapshot
         ObjectKind.Ge when _ges.TryGetValue(r.Id, out Ge? g) && g.Points.Count > 0 => (g.Points[0], Rot.Zero, Vec3.One),
         _ => null,
     };
+
+    public bool HasParametric => _brushes.Values.Any(b => b.Stair is not null) || _actors.Values.Any(a => a.Window is not null);
+
+    /// <summary>Actual bounds after a semantic scale, without a BSP rebuild or writing preview assets.</summary>
+    public OpenScct.Editor.Core.Geometry.Snap.MovingShape ScaledShape(Vec3 pivot, int axis, double factor)
+    {
+        var p = new MapProject { Brushes = _brushes.Values.Select(b => b.Clone()).ToList(), Actors = _actors.Values.Select(a => a.Clone()).ToList(), Ges = _ges.Values.Select(g => g.Clone()).ToList() };
+        Scale(p, pivot, axis, factor, null, preview: true).Do(p);
+        var points = new List<Vec3>();
+        foreach (Brush b in p.Brushes)
+            points.AddRange(b.Stair is null ? b.WorldFaces().SelectMany(f => f.Vertices)
+                : OpenScct.Editor.Core.Stairs.StairGeometry.Generate(b).Solids.SelectMany(part => part.WorldFaces()).SelectMany(f => f.Vertices));
+        foreach (Actor a in p.Actors)
+        {
+            var bounds = a.Window is not null || a.Shape is not null ? OpenScct.Editor.Core.Scripting.MapObjects.ActorBounds(a)
+                : ActorSnapBox.Of(a)?.Box.Bounds() ?? (a.Location, a.Location);
+            points.Add(bounds.Item1); points.Add(bounds.Item2);
+        }
+        points.AddRange(p.Ges.SelectMany(g => g.Points));
+        return OpenScct.Editor.Core.Geometry.Snap.MovingShape.Box(points.Aggregate(Vec3.Min), points.Aggregate(Vec3.Max), Refs.Count == 1 ? Refs[0] : null);
+    }
 
     private string Name(string verb) => Refs.Count == 1 ? $"{verb} {Refs[0].Id}" : $"{verb} {Refs.Count} objects";
 }

@@ -23,7 +23,7 @@ public sealed class WindowTools : IShellPart
     {
         Tool = new WindowTool(ToolManager.Instance!); ToolManager.Instance!.AddTool(Tool);
         context.AddAction(new EditorAction("windows.palette", "Windows Palette", "Tools", () => DockTabs.ShowPanel("Windows")));
-        context.AddAction(new EditorAction("windows.add", "Add Window", "Window", () => Tool.AddAtContext()));
+        context.AddAction(new EditorAction("windows.add", "Add Window", "", () => Tool.AddAtContext()));
     }
     public static List<WindowOpening> Find(EditorViewport view, Vector2 at)
     {

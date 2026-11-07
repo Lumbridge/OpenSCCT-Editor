@@ -12,7 +12,7 @@ public static class WindowTransforms
         d.Width = width; d.Height = height; d.Validate();
     }
     /// <summary>Expose scale gizmo edits as authored dimensions; preserve circle aspect and mirror signs.</summary>
-    public static void Follow(Actor before, Actor after)
+    public static void Follow(Actor before, Actor after, bool prepare = true)
     {
         if (after.Window is not { Binding: null } d) return;
         Vec3 start = before.DrawScale3D * before.DrawScale, end = after.DrawScale3D * after.DrawScale;
@@ -23,6 +23,6 @@ public static class WindowTransforms
         Resize(d, d.Width * y, d.Height * z); d.Thickness *= x; d.FrameDepth *= x; d.CutDepth *= x;
         d.FrameWidth *= Math.Min(y, z); d.Clearance *= Math.Min(y, z); d.DepthOffset *= x;
         after.DrawScale = 1; after.DrawScale3D = new(Math.Sign(end.X), Math.Sign(end.Y), Math.Sign(end.Z));
-        d.Validate(); WindowAssets.Prepare(after);
+        d.Validate(); if (prepare) WindowAssets.Prepare(after);
     }
 }

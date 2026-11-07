@@ -63,16 +63,20 @@ public static class StairGeometry
         {
             string suffix = "_Step" + id++;
             Vec3 forward = ((t.D + t.C - t.A - t.B) / 2).Normalized();
-            double bottom = s.Layout == "spiral" ? Math.Max(0, t.Top - s.TreadThickness) : 0;
+            double bottom = s.Layout == "spiral" ? t.Bottom - s.TreadThickness : 0;
+            if (s.Layout == "spiral" && s.LegacyOpenRisers) bottom = Math.Max(0, t.Top - s.TreadThickness);
+            if (s.ClampUndersideToFloor) bottom = Math.Max(0, bottom);
             var basePoints = new[] { t.A, t.B, t.C, t.D };
-            Brush body = Make(ConvexSolid.Hull(basePoints.SelectMany(p => new[] { p with { Z = bottom }, p with { Z = Math.Max(bottom, t.Top - s.TreadThickness) } })), suffix + "Body", CsgOper.Add);
+            double bodyTop = Math.Max(bottom, t.Top - s.TreadThickness);
+            var bodyPoints = basePoints.SelectMany((p, i) => new[] { p with { Z = s.Layout == "spiral" && s.SlopedUnderside && i >= 2 ? bodyTop : bottom }, p with { Z = bodyTop } });
+            Brush body = Make(ConvexSolid.Hull(bodyPoints), suffix + "Body", CsgOper.Add);
             foreach (BrushFace f in body.Shape.Faces) SetRole(f, Vec3.Dot(f.Normal(), -forward) > .5 ? Riser : Side, s);
             if (body.Shape.Faces.Count > 0) solids.Add(body);
             // A convex extrusion of a rounded front profile. The profile is identical at the two sides,
             // including radial stair treads, and contains no smoothing-volume geometry.
             var capPoints = new List<Vec3>();
             double low = s.Layout == "spiral" && !s.ClampUndersideToFloor ? t.Top - s.TreadThickness : Math.Max(0, t.Top - s.TreadThickness), r = s.EdgeRadius;
-            double frontLow = s.Layout == "spiral" && s.SlopedUnderside ? low - s.Rise / s.Count : low;
+            double frontLow = s.Layout == "spiral" && s.LegacyOpenRisers && s.SlopedUnderside ? low - s.Rise / s.Count : low;
             foreach (Vec3 front in new[] { t.A, t.B })
             {
                 if (r == 0)
@@ -89,8 +93,18 @@ public static class StairGeometry
             Brush cap = Make(ConvexSolid.Hull(capPoints), suffix + "Tread", CsgOper.Add);
             foreach (BrushFace f in cap.Shape.Faces) SetRole(f, f.Normal().Z > .5 || Vec3.Dot(f.Normal(), -forward) > .1 ? Tread : Side, s);
             solids.Add(cap);
-            if (s.Carve)
-                cuts.Add(Make(ConvexSolid.Hull(basePoints.SelectMany(p => new[] { p with { Z = t.Bottom }, p with { Z = t.Top + s.Headroom } })), suffix + "Clearance", CsgOper.Subtract));
+            if (s.Carve && s.Layout is "curved" or "spiral")
+            {
+                double stepRise = s.Rise / s.Count;
+                double Ceiling(Step step) => step.Top + s.Headroom + (step.Landing ? stepRise : 0);
+                double frontCeiling = Ceiling(t), backCeiling = id < steps.Count ? Ceiling(steps[id]) : frontCeiling;
+                Vec3 frontAcross = (t.B - t.A).Normalized() * s.ClearanceMargin;
+                Vec3 backAcross = (t.C - t.D).Normalized() * s.ClearanceMargin;
+                Vec3 lead = -forward * (id == 1 ? s.ClearanceStart : .05);
+                Vec3 tail = forward * (id == steps.Count ? s.ClearanceEnd : .05);
+                Vec3[] outline = [t.A - frontAcross + lead, t.B + frontAcross + lead, t.C + backAcross + tail, t.D - backAcross + tail];
+                cuts.Add(Make(ConvexSolid.Hull(outline.SelectMany((p, i) => new[] { p with { Z = t.Bottom }, p with { Z = i < 2 ? frontCeiling : backCeiling } })), suffix + "Clearance", CsgOper.Subtract));
+            }
             if (s.Smooth && !t.Landing)
             {
                 // The walking envelope passes through tread nosings; its final horizontal section reaches
@@ -126,6 +140,45 @@ public static class StairGeometry
             }
             previous = t;
         }
+        if (s.Carve && s.Layout is not ("curved" or "spiral"))
+        {
+            void Cut(Vec3 a, Vec3 b, Vec3 c, Vec3 d, double front, double back, double bottom, string name, bool first, bool last)
+            {
+                Vec3 forward = (c + d - a - b).Normalized(), across = (b - a).Normalized() * s.ClearanceMargin;
+                Vec3 lead = -forward * (first ? s.ClearanceStart : .05), tail = forward * (last ? s.ClearanceEnd : .05);
+                // Extend along the same roof plane so adjacent cuts overlap without a ceiling seam.
+                double length = ((c + d - a - b) / 2).Length;
+                double slope = length > 1e-6 ? (back - front) / length : 0;
+                Vec3[] outline = [a-across+lead, b+across+lead, c+across+tail, d-across+tail];
+                double f = front - slope * lead.Length, r = back + slope * tail.Length;
+                cuts.Add(Make(ConvexSolid.Hull(outline.SelectMany((p, i) => new[] { p with { Z = bottom }, p with { Z = i < 2 ? f : r } })), name, CsgOper.Subtract));
+            }
+            int index = 0, flight = 0;
+            while (index < steps.Count)
+            {
+                Step first = steps[index];
+                if (first.Landing)
+                {
+                    double roof = first.Top + s.Headroom + s.Rise / s.Count;
+                    Cut(first.A, first.B, first.C, first.D, roof, roof, first.Bottom, "_LandingClearance", false, false);
+                    index++; continue;
+                }
+                int start = index;
+                while (index + 1 < steps.Count && !steps[index + 1].Landing) index++;
+                Step last = steps[index]; bool ending = index == steps.Count - 1;
+                if (ending && index > start)
+                {
+                    Cut(first.A, first.B, last.B, last.A, first.Top+s.Headroom, last.Top+s.Headroom, first.Bottom, "_FlightClearance"+flight, start == 0, false);
+                    Cut(last.A, last.B, last.C, last.D, last.Top+s.Headroom, last.Top+s.Headroom, last.Bottom, "_ExitClearance", false, true);
+                }
+                else
+                {
+                    double back = last.Top + s.Headroom + (ending ? 0 : s.Rise / s.Count);
+                    Cut(first.A, first.B, last.C, last.D, first.Top+s.Headroom, back, first.Bottom, "_FlightClearance"+flight, start == 0, ending);
+                }
+                flight++; index++;
+            }
+        }
         if (s.Layout == "spiral")
         {
             Vec3 centre = new(0, (s.Left ? -1 : 1) * (s.InnerRadius + s.Width / 2), 0);
@@ -139,8 +192,8 @@ public static class StairGeometry
             }
             if (s.Carve && s.RoundStairwell) cuts.Insert(0, Make(Cylinder(16, s.InnerRadius + s.Width + 16, s.Rise + s.Headroom), "_Stairwell", CsgOper.Subtract));
         }
-        Step last = steps[^1];
-        return new Generated(solids, cuts, smooth, owner.LocalToWorld((last.C + last.D) / 2 + Vec3.UnitZ * s.Rise));
+        Step finalStep = steps[^1];
+        return new Generated(solids, cuts, smooth, owner.LocalToWorld((finalStep.C + finalStep.D) / 2 + Vec3.UnitZ * s.Rise));
     }
 
     public static void SetRole(BrushFace f, string role, StairDesign s)

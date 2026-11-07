@@ -21,12 +21,16 @@ public sealed class StairDesign
     public double Overhang { get; set; }
     public double EdgeRadius { get; set; }
     public bool SlopedUnderside { get; set; }
+    public bool LegacyOpenRisers { get; set; }
     public bool ClampUndersideToFloor { get; set; }
     public double CentralColumnRadius { get; set; }
     public bool RoundStairwell { get; set; }
     public bool Smooth { get; set; } = true;
     public bool Carve { get; set; } = true;
     public double Headroom { get; set; } = 224;
+    public double ClearanceMargin { get; set; }
+    public double ClearanceStart { get; set; }
+    public double ClearanceEnd { get; set; }
     public string TreadMaterial { get; set; } = "Editor.Grid";
     public string RiserMaterial { get; set; } = "Editor.Grid";
     public string SideMaterial { get; set; } = "Editor.Grid";
@@ -53,6 +57,10 @@ public sealed class StairDesign
 
     public void Validate()
     {
+        if (new[] { ClearanceMargin, ClearanceStart, ClearanceEnd }.Any(v => !double.IsFinite(v) || v < 0 || v > 262144))
+            throw new ArgumentException("Clearance extensions must be between 0 and 262144 units");
+        if (Layout is "curved" or "spiral" && ClearanceMargin >= InnerRadius)
+            throw new ArgumentException("Clearance side margin must stay smaller than the inner radius");
         if (!Layouts.Contains(Layout)) throw new ArgumentException("Choose straight, l, u, curved or spiral stairs");
         foreach (double n in new[] { Width, Rise, Run, TargetStepHeight, LandingLength, InnerRadius,
             TurnDegrees, CentralColumnRadius, TreadThickness, Overhang, EdgeRadius, Headroom, TreadTextureScale, RiserTextureScale, SideTextureScale, TreadTextureRotation, RiserTextureRotation, SideTextureRotation, TreadPanU, TreadPanV, RiserPanU, RiserPanV, SidePanU, SidePanV })
@@ -81,7 +89,7 @@ public sealed class StairDesign
             throw new ArgumentException("This flight is too steep to smooth; increase run or disable smoothing");
         if (Smooth && Layout is "curved" or "spiral" && Rise / ((InnerRadius + Math.Min(35, Width / 4)) * TurnDegrees * Math.PI / 180) > .75)
             throw new ArgumentException("The inside of this curved flight is too steep; increase inner radius, increase turn, reduce rise or disable smoothing");
-        if (Layout == "spiral" && TurnDegrees >= 360 && Rise * 360 / TurnDegrees - TreadThickness < Headroom)
+        if (Layout == "spiral" && TurnDegrees >= 360 && Rise * 360 / TurnDegrees - TreadThickness - (LegacyOpenRisers ? 0 : Rise / Count) < Headroom)
             throw new ArgumentException("Spiral turns overlap the requested headroom; increase rise or reduce total turn");
     }
 }

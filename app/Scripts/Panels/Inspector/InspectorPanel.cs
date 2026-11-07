@@ -116,6 +116,7 @@ public partial class InspectorPanel : EditorPanel
         _empty.Visible = false;
 
         Context.SelectionChanged += () => _rebuild.Queue();
+        EditorLifetime.Defer(() => { ToolManager.Instance!.DragEnded += () => _sync.Queue(); });
         Context.ProjectChanged += _ =>
         {
             _index = null;
@@ -292,6 +293,11 @@ public partial class InspectorPanel : EditorPanel
 
     private void SyncOrRebuild()
     {
+        if (ToolManager.Instance?.Active is TransformTool { IsDragging: true })
+        {
+            SyncAll();
+            return;
+        }
         if (Signature() != _signature)
         {
             Rebuild();

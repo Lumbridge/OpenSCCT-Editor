@@ -1,7 +1,9 @@
 # Editable staircases
 
-Open **Stairs** in the left dock (also available from the Building panel). The palette
+Click **Stairs** on the toolbar to open the palette and placement tool, or use the left dock or Building panel. The palette
 contains straight, L, U, curved and spiral starters, each with square or rounded nosings.
+Thumbnails show the stair fronts, with a corner detail distinguishing the two nosing profiles.
+New spiral starters have connected treads and risers rather than floating slabs.
 
 ## Place and connect
 
@@ -24,6 +26,15 @@ provide an opening yourself. Brush cuts do not cut imported static mesh assets.
 Click any tread to select the whole staircase. It has one Outliner entry, transform and
 undo history. Move, rotate, mirror, duplicate, hide and lock work on the complete object.
 The bottom connection is its default transform pivot.
+
+With **Scale** active, the orange dimension handles snap to the world grid and nearby geometry using the same
+neighbour-snap settings as the transform tools. Hold **Alt** to invert neighbour snapping during a drag. Run, rise,
+width, landing and radius edits update the authored dimensions; one drag is one undo step. Scaling always starts
+from the geometry at the beginning of the drag, and snapping accounts for fixed nosing and landing dimensions.
+
+Clearance cuts follow a smooth sloping ceiling along each flight. Purple handles independently adjust headroom,
+side margin, and the clearance before and after the stairs; the same values are in Advanced settings. They resize
+the opening without changing the stair dimensions. Clearance handles also use grid and neighbour snapping.
 
 Use the Inspector for layout, width, rise, run, target step height, turn, smoothing and
 clearance. The Scale tool also exposes width, rise and run handles, plus landing/radius

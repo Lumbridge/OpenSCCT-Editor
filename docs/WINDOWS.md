@@ -1,7 +1,8 @@
 # Windows and breakable glass
 
-Open **Tools > Windows Palette**, or choose the Windows dock in either workspace. The palette has **Framed Windows**
-and **Glass Only** tabs. Choose a rectangle, circle, oval, arch, triangle or regular polygon, with clear, tinted or
+Click **Windows** on the toolbar to open its palette and placement tool, or choose **Tools > Windows Palette**.
+The palette is available in either workspace, with **Framed Windows** and **Glass Only** tabs.
+Choose a rectangle, circle, oval, arch, triangle or regular polygon, with clear, tinted or
 frosted glass. Search filters the preset names and finishes. Drag a preset into a view, or choose **Place Window**
 and click in the view; **R** rotates its preview and **Escape** cancels.
 

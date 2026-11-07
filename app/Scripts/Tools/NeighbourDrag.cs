@@ -165,6 +165,49 @@ public sealed class NeighbourDrag
         return snap;
     }
 
+    /// <summary>Dimensions with fixed profiles (nosing, frames and landings) do not scale as a plain box.</summary>
+    public ValueSnap? ParametricScale(int axis, double rawFactor, Func<double, MovingShape> shapeAt)
+    {
+        Clear();
+        if (!Effective || Neighbours() is not { } neighbours) return null;
+        try
+        {
+            var cache = new Dictionary<double, MovingShape>();
+            MovingShape At(double f) { if (!cache.TryGetValue(f, out var s)) cache[f] = s = shapeAt(f); return s; }
+            MovingShape raw = At(rawFactor), next = At(rawFactor + .001);
+            ValueSnap? best = null; double score = double.MaxValue;
+            foreach (SnapFace face in raw.Faces.Where(f => axis < 0 || f.Axis == axis))
+            {
+                int k = face.Axis; bool positive = face.Normal[k] > 0;
+                double Coord(MovingShape s) => positive ? s.Max[k] : s.Min[k];
+                double derivative = (Coord(next) - Coord(raw)) / .001;
+                if (Math.Abs(derivative) < 1e-6) continue;
+                var view = ViewAt(face.Center);
+                var snap = NeighbourSnap.Extrude(face, 0, neighbours, view, _stuck.FirstOrDefault(), _exclude, baked: !_bakedOff);
+                if (snap is null || snap.Match.Target.Axis != k) continue;
+                double factor = rawFactor + snap.Value * face.Normal[k] / derivative;
+                if (factor < .125) continue;
+                double distance = Math.Abs(snap.Value) * view.PixelsPerUnitAlong(face.Normal);
+                if (distance >= score) continue;
+                MovingShape final = At(factor);
+                double error = snap.Match.Target.Coord - Coord(final);
+                if (Math.Abs(error) > .01)
+                {
+                    factor += error / derivative;
+                    if (factor < .125) continue;
+                    final = At(factor);
+                    if (Math.Abs(snap.Match.Target.Coord - Coord(final)) > .01) continue;
+                }
+                SnapFace moved = final.Faces.First(f => f.Axis == k && f.Normal[k] * face.Normal[k] > 0);
+                best = new ValueSnap(factor, snap.Match with { Moving = moved }); score = distance;
+            }
+            _stuck = best is null ? [] : [best.Match];
+            if (best is not null) _shown.Add((best.Match, best.Match.Moving));
+            return best;
+        }
+        catch (ArgumentException) { Release(); return null; }
+    }
+
     /// <summary>Sticks a face extrude of the grabbed face, or null; distances at or below <paramref name="minDistance"/>
     /// (through the brush) are not offered.</summary>
     public ValueSnap? Extrude(SnapFace grabbed, double rawDistance, double minDistance = double.NegativeInfinity)

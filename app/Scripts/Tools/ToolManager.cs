@@ -47,6 +47,8 @@ public sealed class ToolManager : IShellPart
     /// <summary>Raised when the map changes outside a <see cref="DragStep"/> (undo, a script, the grid keys) or another
     /// map opens. Tools end a running drag where it is, so a later Escape never undoes someone else's edit.</summary>
     public event Action? DragInterrupted;
+    public event Action? DragEnded;
+    public void FinishDrag() { _ctx.Session.Commands.EndMerge(); DragEnded?.Invoke(); }
 
     public bool GridSnap
     {
@@ -303,6 +305,7 @@ public sealed class ToolManager : IShellPart
 
     public void Activate(string id)
     {
+        if (id is "stairs" or "windows") DockTabs.ShowPanel(id == "stairs" ? "Stairs" : "Windows");
         if (id is "vertex" or "clip" or "face" && _ctx.Selection.Items.Any(r => _ctx.Project.FindBrush(r.Id)?.Stair is not null))
         { _ctx.SetStatus("Use Break Apart before editing individual stair faces/vertices or clipping a staircase"); return; }
         IViewportTool? tool = _tools.Find(t => t.Id == id);

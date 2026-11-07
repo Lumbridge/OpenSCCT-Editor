@@ -49,7 +49,7 @@ public sealed class TransformTool : IViewportTool
 
     public string Title => Mode.ToString();
 
-    public bool IsDragging => _drag is { Moving: true };
+    public bool IsDragging => _drag is { Moving: true } || _stairHandles?.IsDragging == true || _windowHandles?.IsDragging == true;
 
     public string Shortcut => Mode switch { TransformMode.Move => "M", TransformMode.Rotate => "R", _ => "Shift+S" };
 
@@ -511,13 +511,20 @@ public sealed class TransformTool : IViewportTool
                 double factor = axis >= 0
                     ? 1 + delta.Dot(drag.ScreenDir) / drag.ScreenLength
                     : 1 + (delta.X - delta.Y) / 150.0;
+                var scaledShapes = new Dictionary<double, MovingShape>();
+                MovingShape ShapeAt(double f)
+                {
+                    if (!scaledShapes.TryGetValue(f, out var s)) scaledShapes[f] = s = drag.Snapshot.ScaledShape(drag.Pivot, axis, f);
+                    return s;
+                }
 
-                // A face reaching a neighbour's plane sets the factor, for a selection square to the world axes (where a
-                // world-axis scale is a pure scale of its box); otherwise the factor rounds to eighths with grid snap.
+                // Snap the rebuilt shape: profiles and landings can stay fixed while the main dimensions change.
                 ValueSnap? stuck = null;
                 if (drag.ScaleBlocker is null)
                 {
-                    stuck = drag.Snap.Scale(drag.Pivot, axis, Math.Max(factor, 0.125));
+                    stuck = drag.Snapshot.HasParametric
+                        ? drag.Snap.ParametricScale(axis, Math.Max(factor, .125), ShapeAt)
+                        : drag.Snap.Scale(drag.Pivot, axis, Math.Max(factor, 0.125));
                 }
                 else
                 {
@@ -532,12 +539,33 @@ public sealed class TransformTool : IViewportTool
                 }
                 else if (_tools.GridSnap)
                 {
-                    factor = Math.Round(factor * 8) / 8;
+                    if (drag.Snapshot.HasParametric)
+                    {
+                        try
+                        {
+                            factor = Math.Max(factor, .125);
+                            MovingShape actual = ShapeAt(factor), next = ShapeAt(factor + .001);
+                            int dimension = axis >= 0 ? axis : Enumerable.Range(0, 3).MaxBy(a => actual.Size[a]);
+                            bool positive = Math.Abs(actual.Max[dimension] - drag.Pivot[dimension]) >= Math.Abs(actual.Min[dimension] - drag.Pivot[dimension]);
+                            double coord = positive ? actual.Max[dimension] : actual.Min[dimension];
+                            double derivative = ((positive ? next.Max[dimension] : next.Min[dimension]) - coord) / .001;
+                            if (Math.Abs(derivative) > 1e-6) factor += (_tools.SnapValue(coord) - coord) / derivative;
+                        }
+                        catch (ArgumentException ex) { drag.Snap.Release(); _tools.Context.SetStatus(ex.Message); drag.View.Redraw(); return; }
+                    }
+                    else if (drag.Snap.Shape is { } shape)
+                    {
+                        int dimension = axis >= 0 ? axis : Enumerable.Range(0, 3).MaxBy(a => shape.Size[a]);
+                        double edge = Math.Abs(shape.Max[dimension] - drag.Pivot[dimension]) >= Math.Abs(shape.Min[dimension] - drag.Pivot[dimension])
+                            ? shape.Max[dimension] - drag.Pivot[dimension] : shape.Min[dimension] - drag.Pivot[dimension];
+                        if (Math.Abs(edge) > 1e-6) factor = (_tools.SnapValue(drag.Pivot[dimension] + edge * factor) - drag.Pivot[dimension]) / edge;
+                    }
                 }
 
                 factor = Math.Max(factor, 0.125);
                 drag.Readout = ViewTags.Value("Scale", "\u00d7" + factor.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture));
-                cmd = drag.Changes(factor) ? drag.Snapshot.Scale(Project, drag.Pivot, axis, factor, drag.Key) : null;
+                try { cmd = drag.Changes(factor) ? drag.Snapshot.Scale(Project, drag.Pivot, axis, factor, drag.Key) : null; }
+                catch (ArgumentException ex) { drag.Snap.Release(); _tools.Context.SetStatus(ex.Message); drag.View.Redraw(); return; }
                 break;
             }
         }
@@ -571,7 +599,7 @@ public sealed class TransformTool : IViewportTool
         }
 
         _drag = null;
-        _tools.Context.Session.Commands.EndMerge();
+        _tools.FinishDrag();
         ViewportLayout.Instance?.RedrawAll();
     }
 

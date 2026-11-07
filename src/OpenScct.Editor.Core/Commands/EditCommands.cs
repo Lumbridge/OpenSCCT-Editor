@@ -161,7 +161,7 @@ public sealed class ReplaceObjectsCommand : IEditCommand
     /// <paramref name="followBase"/> is false (the edit sets the base itself).</summary>
     public static ReplaceObjectsCommand Edit(MapProject project, IEnumerable<ObjectRef> refs, string name,
         Action<Brush>? brush = null, Action<Actor>? actor = null, Action<Ge>? ge = null, string? mergeKey = null,
-        bool followBase = true)
+        bool followBase = true, bool followScale = true)
     {
         var cmd = new ReplaceObjectsCommand(name, mergeKey);
         foreach (ObjectRef r in refs.Distinct())
@@ -171,7 +171,7 @@ public sealed class ReplaceObjectsCommand : IEditCommand
                 case ObjectKind.Brush or ObjectKind.Stair when brush is not null && project.FindBrush(r.Id) is { } b:
                     Brush nb = b.Clone();
                     brush(nb);
-                    if (b.Stair is not null && nb.MainScale != b.MainScale)
+                    if (followScale && b.Stair is not null && nb.MainScale != b.MainScale)
                     {
                         Stairs.StairTransforms.Resize(b, nb);
                     }
@@ -180,7 +180,7 @@ public sealed class ReplaceObjectsCommand : IEditCommand
                 case ObjectKind.Actor when actor is not null && project.FindActor(r.Id) is { } a:
                     Actor na = a.Clone();
                     actor(na);
-                    Windows.WindowTransforms.Follow(a, na);
+                    if (followScale) Windows.WindowTransforms.Follow(a, na);
                     if (followBase)
                     {
                         MoverBase.Follow(a, na);
