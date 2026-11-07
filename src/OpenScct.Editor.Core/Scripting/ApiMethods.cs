@@ -32,6 +32,7 @@ public static class ApiMethods
         "update {set:{Prop: value|null}, unset:[..], rename, shape, csg, flags, mat, points, mask, appearance, placement, rot, layer...}; " +
         "delete; move {by:[dx,dy,dz]} | {to: POINT} (+ on, wall); rotate {by|byDeg|to|toDeg|face, around: \"center\"|POINT}; " +
         "scale {by|to}; duplicate {by, count, as}; brush / ge (create, or edit when id exists); " +
+        "stair {id, at, rot, connectTo, set:{layout, width, rise, run, targetStepHeight, treadThickness, overhang, edgeRadius, treadMaterial, riserMaterial, sideMaterial, smooth, carve}, convert:true | breakApart:true} (editable staircase); " +
         "surface {id|ids|where (brushes), faces: [indexes]|\"all\"|\"walls\"|\"floors\"|\"ceilings\", mat, flags, clearFlags, lightmap, " +
         "align: default|floor|wall|face|fit|cylinder, scale, rotate, pan, flip} (face edits); " +
         "link {from, to, tag?} (from.Event = to.Tag; an SAlarm adds to its Events or lock lists) | {from, prop, to} (actor reference) | clear:true; " +

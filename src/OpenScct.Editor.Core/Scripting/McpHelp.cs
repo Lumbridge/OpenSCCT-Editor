@@ -18,6 +18,7 @@ internal static class McpHelp
         ["scale"] = """{"id":"Block","by":[2,1,1]}""",
         ["duplicate"] = """{"id":"Block","by":[256,0,0],"count":2}""",
         ["brush"] = """{"id":"$wall","brush":{"size":[32,256,256]},"at":[192,0,128],"csg":"add"}""",
+        ["stair"] = """{"id":"MainStair","at":[0,0,0],"set":{"layout":"straight","width":192,"rise":256,"run":512,"overhang":2,"edgeRadius":2}}""",
         ["surface"] = """{"id":"Block","faces":"walls","align":"wall"}""",
         ["ge"] = """{"id":"$ledge","kind":"LG","points":[[0,0,96],[0,128,96]]}""",
         ["conveyor"] = """{"points":[[0,0,16],[256,0,16]],"width":96,"speed":90}""",
