@@ -24,9 +24,11 @@ public partial class MainWindow : Control
     /// <summary>The workbench panels' tabs: in the workbench dock, or in the Inspector's dock on a short window.</summary>
     private readonly List<PanelHost> _workbenchPanels = new();
     private Label? _status;
+    private bool _simpleBottomShown;
     private HSplitContainer _outer = null!;
     private HSplitContainer _inner = null!;
     private VSplitContainer _middle = null!;
+    private VSplitContainer _right = null!;
 
     /// <summary>The window, once ready (dialogs and parts that need the tree use it).</summary>
     public static MainWindow? Instance { get; private set; }
@@ -73,6 +75,7 @@ public partial class MainWindow : Control
         }
 
         Instance = this;
+        WorkspaceMode.Initialize();
         Dialogs.Host = this;
         GetTree().AutoAcceptQuit = false;
         // A content builder run (build, export, import) is stopped, with its processes, when the editor quits.
@@ -127,6 +130,7 @@ public partial class MainWindow : Control
 
         // The right column: the Inspector's dock over the workbenches' dock, the Inspector with the larger share.
         var right = new VSplitContainer { Name = "RightColumn", CustomMinimumSize = new Vector2(MinDockWidth, 0) };
+        _right = right;
         _inner.AddChild(right);
         RightDock = Dock("RightDock", new Vector2(0, MinDockHeight));
         RightDock.SizeFlagsVertical = SizeFlags.ExpandFill;
@@ -139,7 +143,7 @@ public partial class MainWindow : Control
 
         // Docks start in proportion to the window and follow its size until the user drags a splitter: from then on
         // that splitter is theirs.
-        foreach (SplitContainer split in new SplitContainer[] { _outer, _inner, _middle })
+        foreach (SplitContainer split in new SplitContainer[] { _outer, _inner, _middle, _right })
         {
             split.DragStarted += () => _userSized.Add(split);
         }
@@ -238,6 +242,7 @@ public partial class MainWindow : Control
             // they are reached.
             for (int i = 0; i < dock.GetTabCount(); i++)
             {
+                if (!WorkspaceMode.Allows(DockTabs.Name(dock, i))) continue;
                 overflow.AddRadioCheckItem(DockTabs.Name(dock, i), i);
                 overflow.SetItemIcon(i, dock.GetTabIcon(i));
                 overflow.SetItemChecked(i, i == dock.CurrentTab);
@@ -289,7 +294,63 @@ public partial class MainWindow : Control
             _middle.SplitOffsets = [-EditorTheme.DockBottom(canvas.Y)];
         }
 
-        WorkbenchDock.Visible = WorkbenchDock.GetTabCount() > 0;
+        UpdateWorkspaceDocks();
+    }
+
+    public void UpdateWorkspaceDocks()
+    {
+        foreach (TabContainer dock in Docks)
+            dock.Visible = Enumerable.Range(0, dock.GetTabCount()).Any(i => WorkspaceMode.Allows(DockTabs.Name(dock, i))) &&
+                (dock != BottomDock || !WorkspaceMode.Simple || _simpleBottomShown);
+    }
+
+    public void RevealWorkspaceDock(TabContainer dock)
+    {
+        if (dock == BottomDock) _simpleBottomShown = true;
+        dock.Show();
+    }
+
+    public void SaveWorkspaceLayout(string mode)
+    {
+        string section = "workspace." + mode;
+        AppSettings.Set(section, "bottom_visible", BottomDock.Visible);
+        AppSettings.Set(section, "view", Viewports.ViewportLayout.Instance?.Single?.ToString() ?? "");
+        int i = 0;
+        foreach (SplitContainer split in new SplitContainer[] { _outer, _inner, _middle, _right })
+            AppSettings.Set(section, "split" + i++, split.SplitOffsets.FirstOrDefault());
+        foreach (TabContainer dock in Docks)
+            if (dock.CurrentTab >= 0) AppSettings.Set(section, dock.Name, DockTabs.Name(dock, dock.CurrentTab));
+    }
+
+    public void RestoreWorkspaceLayout(string mode)
+    {
+        string section = "workspace." + mode;
+        _simpleBottomShown = AppSettings.GetBool(section, "bottom_visible", false);
+        if (AppSettings.Has(section, "view"))
+        {
+            string view = AppSettings.GetString(section, "view", "");
+            Viewports.ViewportLayout.Instance?.SetSingle(Enum.TryParse(view, out Viewports.ViewKind kind) ? kind : null);
+        }
+        else if (mode == "simple") Viewports.ViewportLayout.Instance?.SetSingle(Viewports.ViewKind.Perspective);
+        int i = 0;
+        foreach (SplitContainer split in new SplitContainer[] { _outer, _inner, _middle, _right })
+        {
+            string key = "split" + i++;
+            _userSized.Remove(split);
+            if (AppSettings.Has(section, key))
+            {
+                split.SplitOffsets = [AppSettings.GetInt(section, key, 0)];
+                _userSized.Add(split);
+            }
+        }
+        SizeDocks();
+        foreach (TabContainer dock in Docks)
+        {
+            if (dock == BottomDock && WorkspaceMode.Simple && !_simpleBottomShown) continue;
+            string selected = AppSettings.GetString(section, dock.Name, "");
+            for (int n = 0; n < dock.GetTabCount(); n++)
+                if (DockTabs.Name(dock, n) == selected && WorkspaceMode.Allows(selected)) DockTabs.Show(dock, n);
+        }
     }
 
     private void CreatePanels(EditorContext ctx)

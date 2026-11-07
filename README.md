@@ -45,6 +45,17 @@ and restarts into it with your map. Help > Check for Updates asks at any time.
 
 ## What it does
 
+New users start in a **Simple workspace** with one large 3D view, a **Building** palette and **Your first map**
+guide. Name and save your map, explore the starter room, connect another room, position the teams and drag in an
+objective computer, then check and play. The guide follows the map as you edit, undo and reopen it; hide it at any
+time and resume from **Help > Your First Map**. Gameplay pieces include their connections and explain any missing
+content before placement. Hover over common settings for plain-language explanations.
+
+The **Advanced** switch in the status bar (also **View > Workspace**) exposes all tools and panels. Each workspace
+remembers its view, dock sizes and tabs separately. Existing settings keep the advanced workspace. Default tool keys
+are **S** Select, **M** Move, **R** Rotate, **Shift+S** Scale and **Shift+M** Measure; custom bindings and explicit
+preset assignments take precedence. Shared initials use Shift for the secondary tool.
+
 The editor is usable for blockout and gameplay work, with gaps. [docs/PARITY.md](docs/PARITY.md) has every feature of
 the stock ChaosTheory_Editor and of [RE+](https://github.com/Lumbridge/SCCT_Versus_Reloaded_Editor) with where it
 lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what comes next.

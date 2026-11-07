@@ -9,6 +9,7 @@ namespace OpenScctEditor.Shell;
 /// </summary>
 public static class AppSettings
 {
+    public static bool Exists => Godot.FileAccess.FileExists(FilePath);
     public const int MaxRecent = 10;
     private static string FilePath => UserData.PathOf("settings.cfg");
     private static ConfigFile? s_config;

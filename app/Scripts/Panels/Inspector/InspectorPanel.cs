@@ -50,6 +50,8 @@ public partial class InspectorPanel : EditorPanel
     private DeferredAction _rebuild = null!;
     private DeferredAction _sync = null!;
     private string _signature = "";
+    private bool _moreProperties;
+    private bool Compact => WorkspaceMode.Simple && !_moreProperties;
     private ObjectIndex? _index;
 
     /// <summary>The objects by id, rebuilt after every change (selections can be thousands of objects).</summary>
@@ -102,6 +104,7 @@ public partial class InspectorPanel : EditorPanel
         _propsHeader = PanelUi.Header(content, "Properties");
         _grid = new PropertyGrid();
         _grid.Init(Context);
+        WorkspaceMode.Changed += () => { _moreProperties = false; _rebuild.Queue(); };
         // Rows a colour drag stored under "Changed only" show once its picker closes.
         _grid.PickerClosed += () => _sync.Queue();
         content.AddChild(_grid);
@@ -156,6 +159,7 @@ public partial class InspectorPanel : EditorPanel
         _scroll.Visible = _refs.Count > 0;
         _empty.Visible = _refs.Count == 0;
         bool props = _refs.Any(r => r.Kind is ObjectKind.Actor or ObjectKind.Brush);
+        _grid.CommonOnly = Compact;
         _propsHeader.Visible = props;
         if (_refs.Count == 0)
         {
@@ -166,14 +170,17 @@ public partial class InspectorPanel : EditorPanel
 
         HFlowContainer tools = PanelUi.Toolbar(_sections);
         PanelUi.Button(tools, "Focus", "Frame the selection in the views", () => Context.Focus(_refs));
-        PanelUi.Button(tools, "Same class", "Select every object of the selected classes", SelectSameClass);
+        if (!Compact) PanelUi.Button(tools, "Same class", "Select every object of the selected classes", SelectSameClass);
+        if (WorkspaceMode.Simple) PanelUi.Button(tools, _moreProperties ? "Fewer properties" : "More properties",
+            "Show technical settings for this selection. Changes still use the usual undo history.", () => { _moreProperties = !_moreProperties; _rebuild.Queue(); });
 
         if (_refs.Any(r => r.Kind is ObjectKind.Actor or ObjectKind.Brush))
         {
             TransformSection();
         }
+        if (Compact && _refs.Count == 1 && Index.Brush(_refs[0])?.Shape.Builder is { } builder) BuilderRows(_refs[0], builder);
 
-        if (_refs.Any(r => r.Kind == ObjectKind.Brush))
+        if (!Compact && _refs.Any(r => r.Kind == ObjectKind.Brush))
         {
             BrushSection();
         }
@@ -185,11 +192,11 @@ public partial class InspectorPanel : EditorPanel
 
         if (_refs.Any(r => r.Kind == ObjectKind.Actor))
         {
-            MatchSection();
-            RecoveredSection();
+            if (!Compact) MatchSection();
+            if (!Compact) RecoveredSection();
         }
 
-        EditorSection();
+        if (!Compact) EditorSection();
         _grid.ShowSource(props ? new ObjectPropSource(_refs) : null);
         _signature = Signature();
         SyncAll();
@@ -314,7 +321,8 @@ public partial class InspectorPanel : EditorPanel
                 _ => null,
             },
             brush: (b, i, v) => b.Location = b.Location.With(i, v),
-            actor: (a, i, v) => a.Location = a.Location.With(i, v));
+            actor: (a, i, v) => a.Location = a.Location.With(i, v),
+            tooltip: "Where the object sits in the map. X and Y move along the floor; Z changes its height.");
         VecRow("Rotation", ["Pitch", "Yaw", "Roll"],
             r => r.Kind switch
             {
@@ -324,15 +332,16 @@ public partial class InspectorPanel : EditorPanel
             },
             brush: (b, i, v) => b.Rotation = WithAxis(b.Rotation, i, v),
             actor: (a, i, v) => a.Rotation = WithAxis(a.Rotation, i, v),
-            tooltip: "Pitch, yaw and roll in degrees (65536 rotator units per turn)");
+            tooltip: "Turn the object: pitch tilts up/down, yaw turns left/right, roll tips sideways. Values are degrees.");
         if (_refs.Any(r => r.Kind == ObjectKind.Actor))
         {
             VecRow("Draw scale", ["Scale"], r => r.Kind == ObjectKind.Actor && Index.Actor(r) is { } a ? [a.DrawScale] : null,
-                actor: (a, _, v) => a.DrawScale = v);
+                actor: (a, _, v) => a.DrawScale = v, tooltip: "Resize the object's appearance uniformly. 2 makes it twice as large.");
             VecRow("Draw scale 3D", ["X", "Y", "Z"], r => r.Kind == ObjectKind.Actor && Index.Actor(r) is { } a ? Arr(a.DrawScale3D) : null,
-                actor: (a, i, v) => a.DrawScale3D = a.DrawScale3D.With(i, v));
+                actor: (a, i, v) => a.DrawScale3D = a.DrawScale3D.With(i, v), tooltip: "Stretch the object's appearance along individual axes. 1 keeps the original size.");
         }
 
+        if (Compact) return;
         if (_refs.Any(r => r.Kind == ObjectKind.Brush))
         {
             VecRow("Main scale", ["X", "Y", "Z"], r => r.Kind == ObjectKind.Brush && Index.Brush(r) is { } b ? Arr(b.MainScale) : null,

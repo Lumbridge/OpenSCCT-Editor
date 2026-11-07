@@ -138,7 +138,7 @@ public sealed class SelectTool : IViewportTool
 
     public string Title => "Select";
 
-    public string Shortcut => "Q";
+    public string Shortcut => "S";
 
     public bool Input(EditorViewport view, InputEvent e) => _select.Input(view, e);
 

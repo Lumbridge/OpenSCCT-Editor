@@ -1,0 +1,67 @@
+using Godot;
+using OpenScctEditor.Core;
+using OpenScctEditor.Panels;
+using OpenScctEditor.Viewports;
+
+namespace OpenScctEditor.Shell;
+
+/// <summary>Workspace choices are local UI state and never edit a map.</summary>
+[ShellPart(Order = 80)]
+public sealed class WorkspaceMode : IShellPart
+{
+    public static bool Simple => AppSettings.GetString("workspace", "mode", "advanced") == "simple";
+    public static event Action? Changed;
+    public static bool Allows(string panel) => !Simple || panel is "Building" or "Your first map" or "Inspector" or "Outliner" or "Assets" or "Prefabs" or "Map Check" or "Lights";
+    public static bool AllowsAction(string id) => !Simple || !id.StartsWith("tools.", StringComparison.Ordinal) ||
+        id is "tools.select" or "tools.move" or "tools.rotate" or "tools.scale" or "tools.brush" or "tools.place";
+
+    /// <summary>Run before any UI component writes settings, so an existing profile never changes defaults.</summary>
+    public static void Initialize()
+    {
+        if (!AppSettings.Has("workspace", "mode"))
+        {
+            bool existing = AppSettings.Exists;
+            AppSettings.Set("workspace", "mode", existing ? "advanced" : "simple");
+        }
+    }
+
+    public void Attach(MainWindow window, EditorContext context)
+    {
+        context.AddAction(new EditorAction("workspace.simple", "Simple Workspace", "View/Workspace", () => Set(true))
+        { IsChecked = () => Simple, RadioGroup = "workspace", Order = 100 });
+        context.AddAction(new EditorAction("workspace.advanced", "Advanced Workspace", "View/Workspace", () => Set(false))
+        { IsChecked = () => !Simple, RadioGroup = "workspace", Order = 110 });
+        var mode = PanelUi.Toggle(window.StatusRow, "Advanced", "Show all tools and panels. Your map stays the same.", !Simple, advanced => Set(!advanced));
+        Changed += () => mode.SetPressedNoSignal(!Simple);
+        Documents.BeforeSave += () => window.SaveWorkspaceLayout(Simple ? "simple" : "advanced");
+        window.CloseRequested += () => window.SaveWorkspaceLayout(Simple ? "simple" : "advanced");
+        Apply(window);
+    }
+
+    public static void Set(bool simple)
+    {
+        if (Simple == simple || MainWindow.Instance is not { } window) return;
+        window.SaveWorkspaceLayout(Simple ? "simple" : "advanced");
+        AppSettings.Set("workspace", "mode", simple ? "simple" : "advanced");
+        Apply(window);
+        Changed?.Invoke();
+    }
+
+    private static void Apply(MainWindow window)
+    {
+        window.RestoreWorkspaceLayout(Simple ? "simple" : "advanced");
+        foreach (TabContainer dock in window.Docks) DockTabs.Fit(dock);
+        window.UpdateWorkspaceDocks();
+        if (Simple)
+        {
+            if (!AppSettings.Has("workspace.simple", "LeftDock")) DockTabs.ShowPanel("Building");
+            if (!AppSettings.Has("workspace.simple", "RightDock"))
+                DockTabs.ShowPanel(!AppSettings.GetBool("workspace", "first_map_complete", false) && !EditorContext.Instance.Project.Workspace.FirstMap.Hidden ? "Your first map" : "Inspector");
+        }
+        else
+        {
+            if (!AppSettings.Has("workspace.advanced", "RightDock")) DockTabs.ShowPanel("Inspector");
+            if (!AppSettings.Has("workspace.advanced", "LeftDock")) DockTabs.ShowPanel("Outliner");
+        }
+    }
+}

@@ -113,6 +113,7 @@ public sealed class ToolbarPart : IShellPart
         context.ProjectChanged += _ => Refresh();
         context.SelectionChanged += Refresh;
         context.SessionReplaced += Refresh;
+        WorkspaceMode.Changed += Refresh;
         BackgroundJobs.Changed += Refresh;
 
         // Enabled states can also change without an event (clipboard, files on disk): a slow tick catches those.

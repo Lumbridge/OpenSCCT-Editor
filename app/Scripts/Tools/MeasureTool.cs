@@ -10,7 +10,7 @@ using OpenScctEditor.Viewports;
 namespace OpenScctEditor.Tools;
 
 /// <summary>
-/// Measure (M, as RE+): each click adds a point (on the surface under the cursor in 3D, on the grid in 2D views) and
+/// Measure (Shift+M): each click adds a point (on the surface under the cursor in 3D, on the grid in 2D views) and
 /// every view shows the run with each leg's length, player heights, dX/dY/dZ and spy/merc running time. Clicks go on
 /// from the last point; double-click starts a new run; Escape clears. Points snap to the grid.
 /// </summary>
@@ -26,7 +26,7 @@ public sealed class MeasureTool : IViewportTool
 
     public string Title => "Measure";
 
-    public string Shortcut => "M";
+    public string Shortcut => "Shift+M";
 
     private EditorContext Ctx => _tools.Context;
 

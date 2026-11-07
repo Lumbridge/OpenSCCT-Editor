@@ -34,6 +34,13 @@ public sealed class MenuBarPart : IShellPart
             MenuToggles.KeepOpen(popup, () => SyncChecks(popup));
             Fill(popup, top);
         }
+        void WorkspaceMenus()
+        {
+            for (int i = 0; i < _bar.GetMenuCount(); i++)
+                _bar.SetMenuHidden(i, WorkspaceMode.Simple && _bar.GetMenuTitle(i) is "Brush" or "Tools" or "Gameplay" or "Placement" or "Surface");
+        }
+        WorkspaceMode.Changed += WorkspaceMenus;
+        WorkspaceMenus();
     }
 
     private IEnumerable<string> TopMenus()

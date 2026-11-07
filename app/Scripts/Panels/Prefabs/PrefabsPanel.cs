@@ -20,6 +20,8 @@ namespace OpenScctEditor.Panels;
 [Panel("Prefabs", DockSide.Left, Order = 3)]
 public partial class PrefabsPanel : EditorPanel
 {
+    protected virtual bool Friendly => false;
+    protected virtual void DetailsShown(Control heading) { }
     private readonly PrefabThumbnails _thumbnails = new();
     private readonly List<PrefabDefinition> _shown = new();
     private readonly Dictionary<string, Func<SvJsonNode?>> _paramValues = new(StringComparer.Ordinal);
@@ -88,13 +90,13 @@ public partial class PrefabsPanel : EditorPanel
         lower.AddChild(_details);
         _instance = new VBoxContainer();
         lower.AddChild(_instance);
-        BuildSave(this);
+        if (!Friendly) BuildSave(this);
 
         _thumbnails.Ready += UpdatePictures;
         Context.ProjectChanged += _ => _refreshInstance.Queue();
         Context.SelectionChanged += () => _refreshInstance.Queue();
         Context.Saved += () => _rebuild.Queue();
-        RegisterActions();
+        if (!Friendly) RegisterActions();
     }
 
     public override void Refresh() => _rebuild.Queue();
@@ -128,7 +130,7 @@ public partial class PrefabsPanel : EditorPanel
             Context.Log($"Prefabs: {problem}", Severity.Warning);
         }
 
-        _all = prefabs.OrderBy(p => p.Category ?? "~", StringComparer.OrdinalIgnoreCase)
+        _all = prefabs.Where(p => !Friendly || FeaturedGameplay.Conditions.ContainsKey(p.Name)).OrderBy(p => p.Category ?? "~", StringComparer.OrdinalIgnoreCase)
             .ThenBy(p => p.Title ?? p.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
         string? keep = _category.Selected > 0 ? _category.GetItemText(_category.Selected) : null;
@@ -211,7 +213,7 @@ public partial class PrefabsPanel : EditorPanel
         _refill.Queue();
     }
 
-    private static string Tooltip(PrefabDefinition p)
+    private string Tooltip(PrefabDefinition p)
     {
         string where = p.Source switch
         {
@@ -219,7 +221,8 @@ public partial class PrefabsPanel : EditorPanel
             PrefabSource.Library => "your prefab library",
             _ => "built in",
         };
-        return $"{p.Title ?? p.Name} ({p.Name}, {where})" + (p.Summary is { } s ? "\n" + s : "") +
+        string? summary = Friendly && FeaturedGameplay.Descriptions.TryGetValue(p.Name, out string? plain) ? plain : p.Summary;
+        return $"{p.Title ?? p.Name} ({p.Name}, {where})" + (summary is { } s ? "\n" + s : "") +
             (p.Params.Count > 0 ? "\nParameters: " + string.Join(", ", p.Params.Select(x => x.Name)) : "");
     }
 
@@ -230,7 +233,7 @@ public partial class PrefabsPanel : EditorPanel
         Clear(_details);
         _paramValues.Clear();
         // The details get room only while a prefab is picked (how to place one is the grid's tooltip).
-        _detailsScroll.CustomMinimumSize = new Vector2(0, Selected is null ? 0 : DetailsHeight);
+        _detailsScroll.CustomMinimumSize = new Vector2(0, Selected is null ? 0 : Friendly ? Math.Clamp(Size.Y * .45f, DetailsHeight, EditorTheme.RowHeight * 12) : DetailsHeight);
         _detailsScroll.VerticalScrollMode = Selected is null ? ScrollContainer.ScrollMode.Disabled : ScrollContainer.ScrollMode.Reserve;
         if (Selected is not { } def)
         {
@@ -238,10 +241,13 @@ public partial class PrefabsPanel : EditorPanel
         }
 
         PanelUi.Header(_details, def.Title ?? def.Name);
-        if (def.Summary is { } summary)
+        if (Friendly) PanelUi.Primary(_details, "Place", "Place this piece at the view centre with the settings below, or drag its tile into the view.", () => PlaceSelected(null));
+        string? description = Friendly && FeaturedGameplay.Descriptions.TryGetValue(def.Name, out string? plain) ? plain : def.Summary;
+        if (description is { } summary)
         {
             PanelUi.Caption(_details, summary);
         }
+        if (FeaturedGameplay.Conditions.TryGetValue(def.Name, out string? conditions)) PanelUi.Caption(_details, conditions);
 
         PrefabInstance? instance = SelectedInstances().FirstOrDefault(i => i.Prefab == def.Name);
         foreach (PrefabParam param in def.Params)
@@ -251,7 +257,21 @@ public partial class PrefabsPanel : EditorPanel
         }
 
         HFlowContainer row = PanelUi.Toolbar(_details);
-        PanelUi.Button(row, "Place", "Place it at the view centre with these parameters", () => PlaceSelected(null)).Icon = Icons.Get("plus", EditorTheme.Text);
+        if (!Friendly) PanelUi.Button(row, "Place", "Place it at the view centre with these parameters", () => PlaceSelected(null)).Icon = Icons.Get("plus", EditorTheme.Text);
+        if (FeaturedGameplay.Conditions.ContainsKey(def.Name))
+        {
+            var resolver = OpenScct.Editor.Core.Assets.AssetResolver.For(EditorServices.ContentRoot, Folder);
+            string? problem = FeaturedGameplay.Problem(def.Name, Params(def), Folder, resolver, EditorServices.Classes);
+            if (problem is not null)
+            {
+                PanelUi.Callout(_details, Severity.Warning, problem);
+                PanelUi.Button(_details, "Get content packs", "Install the required shared and map assets", () =>
+                {
+                    if (!Context.Run("content.packs")) FirstMapPanel.ShowSetup();
+                });
+            }
+        }
+        if (Friendly) { DetailsShown(_details.GetChild<Control>(0)); return; }
         PanelUi.Button(row, "Update all", "Rebuild every instance of this prefab in the map from the prefab as it is now",
             () => Apply($"Update {def.Name} instances", Op("prefab.update", ("name", ApiJson.Str(def.Name)))))
             .Disabled = !Instances(def.Name).Any();
@@ -329,6 +349,13 @@ public partial class PrefabsPanel : EditorPanel
 
     private void Place(PrefabDefinition def, SvJsonObject given, Vec3 point)
     {
+        if (FeaturedGameplay.Conditions.ContainsKey(def.Name) && FeaturedGameplay.Problem(def.Name, given, Folder,
+            OpenScct.Editor.Core.Assets.AssetResolver.For(EditorServices.ContentRoot, Folder), EditorServices.Classes) is { } problem)
+        {
+            Context.Log(problem, Severity.Warning);
+            Context.SetStatus(problem);
+            return;
+        }
         SvJsonObject op = Op("prefab.place", ("name", ApiJson.Str(def.Name)), ("at", ApiJson.Vec(point)));
         if (given.Count > 0)
         {
@@ -365,6 +392,7 @@ public partial class PrefabsPanel : EditorPanel
 
     private void RefreshInstance()
     {
+        if (Friendly) return;
         Clear(_instance);
         List<PrefabInstance> selected = SelectedInstances();
         List<PrefabInstance> stale = Context.Project.Prefabs.Where(IsStale).ToList();
@@ -416,7 +444,7 @@ public partial class PrefabsPanel : EditorPanel
             .ToList());
     }
 
-    private void Reveal(string prefab)
+    protected void Reveal(string prefab)
     {
         _filter = "";
         _category.Select(0);

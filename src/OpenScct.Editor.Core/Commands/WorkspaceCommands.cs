@@ -85,7 +85,9 @@ public sealed class WorkspaceCommand : IEditCommand
     private void SwapIn(MapProject project, Workspace state)
     {
         double? shown = project.Workspace.ShownStorey;
+        FirstMapGuide guide = project.Workspace.FirstMap.Clone();
         project.Workspace = state.Clone();
+        project.Workspace.FirstMap = guide;
         ShownStorey.Keep(project, shown, _before!.ShownStorey, _after!.ShownStorey);
     }
 

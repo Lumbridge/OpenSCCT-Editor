@@ -165,7 +165,7 @@ from scripts. So "undoable" and "scriptable" are not repeated in each row.
 
 | Feature | From | Where | Status | Better than before |
 |---|---|---|---|---|
-| Move / rotate / scale gizmo, local or world | stock (modes), new | App: Move (W), Rotate (E), Scale (R) tools | partial: world axes only | One gizmo per tool, with grid and rotation snap. Typed values in the toolbar. |
+| Move / rotate / scale gizmo, local or world | stock (modes), new | App: Move (M), Rotate (R), Scale (Shift+S) tools | partial: world axes only | One gizmo per tool, with grid and rotation snap. Typed values in the toolbar. |
 | Grid snap, rotation snap (65536 units per turn), vertex snap, snap distance | stock | Workspace.GridSize, Workspace.RotationGrid, App | partial: grid and rotation snap; the vertex tool snaps to the grid (vertex snap to neighbours later); neighbour snap has a distance in screen pixels (4 to 24, Preferences 2 to 40) | Snapping holds on release (in RE+ a snapped drag can let go of the snap on release). |
 | Neighbour snap: moved, resized and turned objects stick their faces to the nearest neighbour | request, new | App: View > Grid > Neighbour Snap (Shift+G, off by default), toolbar segment and drop-down (View > Neighbour Snap Options), Preferences > Snapping; Move, Scale, Rotate, Face extrude and builder brush box drags; `move` op `stick` | partial: scale sticks only for selections square to the axes and actors drawn as meshes; no vertex snap to neighbours yet | Faces stick touching (face to face) to brushes, static meshes (by their mesh's bounds), volumes and actors when asked, and an imported map's baked world while it is shown, within a distance in screen pixels; faces in line (same plane, beside it) too when In Line is on. The faces it sticks to show in violet with a readout of what each axis stuck to. Alt pressed during a drag skips it (or uses it when it is off). The original has no such snap. |
 | Sizing box, axis indicator, actor rotation gizmo options | stock | App: Viewports | partial: an axis tripod in each view; no sizing box | Always available. |
@@ -189,7 +189,7 @@ from scripts. So "undoable" and "scriptable" are not repeated in each row.
 | Builder Brush Place Here / Rebuild and Place Here | RE+ | App: Brush > Builder Brush Here | built | Sits on the surface. |
 | Fit builder brush to selection | RE+ | App: Brush tool | planned (M4) | Works for rotated brushes. |
 | Fix rounding errors on brush vertices | stock | `Core/Geometry` weld and snap, `Core/Validation` | partial: vertex snap and weld (V tool, `ose edit snap-vertex`, `ose brush snap`); no Map Check fix | A Map Check fix with a report, not a log file. |
-| Measure (units, player heights, dX/dY/dZ, spy/merc run time, M continues) | RE+ | App: Measure tool (M), `ose edit measure` | built | Same, in every view. |
+| Measure (units, player heights, dX/dY/dZ, spy/merc run time, M continues) | RE+ | App: Measure tool (Shift+M), `ose edit measure` | built | Same, in every view. |
 | Pending placement with a confirm tick | request | App: Brush and Design tools | planned (M4) | Enter to confirm, Esc to cancel. |
 | Toggle Auto Align Terrain | stock | dropped | dropped | No terrain. |
 

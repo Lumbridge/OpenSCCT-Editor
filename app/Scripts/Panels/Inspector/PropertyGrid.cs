@@ -62,6 +62,7 @@ public partial class PropertyGrid : VBoxContainer
     public string Filter { get; set; } = "";
 
     public bool StoredOnly { get; set; }
+    public bool CommonOnly { get; set; }
 
     /// <summary>Changes when the grid needs new rows (a stored key appeared or went away outside the schema, or under
     /// "stored only").</summary>
@@ -131,7 +132,7 @@ public partial class PropertyGrid : VBoxContainer
         IReadOnlyList<PropOwner> owners = source.Owners(p);
         List<PropField> fields = Fields(source, owners);
         string[] words = TextMatch.Words(Filter);
-        var shown = fields.Where(f => (words.Length == 0 || TextMatch.AllWords(words, $"{f.Name} {PanelUi.DisplayName(f.Name)} {f.Category} {f.TypeText}"))
+        var shown = fields.Where(f => (!CommonOnly || (OpenScct.Editor.Core.Classes.PropertyHelp.Common(f.Name) && owners.All(o => OpenScct.Editor.Core.Classes.PropertyHelp.Find(EditorServices.Classes, o.Class, f.Name) is not null))) && (words.Length == 0 || TextMatch.AllWords(words, $"{f.Name} {PanelUi.DisplayName(f.Name)} {f.Category} {f.TypeText}"))
             && (!StoredOnly || owners.Any(o => o.Props.Contains(f.Name)))).ToList();
         if (shown.Count == 0)
         {
@@ -144,7 +145,7 @@ public partial class PropertyGrid : VBoxContainer
                      .OrderBy(g => g.Key == OtherCategory ? 1 : 0).ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
         {
             bool anyStored = group.Any(f => owners.Any(o => o.Props.Contains(f.Name)));
-            bool folded = words.Length == 0 && !StoredOnly && s_folded.GetValueOrDefault(group.Key, !anyStored);
+            bool folded = !CommonOnly && words.Length == 0 && !StoredOnly && s_folded.GetValueOrDefault(group.Key, !anyStored);
             var box = new FoldableContainer
             {
                 Title = PanelUi.DisplayName(group.Key), Folded = folded, SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = group.Key,
@@ -171,7 +172,7 @@ public partial class PropertyGrid : VBoxContainer
             }
         }
 
-        if (source.AllowAdd)
+        if (source.AllowAdd && !CommonOnly)
         {
             AddPropertyRow();
         }
@@ -376,9 +377,11 @@ public partial class PropertyGrid : VBoxContainer
         return new RowState(values, stored, mixed, owners.Count > 0 ? Default(owners[0], field) : null);
     }
 
-    private static string Tooltip(PropField f, RowState s)
+    private string Tooltip(PropField f, RowState s)
     {
         var lines = new List<string> { PanelUi.DisplayName(f.Name), $"{f.Name}: {f.TypeText}" };
+        string? help = _source?.Owners(_context.Project).Select(o => OpenScct.Editor.Core.Classes.PropertyHelp.Find(EditorServices.Classes, o.Class, f.Name)).FirstOrDefault(t => t is not null);
+        if (help is not null) lines.Insert(0, help + "\n");
         if (f.Info?.DeclaringClass is { } declaring)
         {
             lines.Add("Declared in " + declaring);

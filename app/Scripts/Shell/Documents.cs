@@ -53,6 +53,7 @@ public sealed class Documents : IShellPart
         RefreshRecent();
         context.SessionReplaced += OnSessionReplaced;
         context.Saved += RefreshBackups;
+        context.GuideChanged += () => { _autosaveCurrent = false; UpdateTitle(); };
         context.ProjectChanged += _ =>
         {
             _autosaveCurrent = false;

@@ -40,6 +40,11 @@ ShipD.osmap/
   .gitignore           written by the first save when the folder has none: leaves the four entries above out of git
 ```
 
+`workspace.json` also stores optional `firstMap` guide state (`hidden`, `explored`, `checkedRevision`,
+`playedRevision`). Older workspaces default to a visible, uncompleted guide. Check and play revisions refer to map
+content and play settings, excluding camera and guide state, so edits invalidate those steps. These fields never
+enter the game format. Workspace mode and the completion preference are local editor settings.
+
 `ProjectStore` writes the six JSON files, plus `world/prefabs.json` when the map has prefab instances and
 `outfits.json` when it has outfits (and deletes each when there is none). Prefab files are written by `prefab.save`,
 `assets/` by mesh import (`Core/Assets/MeshImporter`) and by outfit picks (`assets/outfits/`), and `pictures/` by the

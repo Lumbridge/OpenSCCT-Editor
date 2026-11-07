@@ -345,7 +345,9 @@ public sealed class ProjectSettingsCommand : IEditCommand
     private void Restore(MapProject project, ProjectState state)
     {
         double? shown = project.Workspace.ShownStorey;
+        FirstMapGuide guide = project.Workspace.FirstMap.Clone();
         state.Restore(project);
+        project.Workspace.FirstMap = guide;
         ShownStorey.Keep(project, shown, _before!.ShownStorey, _after!.ShownStorey);
     }
 

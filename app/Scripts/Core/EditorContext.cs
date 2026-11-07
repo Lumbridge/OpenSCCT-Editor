@@ -39,6 +39,14 @@ public sealed class EditorContext
 
     /// <summary>Raised after the open map was saved (its folder may have changed).</summary>
     public event Action? Saved;
+    public event Action? GuideChanged;
+
+    public void UpdateGuide(Action<FirstMapGuide> edit)
+    {
+        edit(Project.Workspace.FirstMap);
+        Session.Commands.MarkUnsaved();
+        GuideChanged?.Invoke();
+    }
 
     /// <summary>Raised for each log line (text, severity).</summary>
     public event Action<string, Severity>? Logged;

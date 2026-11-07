@@ -83,7 +83,7 @@ public sealed partial class ActionButton : Button
     public void Refresh()
     {
         EditorAction? a = _ctx.FindAction(ActionId);
-        Visible = a is not null;
+        Visible = a is not null && WorkspaceMode.AllowsAction(ActionId);
         if (a is null)
         {
             return;

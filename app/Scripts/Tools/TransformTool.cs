@@ -7,7 +7,7 @@ using OpenScctEditor.Viewports;
 namespace OpenScctEditor.Tools;
 
 /// <summary>
-/// Move (W), rotate (E) and scale (R) with a screen-space gizmo at the primary selection's pivot: an arrow, ring or
+/// Move (M), rotate (R) and scale (Shift+S) with a screen-space gizmo at the primary selection's pivot: an arrow, ring or
 /// box handle per world axis, plus a centre handle (move in the view plane, uniform scale). In the move tool an
 /// already selected object can also be dragged directly. Moves snap the pivot to the grid, rotations to the rotation
 /// grid; with Neighbour Snap on (Shift+G; holding Alt inverts it for the drag) faces stick to nearby faces first
@@ -50,7 +50,7 @@ public sealed class TransformTool : IViewportTool
 
     public bool IsDragging => _drag is { Moving: true };
 
-    public string Shortcut => Mode switch { TransformMode.Move => "W", TransformMode.Rotate => "E", _ => "R" };
+    public string Shortcut => Mode switch { TransformMode.Move => "M", TransformMode.Rotate => "R", _ => "Shift+S" };
 
     private MapProject Project => _tools.Context.Project;
 

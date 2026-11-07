@@ -420,7 +420,7 @@ radio items. Disabled items show no shortcut (or a dimmed one). Context menus sh
 menus.
 
 **Tooltips.** Sentence case, end without a full stop unless two sentences, include the shortcut in TextDim
-("Move  W").
+("Move  M").
 
 **Dialogs.** Modal = full-window `Scrim` behind, `DialogMinWidth`, `Title` line + `Caption` explanation + optional
 icon, buttons right-aligned: [Don't save] … [Cancel] [Save]: destructive on the left, primary rightmost.

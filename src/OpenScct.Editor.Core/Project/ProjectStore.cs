@@ -502,6 +502,12 @@ public static class ProjectStore
     {
         var o = new SvJsonObject();
         o.Add("grid", SvJsonNode.Float((float)w.GridSize));
+        var guide = new SvJsonObject();
+        guide.Add("hidden", SvJsonNode.Bool(w.FirstMap.Hidden));
+        guide.Add("explored", SvJsonNode.Bool(w.FirstMap.Explored));
+        if (w.FirstMap.CheckedRevision is { } check) guide.Add("checkedRevision", SvJsonNode.String(check));
+        if (w.FirstMap.PlayedRevision is { } play) guide.Add("playedRevision", SvJsonNode.String(play));
+        o.Add("firstMap", guide);
         o.Add("rotationGrid", SvJsonNode.Integer(w.RotationGrid));
         o.Add("camera", new SvJsonArray([ModelJson.Vec(w.CameraLocation), ModelJson.RotJ(w.CameraRotation)]));
         o.Add("shownStorey", w.ShownStorey is double shown ? SvJsonNode.Float((float)shown) : SvJsonNode.Null);
@@ -562,6 +568,13 @@ public static class ProjectStore
     public static Workspace WorkspaceFromJson(SvJsonObject o)
     {
         var w = new Workspace();
+        if (o["firstMap"] is SvJsonObject guide)
+        {
+            w.FirstMap.Hidden = guide["hidden"]?.Kind == SvJsonKind.True;
+            w.FirstMap.Explored = guide["explored"]?.Kind == SvJsonKind.True;
+            w.FirstMap.CheckedRevision = ModelJson.Str(guide, "checkedRevision");
+            w.FirstMap.PlayedRevision = ModelJson.Str(guide, "playedRevision");
+        }
         if (o["grid"] is SvJsonNumber)
         {
             w.GridSize = ModelJson.Num(o["grid"]);

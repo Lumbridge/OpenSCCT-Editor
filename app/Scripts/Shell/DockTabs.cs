@@ -14,6 +14,8 @@ public static class DockTabs
     private static readonly Dictionary<string, string> s_icons = new(StringComparer.Ordinal)
     {
         ["Outliner"] = "outliner",
+        ["Building"] = "grid",
+        ["Your first map"] = "check-list",
         ["Layers"] = "type-layer",
         ["Classes"] = "classes",
         ["Prefabs"] = "grid",
@@ -41,7 +43,7 @@ public static class DockTabs
     };
 
     /// <summary>The panel title of tab <paramref name="index"/> (its node name), whatever the tab shows.</summary>
-    public static string Name(TabContainer dock, int index) => dock.GetTabControl(index)?.Name ?? dock.GetTabTitle(index);
+    public static string Name(TabContainer dock, int index) => index < 0 || index >= dock.GetTabCount() ? "" : dock.GetTabControl(index)?.Name ?? dock.GetTabTitle(index);
 
     /// <summary>Keeps a dock's tab row fitted from now on: after resizes, tab changes and panels coming or going.</summary>
     public static void Track(TabContainer dock)
@@ -58,6 +60,7 @@ public static class DockTabs
     {
         dock.SetTabHidden(index, false);
         dock.CurrentTab = index;
+        MainWindow.Instance?.RevealWorkspaceDock(dock);
     }
 
     /// <summary>Brings a docked panel to the front of its dock (and of any dock around that), wherever the layout put
@@ -77,6 +80,7 @@ public static class DockTabs
     /// <summary>Shows the panel titled <paramref name="panel"/> in whichever dock holds it; false when no dock does.</summary>
     public static bool ShowPanel(string panel)
     {
+        if (!WorkspaceMode.Allows(panel)) WorkspaceMode.Set(false);
         foreach (TabContainer dock in MainWindow.Instance?.Docks ?? [])
         {
             for (int i = 0; i < dock.GetTabCount(); i++)
@@ -103,6 +107,13 @@ public static class DockTabs
         {
             return;
         }
+        int firstAllowed = Enumerable.Range(0, dock.GetTabCount()).FirstOrDefault(i => WorkspaceMode.Allows(Name(dock, i)), -1);
+        if (firstAllowed < 0) return; // The whole dock is hidden; do not deselect its last tab.
+        if (dock.CurrentTab < 0 || !WorkspaceMode.Allows(Name(dock, dock.CurrentTab)))
+        {
+            dock.SetTabHidden(firstAllowed, false);
+            dock.CurrentTab = firstAllowed;
+        }
 
         Font font = dock.GetThemeFont("font");
         int fontSize = dock.GetThemeFontSize("font_size");
@@ -117,13 +128,14 @@ public static class DockTabs
         for (int i = 0; i < count; i++)
         {
             string name = Name(dock, i);
+            if (!WorkspaceMode.Allows(name)) continue;
             titles[i] = font.GetStringSize(name, fontSize: fontSize).X;
             allIcons &= s_icons.ContainsKey(name);
         }
 
         bool full = allIcons
-            ? titles.Sum(t => chrome + EditorTheme.IconSize + separation + t) <= room
-            : titles.Sum(t => chrome + t) <= room;
+            ? Enumerable.Range(0, count).Where(i => WorkspaceMode.Allows(Name(dock, i))).Sum(i => chrome + EditorTheme.IconSize + separation + titles[i]) <= room
+            : Enumerable.Range(0, count).Where(i => WorkspaceMode.Allows(Name(dock, i))).Sum(i => chrome + titles[i]) <= room;
 
         // The open tab's title and the other tabs' icons, from the first tab on, while they fit.
         // A dock too narrow for even the open tab's title shows that tab's icon too.
@@ -137,6 +149,11 @@ public static class DockTabs
         for (int i = 0; i < count; i++)
         {
             string name = Name(dock, i);
+            if (!WorkspaceMode.Allows(name))
+            {
+                dock.SetTabHidden(i, true);
+                continue;
+            }
             bool fits = true;
             if (allIcons && !full && i != open)
             {

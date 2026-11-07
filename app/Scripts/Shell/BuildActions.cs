@@ -221,21 +221,23 @@ public sealed class BuildActions : IShellPart
             return compiler.Compile(snapshot, output, options);
         }, result =>
         {
+            if (result.Ok && ReferenceEquals(session, _ctx.Session))
+                _ctx.UpdateGuide(g => g.CheckedRevision = FirstMapGuide.Revision(snapshot));
             Report("Build", result.Findings, session);
             string stats = string.Join(", ", result.Stats.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv => $"{kv.Key} {kv.Value}"));
             _ctx.Log($"Build {(result.Ok ? "done" : "failed")} in {result.Elapsed.TotalSeconds:0.0} s{(stats.Length > 0 ? ": " + stats : "")}",
                 result.Ok ? Severity.Info : Severity.Error);
             _ctx.SetStatus(result.Ok ? $"Built {snapshot.Id}" : "Build failed");
-            if (play && result.Ok)
+            if (play && result.Ok && ReferenceEquals(session, _ctx.Session) && FirstMapGuide.Revision(snapshot) == FirstMapGuide.Revision(_ctx.Project))
             {
-                Launch(snapshot.Id, startAt);
+                Launch(snapshot.Id, startAt, FirstMapGuide.Revision(snapshot));
             }
         });
     }
 
     private void PlayLast() => Launch(_ctx.Project.Id);
 
-    private void Launch(string mapId, PlayStart? startAt = null)
+    private void Launch(string mapId, PlayStart? startAt = null, string? verifiedRevision = null)
     {
         string? exe = GameLauncher.FindGame();
         if (exe is null)
@@ -254,6 +256,7 @@ public sealed class BuildActions : IShellPart
         try
         {
             int pid = GameLauncher.Play(exe, args);
+            if (verifiedRevision is not null) _ctx.UpdateGuide(g => g.PlayedRevision = verifiedRevision);
             _ctx.Log($"Playing {mapId} (pid {pid}): {exe} {string.Join(' ', args)}");
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException)
@@ -275,6 +278,8 @@ public sealed class BuildActions : IShellPart
         string? folder = session.Folder;
         BackgroundJobs.Run("Check", () => checker.Check(snapshot, new CheckOptions { Target = target, ProjectFolder = folder }), findings =>
         {
+            if (ReferenceEquals(session, _ctx.Session))
+                _ctx.UpdateGuide(g => g.CheckedRevision = findings.Any(f => f.Severity == Severity.Error) ? null : FirstMapGuide.Revision(snapshot));
             Report("Map Check", findings, session);
             _ctx.SetStatus(findings.Count == 0 ? "Map Check: no problems" : $"Map Check: {findings.Count} findings");
         });

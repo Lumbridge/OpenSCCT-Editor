@@ -176,6 +176,7 @@ public sealed class PlayOptions
 /// <summary>Editor-only workspace state saved with the project (never compiled into the game map).</summary>
 public sealed class Workspace
 {
+    public FirstMapGuide FirstMap { get; set; } = new();
     public List<Bookmark> Bookmarks { get; set; } = new();
 
     public List<ReferenceImage> References { get; set; } = new();
@@ -204,6 +205,7 @@ public sealed class Workspace
     /// <summary>A deep copy (commands swap whole copies in and out, so snapshots taken for background work stay valid).</summary>
     public Workspace Clone() => new()
     {
+        FirstMap = FirstMap.Clone(),
         Bookmarks = Bookmarks.Select(b => b.Clone()).ToList(),
         References = References.Select(r => r.Clone()).ToList(),
         Storeys = Storeys.Select(s => s.Clone()).ToList(),
