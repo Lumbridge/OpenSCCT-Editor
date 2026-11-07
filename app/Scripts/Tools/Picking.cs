@@ -2,6 +2,7 @@ using Godot;
 using OpenScct.Editor.Core.Geometry;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Session;
+using OpenScct.Editor.Core.Windows;
 using OpenScctEditor.Core;
 using OpenScctEditor.Viewports;
 using OpenScctEditor.Viewports.Render;
@@ -32,12 +33,19 @@ public static class Picking
         cam.IsOrtho ? PickOrtho(cam, p, mouse) : PickPerspective(cam, p, mouse);
 
     /// <summary>The nearest surface under the cursor (for placing things on surfaces), or null: brush faces and, unless
-    /// <paramref name="pickableOnly"/>, an imported map's baked collision (a locked layer).</summary>
-    public static SurfaceHit? Surface(ViewCamera cam, MapProject p, Vector2 mouse, bool pickableOnly = false)
+    /// <paramref name="pickableOnly"/>, an imported map's baked collision (a locked layer).
+    /// Selection uses <paramref name="displayedBrushes"/> to respect openings in the displayed CSG.</summary>
+    public static SurfaceHit? Surface(ViewCamera cam, MapProject p, Vector2 mouse, bool pickableOnly = false, bool displayedBrushes = false)
     {
         (Vec3 o, Vec3 d) = cam.Ray(mouse);
         SurfaceHit? best = null;
-        foreach (Brush b in p.Brushes)
+        if (displayedBrushes && FacePicking.Pick(cam, p, mouse, _ => IsShown(ObjectKind.Brush)) is { } brushHit
+            && p.FindBrush(brushHit.Face.Brush) is { } source)
+        {
+            best = new SurfaceHit(ObjectRef.ForBrush(source), brushHit.Distance, brushHit.Point,
+                source.Oper == CsgOper.Subtract ? -brushHit.Normal : brushHit.Normal);
+        }
+        foreach (Brush b in displayedBrushes ? Enumerable.Empty<Brush>() : p.Brushes)
         {
             if (!ObjectFilter.IsVisible(p, b.Editor) || (pickableOnly && !ObjectFilter.IsPickable(p, b.Editor)))
             {
@@ -173,7 +181,9 @@ public static class Picking
             if (ScreenRect(cam, min, max) is { } r)
             {
                 double d = r.HasPoint(mouse) ? 0 : DistanceToRect(r, mouse);
-                if (d == 0 && StaticMeshDrawing.Loaded(a) is { } mesh && !RayMesh(o, dir, a, mesh, double.NegativeInfinity, out _))
+                if (d == 0 && (a.Window is not null
+                    ? !RayWindow(o, dir, a, double.NegativeInfinity, out _)
+                    : StaticMeshDrawing.Loaded(a) is { } mesh && !RayMesh(o, dir, a, mesh, double.NegativeInfinity, out _)))
                 {
                     // Inside a static mesh's box but off the mesh: only the box outline is near.
                     d = DistanceToEdge(r, mouse);
@@ -250,6 +260,17 @@ public static class Picking
                 }
 
                 var r = ObjectRef.Actor(a.Id);
+                // Use the same shaped pane and frame as the renderer, even before its mesh has loaded. The
+                // assembly's subtractive opening is empty space and must never become a selection target.
+                if (a.Window is not null)
+                {
+                    if (RayWindow(o, d, a, 0, out double tw))
+                    {
+                        solidT = Math.Min(solidT, tw);
+                        if (tw < bestT) { bestT = tw - 1; best = r; }
+                    }
+                    continue;
+                }
                 IconUse use = icons ? ActorIconBatch.Use(a) : IconUse.None;
                 bool selected = use != IconUse.None && selection.Contains(r);
                 if ((use == IconUse.Always || (use == IconUse.WhenSelected && selected)) &&
@@ -311,7 +332,7 @@ public static class Picking
         }
 
         bool seeThrough = best is not null;
-        if (Surface(cam, p, mouse, pickableOnly: true) is { } hit && (hit.Object is not { } owner || IsShown(owner.Kind)))
+        if (Surface(cam, p, mouse, pickableOnly: true, displayedBrushes: true) is { } hit && (hit.Object is not { } owner || IsShown(owner.Kind)))
         {
             // A one-sided surface seen from behind (a room's ceiling from above) is not drawn and hides no icon.
             if (hit.TwoSided || Vec3.Dot(hit.Normal, d) < 0)
@@ -436,6 +457,25 @@ public static class Picking
             }
         }
 
+        return t < double.MaxValue;
+    }
+
+    /// <summary>The actual pane and solid frame, excluding the assembly's wall cut and empty outline corners.</summary>
+    public static bool RayWindow(Vec3 o, Vec3 d, Actor a, double minT, out double t)
+    {
+        t = double.MaxValue;
+        if (a.Window is not { } design) return false;
+        try
+        {
+            var pane = new Brush(a.Id) { Shape = WindowGeometry.Pane(design), Location = a.Location,
+                Rotation = a.Rotation, MainScale = a.DrawScale3D * a.DrawScale, PrePivot = a.PrePivot };
+            foreach (Brush part in WindowGeometry.Parts(a).Where(b => b.Oper == CsgOper.Add).Prepend(pane))
+            foreach (WorldFace face in BrushGeometry.Of(part).Faces)
+            {
+                if (RayPolygon(o, d, face.Vertices, face.Normal, out double hit) && hit > minT && hit < t) t = hit;
+            }
+        }
+        catch (ArgumentException) { } // Invalid designs keep their last valid drawing until the user fixes them.
         return t < double.MaxValue;
     }
 

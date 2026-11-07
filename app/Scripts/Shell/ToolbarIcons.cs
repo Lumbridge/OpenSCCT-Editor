@@ -24,7 +24,7 @@ public static class ToolbarIcons
         ["tools.move"] = ("""<path d="M8 1.5v13M1.5 8h13"/><path d="M6 3.5l2-2 2 2M6 12.5l2 2 2-2M3.5 6l-2 2 2 2M12.5 6l2 2-2 2"/>""", null),
         ["tools.rotate"] = ("""<path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M12.5 1v3.5h-3.5"/>""", null),
         ["tools.scale"] = ("""<path d="M1.5 6.5h8v8h-8z"/><path d="M8 8l6.5-6.5M10.5 1.5h4v4"/>""", null),
-        ["tools.stairs"] = ("""<path d="M1.5 13.5h4v-4h4v-4h5v8z"/><path d="M1.5 13.5l4-4 4-4 5-4"/>""", null),
+        ["tools.stairs"] = ("""<path d="M1.5 13.5h4v-4h4v-4h5v8z"/>""", null),
         ["tools.windows"] = ("""<rect x="2" y="2" width="12" height="12" rx="1"/><path d="M8 2v12M2 8h12M4 6l2-2M10 12l2-2"/>""", null),
         ["tools.place"] = ("""<circle cx="8" cy="4.25" r="2.5"/><path d="M3.5 14.5v-2.5a4.5 4.5 0 0 1 9 0v2.5"/>""", null),
         ["tools.brush"] = ("""<path d="M8 1.5l6 3v7l-6 3-6-3v-7z"/><path d="M2 4.5l6 3 6-3M8 7.5v7"/>""", null),

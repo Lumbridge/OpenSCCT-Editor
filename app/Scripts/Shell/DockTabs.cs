@@ -1,4 +1,5 @@
 using Godot;
+using OpenScctEditor.Core;
 
 namespace OpenScctEditor.Shell;
 
@@ -55,6 +56,15 @@ public static class DockTabs
         // The tab bar takes its width after the dock's own resize, so the fit follows the bar.
         dock.GetTabBar().Resized += () => Fit(dock);
         dock.TabChanged += _ => Fit(dock);
+        // A regular button provides the same keyboard focus, tooltip and synthetic-input behavior as other controls.
+        // The tab's button icon reserves its space; this control sits over that icon.
+        var close = new Button { Name = "CloseTutorial", Flat = true, Icon = Icons.Get("close", EditorTheme.TextDim),
+            TooltipText = "Close tutorial. Reopen from Help > Your First Map.", Visible = false };
+        foreach (string style in new[] { "normal", "hover", "pressed" }) close.AddThemeStyleboxOverride(style, new StyleBoxEmpty());
+        close.Pressed += () => EditorLifetime.Defer(() => EditorContext.Instance.UpdateGuide(g => g.Hidden = true));
+        dock.GetTabBar().AddChild(close);
+        EditorContext.Instance.GuideChanged += () => Fit(dock);
+        EditorContext.Instance.SessionReplaced += () => Fit(dock);
         dock.ChildOrderChanged += () => EditorLifetime.Defer(() => Fit(dock));
     }
 
@@ -62,6 +72,8 @@ public static class DockTabs
     /// <see cref="Fit"/>): the dock's overflow menu and scripts open panels through this.</summary>
     public static void Show(TabContainer dock, int index)
     {
+        if (Name(dock, index) == "Your first map" && EditorContext.Instance.Project.Workspace.FirstMap.Hidden)
+            EditorContext.Instance.UpdateGuide(g => g.Hidden = false);
         dock.SetTabHidden(index, false);
         dock.CurrentTab = index;
         MainWindow.Instance?.RevealWorkspaceDock(dock);
@@ -111,9 +123,11 @@ public static class DockTabs
         {
             return;
         }
-        int firstAllowed = Enumerable.Range(0, dock.GetTabCount()).FirstOrDefault(i => WorkspaceMode.Allows(Name(dock, i)), -1);
+        bool Available(int i) => WorkspaceMode.Allows(Name(dock, i)) &&
+            (Name(dock, i) != "Your first map" || !EditorContext.Instance.Project.Workspace.FirstMap.Hidden);
+        int firstAllowed = Enumerable.Range(0, dock.GetTabCount()).FirstOrDefault(Available, -1);
         if (firstAllowed < 0) return; // The whole dock is hidden; do not deselect its last tab.
-        if (dock.CurrentTab < 0 || !WorkspaceMode.Allows(Name(dock, dock.CurrentTab)))
+        if (dock.CurrentTab < 0 || !Available(dock.CurrentTab))
         {
             dock.SetTabHidden(firstAllowed, false);
             dock.CurrentTab = firstAllowed;
@@ -132,14 +146,16 @@ public static class DockTabs
         for (int i = 0; i < count; i++)
         {
             string name = Name(dock, i);
-            if (!WorkspaceMode.Allows(name)) continue;
+            dock.SetTabButtonIcon(i, name == "Your first map" ? Icons.Get("close", new Color(1, 1, 1, 0)) : null);
+            if (!Available(i)) continue;
             titles[i] = font.GetStringSize(name, fontSize: fontSize).X;
+            if (name == "Your first map") titles[i] += EditorTheme.IconSize + separation;
             allIcons &= s_icons.ContainsKey(name);
         }
 
         bool full = allIcons
-            ? Enumerable.Range(0, count).Where(i => WorkspaceMode.Allows(Name(dock, i))).Sum(i => chrome + EditorTheme.IconSize + separation + titles[i]) <= room
-            : Enumerable.Range(0, count).Where(i => WorkspaceMode.Allows(Name(dock, i))).Sum(i => chrome + titles[i]) <= room;
+            ? Enumerable.Range(0, count).Where(Available).Sum(i => chrome + EditorTheme.IconSize + separation + titles[i]) <= room
+            : Enumerable.Range(0, count).Where(Available).Sum(i => chrome + titles[i]) <= room;
 
         // The open tab's title and the other tabs' icons, from the first tab on, while they fit.
         // A dock too narrow for even the open tab's title shows that tab's icon too.
@@ -153,7 +169,7 @@ public static class DockTabs
         for (int i = 0; i < count; i++)
         {
             string name = Name(dock, i);
-            if (!WorkspaceMode.Allows(name))
+            if (!Available(i))
             {
                 dock.SetTabHidden(i, true);
                 continue;
@@ -162,6 +178,7 @@ public static class DockTabs
             if (allIcons && !full && i != open)
             {
                 used += chrome + EditorTheme.IconSize;
+                if (name == "Your first map") used += EditorTheme.IconSize + separation;
                 fits = used <= room;
             }
 
@@ -174,7 +191,7 @@ public static class DockTabs
             bool title = icon is null || full || (i == open && openTitle);
             dock.SetTabIcon(i, icon);
             dock.SetTabTitle(i, title ? name : "");
-            dock.SetTabTooltip(i, title ? "" : name);
+            dock.SetTabTooltip(i, name == "Your first map" ? "Your first map · Close with ×; reopen from Help > Your First Map" : title ? "" : name);
         }
 
         // The estimate above can be a few pixels short (the open tab's box, icon rounding); the bar itself has the
@@ -185,6 +202,19 @@ public static class DockTabs
             if (i != open && !dock.IsTabHidden(i))
             {
                 dock.SetTabHidden(i, true);
+            }
+        }
+        if (bar.GetNodeOrNull<Button>("CloseTutorial") is { } close)
+        {
+            int guide = Enumerable.Range(0, count).FirstOrDefault(i => Name(dock, i) == "Your first map", -1);
+            close.Visible = guide >= 0 && !dock.IsTabHidden(guide);
+            if (close.Visible)
+            {
+                Rect2 tab = bar.GetTabRect(guide);
+                float width = EditorTheme.IconSize + separation * 2;
+                float right = dock.GetThemeStylebox(guide == open ? "tab_selected" : "tab_unselected").GetMargin(Side.Right);
+                close.Position = new Vector2(tab.End.X - right - width, tab.Position.Y);
+                close.Size = new Vector2(width, tab.Size.Y);
             }
         }
     }

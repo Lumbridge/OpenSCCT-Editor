@@ -5,6 +5,7 @@ using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Project;
 using OpenScct.Editor.Core.Services;
 using OpenScct.Editor.Core.Session;
+using OpenScct.Editor.Core.Windows;
 using OpenScctEditor.Tools;
 
 int checks = 0;
@@ -88,3 +89,59 @@ if (args.Length > 0)
     ProjectStore.Save(p, Path.GetFullPath(args[0]));
 }
 Console.WriteLine($"PASS {checks} surface selection checks");
+
+// Selection must hit the shaped window inside the carved wall, from either side, before assets are loaded.
+var windows = MapProject.CreateDefault("WindowPick", "Window selection regression");
+windows.Brushes = [Box("Room", new(-512, -768, 0), new(512, 768, 768)),
+    Box("NextRoom", new(576, -768, 0), new(1600, 768, 768))];
+windows.Actors.Clear();
+string[] shapes = ["rectangle", "circle", "oval", "arch", "triangle", "polygon"];
+foreach ((string shape, int index) in shapes.Select((shape, index) => (shape, index)))
+{
+    var window = new Actor("Window" + index, "SBase.SVitre") { Location = new(544, -500 + index * 200, 300),
+        Window = new WindowDesign { Shape = shape, Width = 140, Height = shape == "circle" ? 140 : 160,
+            Framed = true, CutDepth = 128, FrameDepth = 68, Wall = "Room" } };
+    windows.Actors.Add(window);
+    foreach (int side in new[] { -1, 1 })
+    {
+        Vec3 from = window.Location + Vec3.UnitX * side * 200, direction = Vec3.UnitX * -side;
+        Check(Picking.RayWindow(from, direction, window, 0, out double t) && Math.Abs(t - 199) < 1e-6,
+            shape + " glass is selectable from both sides without a loaded mesh");
+    }
+    Check(!Picking.RayWindow(window.Location + new Vec3(-200, 90, 0), Vec3.UnitX, window, 0, out _),
+        shape + " opening cut does not become a pick target");
+    Vec3 vertex = new(0, WindowGeometry.Outline(window.Window)[0].Y, WindowGeometry.Outline(window.Window)[0].Z);
+    Vec3 edge = vertex * 1.025;
+    Check(Picking.RayWindow(window.Location + edge - Vec3.UnitX * 200, Vec3.UnitX, window, 0, out _),
+        shape + " solid frame is selectable");
+}
+var cutProject = ProjectSnapshot.Take(windows);
+foreach (Actor window in windows.Actors) cutProject.Brushes.AddRange(WindowGeometry.Parts(window));
+var cutSurfaces = preview.Build(cutProject);
+foreach (Actor window in windows.Actors)
+{
+    Vec3 from = window.Location - Vec3.UnitX * 300;
+    Check(FacePicking.PickSurfaces(windows, cutSurfaces, from, Vec3.UnitX) is { Distance: > 300 },
+        window.Window!.Shape + " carved wall does not intercept the glass click");
+}
+Check(FacePicking.PickSurfaces(windows, cutSurfaces, new(244, -600, 300), Vec3.UnitX)?.Face.Brush == "Room",
+    "Wall beside window stays selectable");
+var circle = windows.Actors[1];
+Vec3 corner = circle.Location + new Vec3(-300, 60, 60);
+Check(!Picking.RayWindow(corner, Vec3.UnitX, circle, 0, out _)
+    && FacePicking.PickSurfaces(windows, cutSurfaces, corner, Vec3.UnitX)?.Face.Brush == "Room",
+    "Circle corners select the visible wall, not its rectangular bounds");
+var transformed = circle.Clone();
+transformed.Rotation = new(1700, 7800, 2300); transformed.DrawScale3D = new(1.4, .8, 1.7);
+transformed.PrePivot = new(50, -20, 12);
+Vec3 center = transformed.LocalToWorld(Vec3.Zero), forward = transformed.Rotation.Rotate(Vec3.UnitX);
+Check(Picking.RayWindow(center - forward * 300, forward, transformed, 0, out _),
+    "Rotated scaled window with an offset pivot is selectable");
+cutProject.Brushes.Add(Box("Occluder", new(350, -768, 0), new(380, 768, 768), CsgOper.Add));
+windows.Brushes.Add(cutProject.Brushes[^1]);
+Check(FacePicking.PickSurfaces(windows, preview.Build(cutProject), new(244, -500, 300), Vec3.UnitX)?.Face.Brush == "Occluder",
+    "A real foreground wall still wins over glass behind it");
+windows.Brushes.RemoveAt(windows.Brushes.Count - 1);
+windows.Workspace.CameraLocation = new(0, 0, 300); windows.Workspace.CameraRotation = Rot.Zero;
+if (args.Length > 1) ProjectStore.Save(windows, Path.GetFullPath(args[1]));
+Console.WriteLine($"PASS {checks} surface and window selection checks");
