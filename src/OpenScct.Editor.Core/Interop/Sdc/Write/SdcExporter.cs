@@ -37,6 +37,8 @@ public sealed class SdcExporter : IMapExporter
     /// <summary>Writes the file even when the lint finds errors; <see cref="ExportResult.Ok"/> is false then.</summary>
     public ExportResult Export(MapProject project, string path, ExportOptions options)
     {
+        if (project.Actors.Any(a => a.Window is not null))
+            return new ExportResult(false, [], [Finding.Error("window.originalUnsupported", "Editable shaped windows currently require an OpenSCCT build; original-game window export is not supported")]);
         try
         {
             project = Stairs.StairGeometry.Lower(OpenScct.Editor.Core.Gameplay.GeGeometry.Expand(project));

@@ -32,6 +32,7 @@ internal static class Fields
                 if (a.Props.Count > 0) yield return "props";
                 if (a.Match is { IsEmpty: false }) yield return "match";
                 if (a.Legs is not null) yield return "legs";
+                if (a.Window is not null) yield return "window";
                 if (a.Shape is not null)
                 {
                     if (p.FindBrush(r.Id)?.Stair is not null) yield return "stair";
@@ -143,6 +144,7 @@ internal static class Fields
             case "appearance": return g is null ? null : ModelJson.GeToJson(g)["appearance"];
             case "match": return a?.Match is { IsEmpty: false } match ? Project.MatchJson.ToJson(match) : null;
             case "legs": return a?.Legs is { } legs ? Project.MoverLegsJson.ToJson(legs) : null;
+            case "window": return a?.Window is { } window ? ApiJson.Parse(window.ToJson(), "window") : null;
             case "refs": return a is null ? null : ApiJson.Strings(ChangeApplier.References(a.Props).Distinct(StringComparer.OrdinalIgnoreCase));
         }
 

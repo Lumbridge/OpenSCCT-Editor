@@ -1332,10 +1332,17 @@ View > UI Scale: 0 follows the display, otherwise 100 to 250.
 
 ## Native staircase objects (project format 2)
 
-Projects containing editable stairs use `format: "osmap/2"` and `version: 2`; ordinary
+Projects containing editable stairs use `format: "osmap/2"` and `version: 2` (or version 3 when they also contain editable windows); ordinary
 projects keep `osmap` version 1. `world/stairs.json` contains a `stairs` array. Each entry
 has an `order` (its CSG index among all authored CSG objects), an `object` (identity,
 transform and editor metadata), and a `design` (dimensions, profile, materials and
 clearance/smoothing settings). The object's generated faces are rebuilt when read.
 Stair owners are omitted from `world/brushes.json`, and expose `ObjectKind.Stair`.
 See [Editable staircases](STAIRS.md) for the authoring and scripting workflow.
+
+## Editable windows (project format 3)
+
+Projects containing an actor's typed `window` design use `format: "osmap/3"` and `version: 3`.
+The optional record in `world/actors.json` stores shape/dimensions or a detected outline, frame and cut settings,
+finish/tint/materials, and optional source-frame bindings. Generated glass meshes and permanent frame/cut brushes
+are derived for previews and builds. They are not additional authored objects. See [Windows and glass](WINDOWS.md).

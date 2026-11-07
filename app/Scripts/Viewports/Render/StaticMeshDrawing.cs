@@ -40,6 +40,7 @@ public static class StaticMeshDrawing
     /// <summary>The static mesh path an actor draws with, or null.</summary>
     public static string? MeshPath(Actor a)
     {
+        if (a.Window is not null) return OpenScct.Editor.Core.Windows.WindowAssets.Preview(a, AssetService.Instance.Resolver);
         if (a.Shape is not null)
         {
             return null;
@@ -126,9 +127,23 @@ public static class StaticMeshDrawing
                     return;
                 }
 
-                root.AddChild(Holder(mesh, HolderName, Local(a)));
-                ShowBakedLight(root, a, bakedLight());
-                SetSky(root, inSky?.Invoke() == true);
+                if (a.Window is not null)
+                {
+                    // The shared CSG draws the permanent frame; this actor draws only its breakable pane.
+                    StaticMeshes.Request(OpenScct.Editor.Core.Windows.WindowAssets.Prepare(a, AssetService.Instance.Resolver), pane =>
+                    {
+                        if (!Current(HolderName)) return;
+                        root.AddChild(Holder(pane, HolderName, Local(a)));
+                        ShowBakedLight(root, a, bakedLight());
+                        SetSky(root, inSky?.Invoke() == true);
+                    }, gone);
+                }
+                else
+                {
+                    root.AddChild(Holder(mesh, HolderName, Local(a)));
+                    ShowBakedLight(root, a, bakedLight());
+                    SetSky(root, inSky?.Invoke() == true);
+                }
                 var lines = new LineBuilder();
                 lines.Box(ObjectGeometry.Corners(mesh.Min, mesh.Max).Select(c => Space.ToGodot(MeshToWorld(a, c) - a.Location)).ToList(), color);
                 wire.Mesh = lines.Build();
@@ -208,7 +223,9 @@ public static class StaticMeshDrawing
     /// loaded; a light that does not fit the mesh (it changed since the bake) leaves the view's lights on.</summary>
     public static void ShowBakedLight(Node3D root, Actor a, LitPreviewMesh? light)
     {
-        if (root.GetNodeOrNull<MeshInstance3D>($"{HolderName}/{LitName}") is not { } mi || Loaded(a) is not { } mesh)
+        var loaded = a.Window is null ? Loaded(a) :
+            StaticMeshes.Loaded(OpenScct.Editor.Core.Windows.WindowAssets.Prepare(a, AssetService.Instance.Resolver));
+        if (root.GetNodeOrNull<MeshInstance3D>($"{HolderName}/{LitName}") is not { } mi || loaded is not { } mesh)
         {
             return;
         }

@@ -1,0 +1,19 @@
+[
+  {"op":"size","w":1600,"h":900},
+  {"op":"wait","idle":true},
+  {"op":"tab","panel":"Windows"},
+  {"op":"render","mode":"unlit"},
+  {"op":"wait","seconds":2},
+  {"op":"shot","name":"windows-palette","caption":"Windows palette in Simple workspace","views":true},
+  {"op":"select","ids":["Window0"],"frame":true},
+  {"op":"tool","id":"scale"},
+  {"op":"tab","panel":"Inspector"},
+  {"op":"wait","seconds":1},
+  {"op":"shot","name":"window-inspector","caption":"Editable glass and frame dimensions; scale handles","views":true},
+  {"op":"scale","factor":1.5},
+  {"op":"tab","panel":"Windows"},
+  {"op":"shot","name":"windows-150","caption":"Windows palette at 150% scale"},
+  {"op":"tab","panel":"Inspector"},
+  {"op":"shot","name":"inspector-150","caption":"Window Inspector at 150% scale"},
+  {"op":"quit"}
+]

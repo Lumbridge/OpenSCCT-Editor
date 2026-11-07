@@ -23,6 +23,7 @@ public static class ModelJson
         var o = new SvJsonObject();
         o.Add("id", SvJsonNode.String(a.Id));
         o.Add("class", SvJsonNode.String(a.Class));
+        if (a.Window is not null) o.Add("window", Scripting.ApiJson.Parse(a.Window.ToJson(), "window"));
         o.Add("loc", Vec(a.Location));
         if (a.Rotation != Rot.Zero)
         {
@@ -346,9 +347,11 @@ public static class ModelJson
             Shape = o["shape"] is SvJsonObject s ? ShapeFromJson(s) : null,
             Match = MatchJson.FromJson(o["match"]),
             Legs = MoverLegsJson.FromJson(o["legs"]),
+            Window = o["window"] is SvJsonObject window ? Windows.WindowDesign.FromJson(Scripting.ApiJson.Write(window)) : null,
             Editor = MetaFromJson(o["editor"]),
             Source = Str(o, "src"),
         };
+        if (a.Window is not null) Windows.WindowAssets.Prepare(a);
         return a;
     }
 

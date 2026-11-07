@@ -206,12 +206,12 @@ public static class ProjectStore
         }
 
         SvJsonObject map = Read(folder, MapFile) ?? new SvJsonObject();
-        if (ModelJson.Str(map, "format") is { } fmt && fmt != MapProject.FormatId && fmt != "osmap/2")
+        if (ModelJson.Str(map, "format") is { } fmt && fmt != MapProject.FormatId && fmt != "osmap/2" && fmt != "osmap/3")
         {
             throw new InvalidDataException($"{mapPath}: format is '{fmt}', expected '{MapProject.FormatId}'.");
         }
 
-        if ((int)ModelJson.Num(map["version"]) > 2) throw new InvalidDataException("This project needs a newer editor");
+        if ((int)ModelJson.Num(map["version"]) > 3) throw new InvalidDataException("This project needs a newer editor");
         var p = new MapProject
         {
             Id = ModelJson.Str(map, "id") ?? Path.GetFileNameWithoutExtension(folder),
@@ -297,7 +297,7 @@ public static class ProjectStore
     public static SvJsonObject MapToJson(MapProject p)
     {
         var o = new SvJsonObject();
-        int version = p.Brushes.Any(b => b.Stair is not null) ? 2 : MapProject.FormatVersion;
+        int version = p.Actors.Any(a => a.Window is not null) ? 3 : p.Brushes.Any(b => b.Stair is not null) ? 2 : MapProject.FormatVersion;
         o.Add("format", SvJsonNode.String(version > 1 ? $"osmap/{version}" : MapProject.FormatId));
         o.Add("version", SvJsonNode.Integer(version));
         o.Add("id", SvJsonNode.String(p.Id));

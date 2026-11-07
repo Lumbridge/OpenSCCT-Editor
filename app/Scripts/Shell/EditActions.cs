@@ -236,6 +236,7 @@ public sealed class EditActions : IShellPart
 
         // Pasted parts of a multi-brush piece form a piece of their own, so rebuilding one never takes the other.
         PiecePlacer.RepointPieces(brushes, copyOf);
+        OpenScct.Editor.Core.Windows.WindowCommands.Remap(actors, copyOf);
         return (brushes, actors, ges);
     }
 

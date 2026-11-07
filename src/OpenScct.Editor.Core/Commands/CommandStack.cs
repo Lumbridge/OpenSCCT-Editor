@@ -106,6 +106,8 @@ public sealed class CommandStack
     public void Execute(IEditCommand command)
     {
         ArgumentNullException.ThrowIfNull(command);
+        if (command is not Windows.WindowDependentCommand && _project.Actors.Any(a => a.Window?.Binding is not null))
+            command = new Windows.WindowDependentCommand(command);
         command.Do(_project);
         DropRedo();
         if (!_mergeBlocked && _done.Count > 0 && _done.Count != _savedAt && _done[^1].TryMerge(command))

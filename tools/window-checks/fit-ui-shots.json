@@ -1,0 +1,18 @@
+[
+  {"op":"size","w":1600,"h":900},
+  {"op":"wait","idle":true},
+  {"op":"render","mode":"unlit"},
+  {"op":"tab","panel":"Windows"},
+  {"op":"select","what":"none"},
+  {"op":"rightClick","at":"view:Perspective"},
+  {"op":"shot","name":"add-window-menu","caption":"Add Window appears when right-clicking through an imported frame opening"},
+  {"op":"click","at":"item:Add Window"},
+  {"op":"wait","seconds":1},
+  {"op":"tab","panel":"Inspector"},
+  {"op":"shot","name":"fitted-window","caption":"One-click fitted glass with Refit and Detach controls","views":true},
+  {"op":"run","action":"edit.undo"},
+  {"op":"shot","name":"undo-fitted-window","caption":"Undo removes the inserted pane"},
+  {"op":"run","action":"edit.redo"},
+  {"op":"shot","name":"redo-fitted-window","caption":"Redo restores the fitted pane"},
+  {"op":"quit"}
+]

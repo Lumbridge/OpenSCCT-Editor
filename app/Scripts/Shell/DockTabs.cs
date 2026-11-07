@@ -33,6 +33,7 @@ public static class DockTabs
         ["Placeables"] = "palette",
         ["Geometry"] = "grid",
         ["Lights"] = "type-light",
+        ["Windows"] = "type-glass",
         ["Connections"] = "link",
         ["Event Sequencer"] = "type-event",
         ["Missions"] = "type-objective",

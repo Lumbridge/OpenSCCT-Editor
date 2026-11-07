@@ -315,6 +315,7 @@ public sealed partial class ViewportLayout : Node, IShellPart
 
     private static bool ChangesCamera(IEditCommand command) => command switch
     {
+        OpenScct.Editor.Core.Windows.WindowDependentCommand linked => ChangesCamera(linked.Inner),
         WorkspaceCommand workspace => workspace.ChangesCamera,
         CompositeCommand composite => composite.Parts.Any(ChangesCamera),
         _ => false,
@@ -587,6 +588,19 @@ public sealed partial class ViewportLayout : Node, IShellPart
             if (_context.ItemCount > 0)
             {
                 _context.AddSeparator();
+            }
+        }
+
+        if (_ctx.FindAction("windows.add") is not null)
+        {
+            try
+            {
+                Tools.WindowTools.Tool.ContextOpenings = Tools.WindowTools.Find(view, at);
+                if (Tools.WindowTools.Tool.ContextOpenings.Count > 0) Item("windows.add");
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidDataException or IOException)
+            {
+                _ctx.SetStatus("Could not fit glass: " + ex.Message);
             }
         }
 

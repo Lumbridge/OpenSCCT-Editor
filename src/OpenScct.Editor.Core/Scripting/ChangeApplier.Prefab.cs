@@ -351,6 +351,7 @@ public static partial class ChangeApplier
                     break;
                 case ObjectKind.Actor:
                     Actor a = ctx.Project.FindActor(r.Id)!.Clone();
+                    if (a.Window?.Binding is { } windowBinding && windowBinding.Sources.Any(id => !saved.Contains(id))) a.Window.Binding = null;
                     local.Apply(a);
                     foreach (string other in References(a.Props).Where(x => !saved.Contains(x)).Distinct(StringComparer.OrdinalIgnoreCase))
                     {
@@ -619,6 +620,7 @@ public static partial class ChangeApplier
 
             return c;
         }).ToList();
+        Windows.WindowCommands.Remap(actors, newId);
         var ges = e.Parts.Ges.Select(g =>
         {
             Ge c = g.Clone(newId[g.Id]);

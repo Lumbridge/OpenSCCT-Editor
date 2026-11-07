@@ -45,7 +45,8 @@ public static class ViewMaterials
         string key = $"{s.Texture ?? s.Material ?? ""}|{s.AlphaMode}|{s.DoubleSided}";
         if (!s_meshes.TryGetValue(key, out ViewMaterial? m))
         {
-            m = Make(s.Material ?? "mesh", s.Texture, s.AlphaMode, s.DoubleSided, unlitOnly: false, 1, 1);
+            bool windowUnlit = OpenScct.Editor.Core.Windows.WindowAssets.FindMaterial(s.Material ?? "")?.Flags["unlit"]?.GetValue<bool>() == true;
+            m = Make(s.Material ?? "mesh", s.Texture, s.AlphaMode, s.DoubleSided, unlitOnly: windowUnlit, 1, 1);
             s_meshes[key] = m;
         }
 

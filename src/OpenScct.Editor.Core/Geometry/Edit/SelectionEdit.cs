@@ -194,6 +194,7 @@ public static class SelectionEdit
             }
 
             actors.AddRange(round);
+            Windows.WindowCommands.Remap(round, copyOf);
             PiecePlacer.RepointPieces(brushes.Skip(firstBrush), copyOf);
         }
 

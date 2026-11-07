@@ -89,6 +89,9 @@ public sealed class Actor
     /// for the game's timing, one MoveTime and glide for every leg.</summary>
     public OpenScct.Core.Engine.MoverLegs? Legs { get; set; }
 
+    /// <summary>Parametric glass and its optional permanent frame, lowered at build time.</summary>
+    public Windows.WindowDesign? Window { get; set; }
+
     public EditorMeta Editor { get; set; } = new();
 
     /// <summary>Where the actor came from (import provenance), e.g. <c>{"export": 12}</c>; kept for round trips.</summary>
@@ -110,6 +113,7 @@ public sealed class Actor
         Shape = Shape?.Clone(),
         Match = Match,
         Legs = Legs,
+        Window = Window?.Clone(),
         Editor = Editor.Clone(),
         Source = Source,
     };

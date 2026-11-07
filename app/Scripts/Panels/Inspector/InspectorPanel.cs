@@ -188,6 +188,7 @@ public partial class InspectorPanel : EditorPanel
             return;
         }
         if (Compact && _refs.Count == 1 && Index.Brush(_refs[0])?.Shape.Builder is { } builder) BuilderRows(_refs[0], builder);
+        if (_refs.Count == 1 && Context.Project.FindActor(_refs[0].Id) is { Window: not null } window) WindowSection(window);
 
         if (!Compact && _refs.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)))
         {
@@ -273,6 +274,7 @@ public partial class InspectorPanel : EditorPanel
         {
             parts.Add(r.ToString());
             if (Index.Brush(r)?.Stair is { } stair) parts.Add(stair.ToJson());
+            if (Context.Project.FindActor(r.Id)?.Window is { } window) parts.Add(window.ToJson());
             parts.Add(r.Kind switch
             {
                 ObjectKind.Actor => Index.Actor(r)?.Class ?? "",

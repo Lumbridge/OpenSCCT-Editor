@@ -125,6 +125,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         {
             if (PrefabDragData.Read(data) is { } prefab)
             {
+                if (prefab.WindowPreview is not null && !ShowPrefab(view, Pointer(view, position), prefab)) return;
                 if (prefab.GeometryPreview is not null && !ShowPrefab(view, Pointer(view, position), prefab)) return;
                 prefab.Place((prefab.StairPreview is not null || prefab.GeometryPreview is not null) && _stairGhost is { } stairGhost ? stairGhost.Location : PrefabPoint(view, Pointer(view, position), prefab.SurfaceOffset));
             }
@@ -153,6 +154,13 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
     public override void _Input(InputEvent e)
     {
+        if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.R } && GetViewport().GuiIsDragging()
+            && PrefabDragData.Read(GetViewport().GuiGetDragData()) is { WindowPreview: not null } windowDrag)
+        {
+            windowDrag.WindowYaw = Rot.Wrap(windowDrag.WindowYaw + 8192);
+            if (_over is { } windowView) CanDrop(windowView, EditorPointer.Local(windowView), GetViewport().GuiGetDragData());
+            GetViewport().SetInputAsHandled(); return;
+        }
         if (e is InputEventKey { Pressed: true, Echo: false } stairKey && GetViewport().GuiIsDragging()
             && PrefabDragData.Read(GetViewport().GuiGetDragData()) is { StairPreview: not null } stairDrag
             && stairKey.Keycode is Key.R or Key.F)
@@ -737,7 +745,8 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     {
         if (_prefabTarget is { } targetPoint && targetPoint.View == view && view.Cam.ToScreen(targetPoint.Point) is { } screen)
         {
-            if (_stairGhost is { Stair: not null }) Tools.StairTool.DrawPreview(view, canvas, _stairGhost, _stairPlacementProblem is not null);
+            if (_windowGhost is not null) Tools.WindowTool.DrawPreview(view, canvas, _windowGhost, _stairPlacementProblem is not null);
+            else if (_stairGhost is { Stair: not null }) Tools.StairTool.DrawPreview(view, canvas, _stairGhost, _stairPlacementProblem is not null);
             else if (_stairGhost is { } geometryGhost)
             {
                 foreach (BrushFace ghostFace in geometryGhost.WorldFaces())
@@ -828,6 +837,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         {
             _prefabTarget = null;
             _stairGhost = null; _stairGhostAt = null; _stairPlacementProblem = null;
+            _windowGhost = null;
             if (IsInstanceValid(prefabTarget.View)) prefabTarget.View.Redraw();
         }
 

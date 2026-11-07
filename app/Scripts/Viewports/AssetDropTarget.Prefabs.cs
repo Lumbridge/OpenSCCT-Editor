@@ -11,9 +11,19 @@ public sealed partial class AssetDropTarget
     private OpenScct.Editor.Core.Model.Brush? _stairGhost;
     private Vec3? _stairGhostAt;
     private string? _stairPlacementProblem;
+    private Actor? _windowGhost;
 
     private bool ShowPrefab(EditorViewport view, Vector2 at, PrefabDragData prefab)
     {
+        if (prefab.WindowPreview is { } window)
+        {
+            var (actor, why) = Tools.WindowTool.Preview(view, at, window, prefab.WindowYaw);
+            _windowGhost = actor; _stairPlacementProblem = why; prefab.WindowPlacement = why is null ? actor : null;
+            _prefabTarget = (view, actor?.Location ?? Vec3.Zero); _over = view;
+            _pointer = EditorPointer.Global(view); _frame = Engine.GetProcessFrames();
+            _ctx.SetStatus(why ?? "Drop to place breakable window · R rotates 45°");
+            view.Redraw(); return actor is not null && why is null;
+        }
         Vec3 point = PrefabPoint(view, at, prefab.SurfaceOffset);
         if (prefab.GeometryPreview is { } geometry && ToolManager.Instance is { } tools)
         {

@@ -491,6 +491,9 @@ public sealed partial class CollisionBuild
         foreach ((ushort variants, string path) in MeshVariants(a))
         {
             ColliderFlags flags = _ctx.Rules.FlagsOf(a) | ((variants & 1) == 0 ? ColliderFlags.StartsDisabled : ColliderFlags.None);
+            // A fitted window needs the frame's real hole after shattering, even if its imported hull filled it.
+            if (_ctx.WindowFrameSources.Contains(a.Id) && AddLibraryMesh(a, actorId, path, kind, flags, variants, useRenderMesh: true))
+            { added = true; continue; }
             if (ConvertedSets(path) is { } sets)
             {
                 foreach (MeshSet set in sets)
@@ -557,16 +560,17 @@ public sealed partial class CollisionBuild
 
     /// <summary>A mesh no converted map has collision for: one collider of the library mesh's (collision) triangles.
     /// False when the library has no such mesh.</summary>
-    private bool AddLibraryMesh(Actor a, string? actorId, string path, ColliderKind kind, ColliderFlags flags, ushort variants)
+    private bool AddLibraryMesh(Actor a, string? actorId, string path, ColliderKind kind, ColliderFlags flags, ushort variants, bool useRenderMesh = false)
     {
-        if (!_meshCache.TryGetValue(path, out var mesh))
+        string cacheKey = useRenderMesh ? path + "|window-frame" : path;
+        if (!_meshCache.TryGetValue(cacheKey, out var mesh))
         {
             // A gameplay actor's class mesh (a camera's, a laser trigger's) is in no converted map's library, only in
             // the gameplay pack; its render triangles are the per-polygon set the converter writes for stock devices.
             mesh = (_ctx.Library.FindMesh(path) ?? _ctx.Library.Gameplay.FindMesh(path)) is { } lib && File.Exists(lib.GlbPath)
-                ? _ctx.Library.Glb(lib.GlbPath).ReadUeTriangles(lib.CollisionMesh ?? lib.Mesh)
+                ? _ctx.Library.Glb(lib.GlbPath).ReadUeTriangles(useRenderMesh ? lib.Mesh : lib.CollisionMesh ?? lib.Mesh)
                 : null;
-            _meshCache[path] = mesh;
+            _meshCache[cacheKey] = mesh;
         }
 
         if (mesh is not { } m || m.Indices.Count == 0)
@@ -814,7 +818,7 @@ public sealed partial class CollisionBuild
             if (owner is not null || meshActor is not null)
             {
                 Actor? a = owner is not null ? gameplay.GetValueOrDefault(owner) : render.GetValueOrDefault(meshActor!);
-                bool fits = a is not null && (owner is not null
+                bool fits = a is not null && !_ctx.WindowFrameSources.Contains(a.Id) && (owner is not null
                     ? c.Kind != ColliderKind.Brush || a.Shape is null || SameShape(src, c, a.Shape)
                     : IsMeshPrimitive(a) && string.Equals(MeshPath(a), src.GetString(source.Asset), StringComparison.OrdinalIgnoreCase));
                 if (fits)

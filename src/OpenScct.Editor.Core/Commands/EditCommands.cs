@@ -180,6 +180,7 @@ public sealed class ReplaceObjectsCommand : IEditCommand
                 case ObjectKind.Actor when actor is not null && project.FindActor(r.Id) is { } a:
                     Actor na = a.Clone();
                     actor(na);
+                    Windows.WindowTransforms.Follow(a, na);
                     if (followBase)
                     {
                         MoverBase.Follow(a, na);

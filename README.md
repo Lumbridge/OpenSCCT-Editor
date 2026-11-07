@@ -70,6 +70,9 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 - **Build and play.** A compiler to OpenSCCT's SVMap format (CSG, BSP, zones, collision, lightmaps, vertex-lit
   meshes), checked with OpenSCCT's own loader. Play the map in OpenSCCT from the editor, or run a headless test
   round with bots, a scripted route or a host and a joining client.
+- **Windows and glass.** The [Windows palette](docs/WINDOWS.md) places scalable glass or complete framed windows
+  in six shapes and three finishes. Framed windows cut editable walls; right-click inside an existing frame to fit
+  linked breakable glass. These windows build for OpenSCCT and require Editor 0.2.5 or newer to reopen.
 - **Light palette.** Drag ceiling, wall and portable fixtures from the Lights dock to place a mesh and editable
   light together, with one undo step. Raw Lights offers point, spot, local ambient fill, sunlight, colored and
   animated presets. Fixture choices use the installed map content; edit each light in Inspector and rebuild static

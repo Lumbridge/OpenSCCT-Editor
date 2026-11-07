@@ -56,8 +56,10 @@ public sealed class TransformTool : IViewportTool
     private MapProject Project => _tools.Context.Project;
 
     private StairHandles? _stairHandles;
+    private WindowHandles? _windowHandles;
     public bool Input(EditorViewport view, InputEvent e)
     {
+        if (Mode == TransformMode.Scale && (_windowHandles ??= new WindowHandles(_tools)).Input(view, e)) return true;
         if (Mode == TransformMode.Scale && (_stairHandles ??= new StairHandles(_tools)).Input(view, e)) return true;
         switch (e)
         {
@@ -125,6 +127,7 @@ public sealed class TransformTool : IViewportTool
     public bool Cancel()
     {
         if (_stairHandles?.Cancel() == true) return true;
+        if (_windowHandles?.Cancel() == true) return true;
         if (_drag is { } drag)
         {
             _drag = null;
@@ -147,6 +150,7 @@ public sealed class TransformTool : IViewportTool
     {
         _select.Draw(view, canvas);
         if (Mode == TransformMode.Scale) (_stairHandles ??= new StairHandles(_tools)).Draw(view, canvas);
+        if (Mode == TransformMode.Scale) (_windowHandles ??= new WindowHandles(_tools)).Draw(view, canvas);
         if (_drag is { Moving: true } dragging)
         {
             dragging.Snap.Draw(view, canvas);

@@ -51,9 +51,9 @@ public sealed class AssetResolver
     /// <summary>The folder of a map in the content library, or null.</summary>
     public string? MapFolder(string map) => Content.MapFolder(map) ?? Source?.MapFolder(map);
 
-    public LibraryMaterial? FindMaterial(string name) => Project?.FindMaterial(name) ?? Content.FindMaterial(name) ?? Source?.FindMaterial(name);
+    public LibraryMaterial? FindMaterial(string name) => Project?.FindMaterial(name) ?? Content.FindMaterial(name) ?? Source?.FindMaterial(name) ?? Windows.WindowAssets.FindMaterial(name);
 
-    public LibraryMesh? FindMesh(string asset) => Project?.FindMesh(asset) ?? Content.FindMesh(asset) ?? Source?.FindMesh(asset);
+    public LibraryMesh? FindMesh(string asset) => Project?.FindMesh(asset) ?? Content.FindMesh(asset) ?? Source?.FindMesh(asset) ?? Windows.WindowAssets.FindMesh(asset);
 
     /// <summary>The mesh the views draw for <paramref name="asset"/>: <see cref="FindMesh"/>, else the gameplay pack's
     /// copy (a security camera's or laser trigger's class mesh, which no converted map's library carries).</summary>

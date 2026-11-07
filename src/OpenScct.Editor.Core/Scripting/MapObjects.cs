@@ -62,6 +62,9 @@ public static class MapObjects
 
     public static (Vec3 Min, Vec3 Max) ActorBounds(Actor a)
     {
+        if (a.Window is { } window)
+            return PointsBounds(Windows.WindowGeometry.Pane(window).Faces.SelectMany(f => f.Vertices).Select(a.LocalToWorld)
+                .Concat(Windows.WindowGeometry.Parts(a).Where(b => b.Oper == CsgOper.Add).SelectMany(b => b.WorldFaces()).SelectMany(f => f.Vertices)), a.Location);
         if (a.Shape is { Faces.Count: > 0 } shape)
         {
             return PointsBounds(shape.Faces.SelectMany(f => f.Vertices).Select(a.LocalToWorld), a.Location);

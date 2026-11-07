@@ -39,6 +39,8 @@ public sealed class OriginalExporter : IMapExporter
 
     public ExportResult Export(MapProject project, string path, ExportOptions options)
     {
+        if (project.Actors.Any(a => a.Window is not null))
+            return new ExportResult(false, [], [Finding.Error("window.originalUnsupported", "Editable shaped windows currently require an OpenSCCT build; original-game window export is not supported")]);
         try
         {
             project = GeGeometry.Expand(project);

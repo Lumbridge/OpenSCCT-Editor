@@ -21,6 +21,9 @@ public sealed partial class PrefabDragData : RefCounted
     public OpenScct.Editor.Core.Stairs.StairDesign? StairPreview { get; init; }
     public OpenScct.Editor.Core.Model.BuilderSpec? GeometryPreview { get; init; }
     public int StairYaw { get; set; }
+    public OpenScct.Editor.Core.Windows.WindowDesign? WindowPreview { get; init; }
+    public Actor? WindowPlacement { get; set; }
+    public int WindowYaw { get; set; }
     public void Place(Vec3 point) => _place?.Invoke(point);
 
     public static PrefabDragData? Read(Variant data) =>

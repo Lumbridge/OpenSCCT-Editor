@@ -1,0 +1,21 @@
+[
+  {"op":"size","w":1600,"h":900},
+  {"op":"wait","idle":true},
+  {"op":"render","mode":"unlit"},
+  {"op":"tab","panel":"Windows"},
+  {"op":"click","at":"text:Circle · clear"},
+  {"op":"click","at":"text:Place Window"},
+  {"op":"move","at":"view:Perspective"},
+  {"op":"shot","name":"circular-window-preview","caption":"Framed circular preset previews on the editable wall"},
+  {"op":"click","at":"view:Perspective"},
+  {"op":"tool","id":"move"},
+  {"op":"wait","idle":true},
+  {"op":"wait","seconds":2},
+  {"op":"tab","panel":"Inspector"},
+  {"op":"shot","name":"placed-window-with-cut","caption":"One click places frame and glass and carves the circular opening","views":true},
+  {"op":"run","action":"edit.undo"},
+  {"op":"wait","idle":true},
+  {"op":"wait","seconds":2},
+  {"op":"shot","name":"restored-wall","caption":"Undo removes the assembly and restores the wall"},
+  {"op":"quit"}
+]

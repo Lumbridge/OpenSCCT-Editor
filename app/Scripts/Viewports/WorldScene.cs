@@ -25,6 +25,8 @@ public sealed partial class WorldScene : Node3D
     private readonly List<Ge> _drawnGeLooks = new();
     private List<Brush> _geBrushes = new();
     private int _geNamesKey;
+    private List<Actor> _drawnWindows = [];
+    private readonly HashSet<string> _windowPartIds = new(StringComparer.OrdinalIgnoreCase);
     private Node3D _builder = null!;
     private MeshInstance3D? _previewUnlit;
     private MeshInstance3D? _previewLit;
@@ -225,10 +227,28 @@ public sealed partial class WorldScene : Node3D
         }
 
         int namesKey = names.ToHashCode();
-        if (!geLooks.SequenceEqual(_drawnGeLooks) || namesKey != _geNamesKey)
+        var windows = p.Actors.Where(a => a.Window is not null).ToList();
+        if (!geLooks.SequenceEqual(_drawnGeLooks) || namesKey != _geNamesKey || !windows.SequenceEqual(_drawnWindows))
         {
             bool hadLook = _geBrushes.Count > 0;
             _geBrushes = GeGeometry.ExpandValid(p).Brushes.Skip(p.Brushes.Count).ToList();
+            _windowPartIds.Clear();
+            var usedPartIds = p.AllRefs().Select(r => r.Id).Concat(_geBrushes.Select(b => b.Id)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (Actor window in windows)
+            {
+                try
+                {
+                    foreach (var part in OpenScct.Editor.Core.Windows.WindowGeometry.Parts(window))
+                    {
+                        string stem = part.Id;
+                        for (int suffix = 1; !usedPartIds.Add(part.Id); suffix++) part.Id = stem + "_" + suffix;
+                        _geBrushes.Add(part);
+                        _windowPartIds.Add(part.Id);
+                    }
+                }
+                catch (ArgumentException ex) { Core.EditorContext.Instance.SetStatus(ex.Message); }
+            }
+            _drawnWindows = windows;
             _drawnGeLooks.Clear();
             _drawnGeLooks.AddRange(geLooks);
             _geNamesKey = namesKey;
@@ -481,7 +501,7 @@ public sealed partial class WorldScene : Node3D
         _hiddenBrushes = hidden;
         foreach (Brush part in _geBrushes)
         {
-            if (!ShowGes || !ObjectFilter.IsInWorld(p, part.Editor))
+            if (!(_windowPartIds.Contains(part.Id) ? ShowActors : ShowGes) || !ObjectFilter.IsInWorld(p, part.Editor))
             {
                 hidden.Add(part.Id);
             }

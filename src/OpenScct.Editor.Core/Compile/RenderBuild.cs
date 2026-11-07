@@ -685,8 +685,8 @@ public sealed partial class RenderBuild
             }
 
             LibraryMaterial? lib = _ctx.Library.FindMaterial(name);
-            JsonObject flags = lib is not null && lib.RenderDir == renderDir
-                ? CopyTextures(lib.Flags.DeepClone().AsObject(), renderDir, origin)
+            JsonObject flags = lib is not null && (lib.RenderDir == renderDir || origin == "EditorWindows")
+                ? CopyTextures(lib.Flags.DeepClone().AsObject(), lib.RenderDir, lib.Origin)
                 : new JsonObject();
             int index = _glb.Array("materials").Select((m, i) => (m, i)).First(t => t.m?["name"]?.GetValue<string>() == name).i;
             _materials[name] = new JsonObject { ["flags"] = Sorted(flags), ["index"] = index, ["source"] = lib?.Source ?? name };
