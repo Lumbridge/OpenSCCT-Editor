@@ -57,6 +57,10 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 - **Build and play.** A compiler to OpenSCCT's SVMap format (CSG, BSP, zones, collision, lightmaps, vertex-lit
   meshes), checked with OpenSCCT's own loader. Play the map in OpenSCCT from the editor, or run a headless test
   round with bots, a scripted route or a host and a joining client.
+- **Light palette.** Drag ceiling, wall and portable fixtures from the Lights dock to place a mesh and editable
+  light together, with one undo step. Raw Lights offers point, spot, local ambient fill, sunlight, colored and
+  animated presets. Fixture choices use the installed map content; edit each light in Inspector and rebuild static
+  lighting after changes.
 - **The app.** Four views with wireframe, brush colour, textured, lit preview and lightmap density modes; Outliner,
   Layers, Inspector, Map, Surface, History, Log, Map Check, Classes, Bookmarks, Assets, Prefabs and References panels;
   select, move, rotate, scale, place, builder brush, face, vertex, clip, measure, GE and security tools; neighbour

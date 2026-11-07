@@ -11,7 +11,7 @@ public sealed partial class AssetDropTarget
 
     private bool ShowPrefab(EditorViewport view, Vector2 at, PrefabDragData prefab)
     {
-        Vec3 point = PrefabPoint(view, at);
+        Vec3 point = PrefabPoint(view, at, prefab.SurfaceOffset);
         if (_prefabTarget is { } previous && previous.View != view) previous.View.Redraw();
         _prefabTarget = (view, point);
         view.Redraw();
@@ -30,7 +30,7 @@ public sealed partial class AssetDropTarget
 
     /// <summary>Put the prefab pivot on the visible surface under the pointer. Keep its authored orientation;
     /// in empty space use a point along the pointer ray, and in side views preserve the selection's depth.</summary>
-    private Vec3 PrefabPoint(EditorViewport view, Vector2 at)
+    private Vec3 PrefabPoint(EditorViewport view, Vector2 at, double surfaceOffset = 0)
     {
         ViewCamera cam = view.Cam;
         SurfaceHit? hit = cam.Kind switch
@@ -39,7 +39,7 @@ public sealed partial class AssetDropTarget
             ViewKind.Top => FloorBelow(cam, at),
             _ => null,
         };
-        if (hit is { } surface) return surface.Point;
+        if (hit is { } surface) return surface.Point + surface.Normal * surfaceOffset;
         if (cam.IsOrtho)
         {
             int axis = ViewAxes.DepthAxis(cam.Kind);
