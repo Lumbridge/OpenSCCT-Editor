@@ -56,7 +56,7 @@ public sealed class WorkspaceMode : IShellPart
         {
             if (!AppSettings.Has("workspace.simple", "LeftDock")) DockTabs.ShowPanel("Building");
             if (!AppSettings.Has("workspace.simple", "RightDock"))
-                DockTabs.ShowPanel(!AppSettings.GetBool("workspace", "first_map_complete", false) && !EditorContext.Instance.Project.Workspace.FirstMap.Hidden ? "Your first map" : "Inspector");
+                DockTabs.ShowPanel(DockTabs.TutorialOpen && !EditorContext.Instance.Project.Workspace.FirstMap.Hidden ? "Your first map" : "Inspector");
         }
         else
         {

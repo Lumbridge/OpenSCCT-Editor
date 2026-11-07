@@ -11,6 +11,7 @@ using OpenScct.Editor.Core.Project;
 using OpenScct.Editor.Core.Services;
 using OpenScct.Editor.Core.Windows;
 using OpenScct.Game.Lighting;
+using OpenScct.Content;
 
 int checks = 0;
 void Check(bool ok, string message) { if (!ok) throw new Exception(message); checks++; }
@@ -62,12 +63,50 @@ foreach (bool faithful in new[] { false, true })
     Check(Math.Abs(fast.Texels[0][0] - fast.Texels[0][1]) < 1e-6, "Fast unshadowed passes stay neutral");
 }
 
+// Compare the game's cached response with a fresh bake for every state of overlapping panes, including padding.
+foreach (bool faithful in new[] { false, true })
+{
+    var blue = red.Clone(); blue.Id = "Blue"; blue.Location = new(10,0,0); blue.Window!.Tint = [.05,.05,1];
+    var panes = new[] { red, blue };
+    LightmapResult BakeState(IEnumerable<Actor> live, bool capture)
+    {
+        var filter = new WindowLightTransmission(live);
+        var chart = new LightmapChart { Origin = new(-100,-16,-16), StepU = Vec3.UnitY * 4, StepV = Vec3.UnitZ * 4,
+            Normal = Vec3.UnitX, Width = 8, Height = 8,
+            Pieces = [new ChartPiece([new(2,2),new(6,2),new(6,6),new(2,6)],0)] }.Seal();
+        var scene = new BakeScene { Charts = [chart], Lights = [light], Ambient = _ => new(.02,.03,.04), Occluders = TriangleBvh.Build([]),
+            Transmission = filter.Filter, TransmissionPath = filter.Path, CaptureWindows = capture };
+        return new LightmapBaker().Bake(scene, new BakeQuality { Faithful = faithful }, 64);
+    }
+    var original = BakeState(panes, true);
+    var batch = original.WindowResponse!.Export(["textures/test.png"], original.Atlases);
+    Check(batch.Samples.Count > 0 && (faithful || batch.DirectFill.Count > 0), "Runtime response includes affected texels and padding");
+    var response = new WindowLightTransfer(); response.Panes.AddRange(new WindowLightTransmission(panes).Panes); response.Batches.Add(batch);
+    using var bytes = new MemoryStream(response.Save()); response = WindowLightTransfer.Load(bytes); batch = response.Batches[0];
+    for (int mask = 0; mask < 4; mask++)
+    {
+        var broken = panes.Where((_, i) => (mask & 1 << i) != 0).Select(p => p.Id).ToHashSet();
+        var expected = BakeState(panes.Where(p => !broken.Contains(p.Id)), false).Rgba(0);
+        var values = response.Evaluate(batch, broken);
+        foreach ((var sample, int index) in batch.Samples.Select((s,i)=>(s,i)))
+        foreach (var dest in sample.Destinations)
+        for (int channel = 0; channel < 3; channel++)
+            Check(Math.Abs(WindowLightTransfer.Encode(values[index][channel], dest.Dither)-expected[dest.Element*4+channel]) <= 1,
+                "Runtime pane state matches freshly baked lighting");
+    }
+}
+
 var project = MapProject.CreateDefault("GlassLight", "Coloured glass lighting"); Starter.AddStarterRoom(project);
 project.Brushes[0].Shape = Box.Shape(new(1600, 2400, 900)); project.Brushes[0].Location = new(0, 0, 450);
 foreach (var face in project.Brushes[0].Shape.Faces) face.LightMapScale = 12;
 project.Actors.RemoveAll(a => a.ShortClass == "Light");
 project.LevelInfo.Set("AmbientBrightness", SvJsonNode.Integer(3));
-project.Lighting.Bounce = 0;
+project.Lighting.Bounce = .35;
+var receiver = new Actor("VertexReceiver", "Engine.StaticMeshActor") { Location = new(0,0,32),
+    Rotation = Orientation.FromAxes(Vec3.UnitZ, Vec3.UnitY) };
+var receiverDesign = new Actor("ReceiverDesign", "SBase.SVitre") { Window = new() { Framed = true, Width = 60, Height = 60, FrameWidth = 30 } };
+string receiverMesh = WindowAssets.Prepare(receiverDesign) + "_Frame";
+receiver.Props.Set("StaticMesh", PropValues.AssetRef(receiverMesh)); project.Actors.Add(receiver);
 string[] shapes = ["circle", "triangle", "arch"];
 double[][] tints = [[1, .06, .06], [.06, 1, .06], [.06, .12, 1]];
 for (int i = 0; i < 3; i++)
@@ -95,6 +134,34 @@ Check(colouredTexels.All(n => n > 20), "Playable map contains red, green and blu
 var preview = new LightPreview();
 var final = preview.Passes(project, folder, new HashSet<string>(), LightPreviewStart.Cold, CancellationToken.None).Last();
 Check(final.Final && final.Atlases.Any(a => Enumerable.Range(0, a.Rgba.Length / 4).Any(i => a.Rgba[4 * i] > 3 * a.Rgba[4 * i + 1] && a.Rgba[4 * i] > 12)), "Editor Lit Preview includes coloured transmitted light");
+string responseFile = Path.Combine(compiled.OutputFolder!, WindowLightTransfer.RelativePath);
+using (var stream = File.OpenRead(responseFile))
+{
+    var response = WindowLightTransfer.Load(stream);
+    Check(response.Panes.Count == 3 && response.Batches.Any(b => b.Samples.Count > 0), "Playable map packages the runtime glass-light response");
+    Check(response.Batches.Any(b => b.Bounces.Count > 0), "Indirect light has cached response paths");
+    Check(response.Batches.Any(b => b.Resources.Any(r => r.Kind == "mesh")), "Vertex-lit meshes have runtime response data");
+    var opened = WindowGeometry.Expand(project);
+    foreach (var pane in opened.Actors.Where(a => a.Window is not null)) pane.Window = null;
+    var openBuild = new MapCompiler().Compile(opened, Path.Combine(root, "GlassLightOpen"), new CompileOptions { ProjectFolder = folder });
+    Check(openBuild.Ok, "Unfiltered reference map builds");
+    var referenceContext = new CompileContext(opened, new CompileOptions { ProjectFolder = folder }, EditorServices.Classes);
+    GameplayBuild.SortActors(referenceContext);
+    var referenceLighting = new WorldLighting(referenceContext);
+    var referenceVertex = referenceLighting.VertexLight(receiver, referenceLighting.MeshPrimitives(receiverMesh)!)!;
+    var broken = response.Panes.Select(p => p.Actor).ToHashSet();
+    foreach (var batch in response.Batches)
+    {
+        var values = response.Evaluate(batch, broken);
+        var expected = batch.Resources.Select(r => r.Kind == "mesh" ? referenceVertex[r.Surface]
+            : Png.Decode(File.ReadAllBytes(Path.Combine(openBuild.OutputFolder!, "render", r.Name)))!.Value.Rgba).ToArray();
+        foreach ((var sample, int i) in batch.Samples.Select((s,i)=>(s,i)))
+        foreach (var dest in sample.Destinations)
+        for (int k = 0; k < 3; k++)
+            Check(Math.Abs(WindowLightTransfer.Encode(values[i][k], dest.Dither)-expected[dest.Resource][dest.Element*4+k]) <= 1,
+                "Compiled runtime lighting matches the window-open reference");
+    }
+}
 if (args.Contains("--render"))
 {
     var recipe = PictureRecipe.OfCamera(camera.Name); var shot = new CameraShot("banner", recipe, camera, 1280, 720, MapShots.Key(recipe, camera, 1280, 720));

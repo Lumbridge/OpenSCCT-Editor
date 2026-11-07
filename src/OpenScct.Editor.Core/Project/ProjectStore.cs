@@ -577,7 +577,7 @@ public static class ProjectStore
         var w = new Workspace();
         if (o["firstMap"] is SvJsonObject guide)
         {
-            w.FirstMap.Hidden = guide["hidden"]?.Kind == SvJsonKind.True;
+            w.FirstMap.Hidden = guide["hidden"]?.Kind != SvJsonKind.False;
             w.FirstMap.Explored = guide["explored"]?.Kind == SvJsonKind.True;
             w.FirstMap.CheckedRevision = ModelJson.Str(guide, "checkedRevision");
             w.FirstMap.PlayedRevision = ModelJson.Str(guide, "playedRevision");

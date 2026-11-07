@@ -347,6 +347,7 @@ public partial class MainWindow : Control
         {
             if (dock == BottomDock && WorkspaceMode.Simple && !_simpleBottomShown) continue;
             string selected = AppSettings.GetString(section, dock.Name, "");
+            if (selected == "Your first map" && !DockTabs.TutorialOpen) selected = "Inspector";
             for (int n = 0; n < dock.GetTabCount(); n++)
                 if (DockTabs.Name(dock, n) == selected && WorkspaceMode.Allows(selected)) DockTabs.Show(dock, n);
         }

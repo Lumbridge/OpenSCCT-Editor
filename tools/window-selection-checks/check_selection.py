@@ -58,9 +58,9 @@ print('PASS hidden/locked panes and restored selection after undo')
 
 def guide_dock(): return next(c for c in tree()['controls'] if c.get('currentTab')=='Your first map')
 def close_guide():
- dock=guide_dock(); x,y,w,h=dock['rect']
- step('click',at=[x+124,y+14])
- assert not any(c.get('currentTab')=='Your first map' for c in tree()['controls']), 'Close button must dismiss tutorial'
+ guide_dock()
+ step('click',at='tab:Your first map',button='middle')
+ assert not any(c.get('currentTab')=='Your first map' for c in tree()['controls']), 'Middle-click must dismiss tutorial'
  assert not any(c.get('text')=='Your first map' for c in tree()['controls']), 'Tutorial body must be hidden'
 def open_guide():
  step('click',at='menu:Help'); step('click',at='item:Your First Map'); guide_dock()

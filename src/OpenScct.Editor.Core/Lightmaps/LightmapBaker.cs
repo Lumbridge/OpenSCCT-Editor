@@ -169,21 +169,24 @@ public sealed class LightmapBaker
         }
 
         var texels = new float[charts.Count][];
+        var windowResponse = scene.CaptureWindows && scene.TransmissionPath is not null && q.Shadows ? new WindowBakeCapture(charts, q.Faithful) : null;
         Parallel.For(0, charts.Count, new ParallelOptions { CancellationToken = cancel }, c =>
         {
-            texels[c] = Compose(scene, charts[c], samples[c], buried[c], perChart[c].Select(l => (lights[l], q.Shadows ? shadows[jobIndex[(l, c)]] : null)), q);
+            texels[c] = Compose(scene, charts[c], samples[c], buried[c], perChart[c].Select(l => (lights[l], q.Shadows ? shadows[jobIndex[(l, c)]] : null)), q, windowResponse, c);
             Dilate(texels[c], samples[c], buried[c], charts[c].Width, charts[c].Height);
         });
 
+        windowResponse?.PrepareDirect(texels, samples, buried);
         if (q.Bounce > 0 && !q.Faithful && scene.ChartAt is not null)
         {
-            rays += Bounce.Add(scene, samples, buried, texels, q, cancel);
+            rays += Bounce.Add(scene, samples, buried, texels, q, cancel, windowResponse);
             Parallel.For(0, charts.Count, c => Dilate(texels[c], samples[c], buried[c], charts[c].Width, charts[c].Height));
         }
 
         List<(int Width, int Height)> sizes = placed?.ToList() ?? AtlasPacker.Pack(charts, atlasSize);
         LastStats = new BakeStats(charts.Count, samples.Sum(s => (long)s.Covered), lights.Count, jobs.Count, cached, rays, clock.ElapsedMilliseconds);
-        return new LightmapResult(charts, texels, sizes, q.Faithful, LastStats);
+        windowResponse?.Finish(texels, samples, buried);
+        return new LightmapResult(charts, texels, sizes, q.Faithful, LastStats) { WindowResponse = windowResponse };
     }
 
     /// <summary>Records what a slot's bake used and drops every entry no slot uses any more, so the caches follow the
@@ -713,7 +716,7 @@ public sealed class LightmapBaker
     // ---- composition ------------------------------------------------------------------------------------------------
 
     private static float[] Compose(BakeScene scene, LightmapChart c, ChartSamples s, bool[]? buried, IEnumerable<(BakeLight Light, byte[]? Vis)> lights,
-        BakeQuality q)
+        BakeQuality q, WindowBakeCapture? capture, int chartIndex)
     {
         int count = c.Width * c.Height;
         var rgb = new float[count * 3];
@@ -727,6 +730,7 @@ public sealed class LightmapBaker
 
             world[i] = c.World(s.Point[i]);
             Vec3 a = scene.Ambient(c.Pieces[s.Piece[i]].Zone);
+            capture?.Ambient(chartIndex, i, a);
             rgb[3 * i] = (float)a.X;
             rgb[(3 * i) + 1] = (float)a.Y;
             rgb[(3 * i) + 2] = (float)a.Z;
@@ -750,7 +754,9 @@ public sealed class LightmapBaker
                     continue;
                 }
 
-                Vec3 transmitted = colour.Scale(q.Shadows ? scene.Transmission?.Invoke(l, world[i]) ?? Vec3.One : Vec3.One);
+                WindowLightPath? path = q.Shadows ? scene.TransmissionPath?.Invoke(l, world[i]) : null;
+                Vec3 transmitted = colour.Scale(path?.Colour ?? (q.Shadows ? scene.Transmission?.Invoke(l, world[i]) ?? Vec3.One : Vec3.One));
+                capture?.Light(chartIndex, i, path?.Panes ?? [], colour * (q.Faithful ? Math.Floor(Math.Min(255, 255 * f)) : f));
                 if (q.Faithful)
                 {
                     // One byte of term per light, through the light's colour, added with saturation.

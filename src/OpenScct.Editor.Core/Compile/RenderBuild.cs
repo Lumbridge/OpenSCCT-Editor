@@ -61,7 +61,7 @@ public sealed partial class RenderBuild
         Glb glb = baked is not null && File.Exists(Path.Combine(baked.Folder, "render", "world.glb"))
             ? Glb.Load(File.ReadAllBytes(Path.Combine(baked.Folder, "render", "world.glb")))
             : Glb.Create($"{CompileContext.Generator} {CompileContext.GeneratorVersion}");
-        var r = new RenderBuild(ctx, glb) { _lighting = new WorldLighting(ctx) };
+        var r = new RenderBuild(ctx, glb) { _lighting = new WorldLighting(ctx) { CaptureWindows = true } };
         if (baked is not null)
         {
             r.StartFromBaked(baked);
@@ -78,6 +78,8 @@ public sealed partial class RenderBuild
         r.AddConveyors();
         r.WriteEmitters(baked);
         r.Finish(baked);
+        if (r._lighting.WindowResponse.Batches.Any(b => b.Samples.Count > 0))
+            ctx.Files[OpenScct.Content.WindowLightTransfer.RelativePath] = r._lighting.WindowResponse.Save();
     }
 
     // ---- materials ------------------------------------------------------------------------------------------------
@@ -266,6 +268,8 @@ public sealed partial class RenderBuild
             }
 
             pieces.AddRange(result.Charts.SelectMany(chart => chart.Pieces.Select(piece => ((Poly)piece.Source!, chart))));
+            if (result.WindowResponse is { } response)
+                _lighting.WindowResponse.Batches.Add(response.Export(Enumerable.Range(0, result.Atlases.Count).Select(a => $"textures/{atlasName}{a}.png").ToArray(), result.Atlases));
         }
 
         // Charts cut surfaces larger than an atlas at tile lines; mend the T-junctions those cuts leave against the
@@ -403,6 +407,8 @@ public sealed partial class RenderBuild
         WarnRecovery();
         _ctx.Progress($"lightmaps: relighting {source.Charts.Count} source lightmaps");
         LightmapResult result = _lighting.BakeInPlace(source.Charts, source.Atlases.Select((_, a) => source.BakeSize(a)).ToList(), SourceLists(source));
+        if (result.WindowResponse is { } response)
+            _lighting.WindowResponse.Batches.Add(response.Export(source.Atlases.Select(a => a.Uri).ToArray(), result.Atlases, source.Compressed));
         for (int a = 0; a < source.Atlases.Count; a++)
         {
             string file = $"render/{source.Atlases[a].Uri}";
@@ -597,6 +603,7 @@ public sealed partial class RenderBuild
             bool hidden = _ctx.Rules.Flag(a, "bHidden");
             bool own = gameplay || _lighting.IsScrolled(a);
             string? variant = _lighting.DrawsVertexLit(a, gameplay) ? VertexLitVariant(a, path, node) : null;
+            own |= _lighting.WindowResponse.Batches.Any(b => b.Resources.Any(r => r.Kind == "mesh" && r.Name == a.Id));
             vertexLit += variant is null ? 0 : 1;
             JsonObject instance = Instance(a.Id, a.ShortClass, own, hidden, variant ?? node, a.Location, a.Rotation,
                 _ctx.Rules.Scale(a), _ctx.Rules.PrePivot(a), variant is not null, mover ? "mover" : "staticmesh");

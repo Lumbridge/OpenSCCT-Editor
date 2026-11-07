@@ -117,7 +117,8 @@ public sealed class SurfaceActions : IShellPart
         Add("surface.extrudeNew", "New Brush from Face by Grid", "Surface/Extrude", 120, ExtrudeNew, HasFaces,
             null, "Grow a new brush of the same CSG type out of each picked face");
 
-        bool OnWall() => Geo.PrimaryFace is { } f && WallPieces.Anchor(_ctx.Project, f) is not null;
+        bool OnWall() => Geo.PrimaryFace is { } f && WallPieces.Anchor(_ctx.Project, f) is { Vertical: false };
+        bool OnFloorOrCeiling() => Geo.PrimaryFace is { } f && WallPieces.Anchor(_ctx.Project, f) is { Vertical: true };
         order = 100;
         foreach (string kind in WallPieces.Kinds)
         {
@@ -125,6 +126,13 @@ public sealed class SurfaceActions : IShellPart
             Add("surface.wall." + k, "Add " + WallPieces.Title(k), "Surface/Add on Wall", order++,
                 () => WallPieceCommands.AddOnPickedFace(k), OnWall, null,
                 $"RE+ wall '+': a {WallPieces.Title(k).ToLowerInvariant()} at the centre of the picked wall of a carved room (hover a wall in face mode for the + under the cursor)");
+        }
+        foreach (string kind in WallPieces.VerticalKinds)
+        {
+            string k = kind;
+            Add("surface.vertical." + k, k switch { "hatch" => "Add Hatch Opening", "shaft" => "Extend Shaft", "room" => "Add Connected Room", _ => "Connect Stairs…" },
+                "Surface/Add on Floor or Ceiling", order++, () => WallPieceCommands.AddOnPickedFace(k), OnFloorOrCeiling, null,
+                "Build a connector through the selected floor or ceiling; hover the surface for its contextual + menu");
         }
     }
 

@@ -23,8 +23,15 @@ tint multiplies the light's colour; clear glass passes the most light, tinted gl
 again. Rebuild lighting, or wait for Lit Preview's final pass, to see the coloured shadow. Fast builds skip shadows.
 Imported maps retaining their original lightmaps need **Relight imported** enabled to update those surfaces.
 
-This is baked lighting: the coloured contribution stays static during play, including after glass breaks. Dynamic
-and switchable lights do not project coloured glass shadows in this version.
+OpenSCCT rebuilds the affected direct and bounce lighting when a pane breaks, removing that pane's colour and
+attenuation while keeping the frame's shadow and any other panes in the light path. Connected clients and late
+joiners use the replicated break state. Rebuild maps with this Editor and use OpenSCCT 0.8.112 or newer for this
+response; older builds retain their static lighting. Dynamic and switchable lights do not project coloured glass
+shadows in this version.
+
+In the game, planar glass breaks into irregular fragments clipped to its actual outline, with smaller chips near
+the impact and larger pieces farther away. Fragments fall, bounce and fade; the frame stays intact. The ordinary
+`SVitre` damage, sound, events, collision and replication rules still apply.
 
 ## Fill an existing frame
 
@@ -56,6 +63,8 @@ Permanent frames and owned cuts lower to ordinary brushes. Frame meshes used for
 their visible triangles, so a coarse imported hull cannot block the opening after glass breaks; this also survives
 Detach. The output packages its generated meshes, textures and materials, with no new gameplay class or SVMap
 format. Disposable mesh files in the system temporary cache can be regenerated from the saved design.
+The optional `render/window-lighting.json.gz` stores sparse light-path, padding and bounce contributions for panes;
+the runtime recombines these cached values when glass breaks or resets, without tracing light rays during play.
 
 Default new windows are 160 × 128 units (circles: 160 diameter), with 2-unit glass, 0.5-unit edge clearance and an
 8-unit-wide, 16-unit-deep neutral frame. Generated glass finishes use translucent colour; frosted glass adds a cloudy

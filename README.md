@@ -45,11 +45,11 @@ and restarts into it with your map. Help > Check for Updates asks at any time.
 
 ## What it does
 
-New users start in a **Simple workspace** with one large 3D view, a **Building** palette and **Your first map**
-guide. Name and save your map, explore the starter room, build a doorway, corridor and room with the highlighted
-Surface tool and wall '+' menu, position the teams and drag in an
-objective computer, then check and play. The guide follows the map as you edit, undo and reopen it; hide it at any
-time and resume from **Help > Your First Map**. Gameplay pieces include their connections and explain any missing
+New users start in a **Simple workspace** with one large 3D view and a **Building** palette. Open the optional
+**Your first map** guide from **Help > Your First Map**. It starts closed; middle-click its tab or right-click >
+Close to dismiss it. Name and save your map, explore the starter room, build a doorway, corridor and room with the
+highlighted Surface tool and wall '+' menu, position the teams and drag in an objective computer, then check and
+play. The checklist follows the map as you edit, undo and reopen it. Gameplay pieces include their connections and explain any missing
 content before placement. Objective computers include an activating Story mission so their laptops appear during
 play. Hover over common settings for plain-language explanations.
 
@@ -86,6 +86,9 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   In **Builder Brush** (B), arrows move, square handles resize a dimension with the opposite face fixed, and circles
   adjust radii. **Place Here** previews surface contact; **Draw Box** draws a cube in a 2D view. **Add/Subtract** commits
   the preview; **Escape** restores the state before a gesture. The separate **Stairs** palette creates editable stair assemblies.
+- **Surface connectors.** In Surface mode (U), hover an editable wall, floor or ceiling and click its '+' badge.
+  Floors and ceilings offer hatch openings, shafts, rooms above/below and stair connections. Openings cut through
+  the actual editable slab thickness. Connect Stairs seeds the first floor connection; choose another above or below.
 - **Gameplay.** Ledge detection, flush and corner joins, GE IDs; event wiring and the event graph; missions; the
   mover, SMagicEvent, camera network, property set, zone action and zone tip workbenches; player-count rules, map
   outfits and native conveyors; the map's name, dossier, places, pictures and translations.

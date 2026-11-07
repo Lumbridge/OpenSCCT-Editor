@@ -9,7 +9,7 @@ namespace OpenScct.Editor.Core.Model;
 /// <summary>Editor-only learning state. Content-dependent steps are derived afresh, never latched.</summary>
 public sealed class FirstMapGuide
 {
-    public bool Hidden { get; set; }
+    public bool Hidden { get; set; } = true;
     public bool Explored { get; set; }
     public string? CheckedRevision { get; set; }
     public string? PlayedRevision { get; set; }

@@ -47,11 +47,16 @@ public sealed class StairTool(ToolManager tools) : IViewportTool
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Brush, StairGeometry.Generated> PreviewGeometry = new();
     private EditorViewport? _view;
     private Vector2 _lastPointer;
+    public void StartConnection(Vec3 point)
+    {
+        tools.Activate(Id); Connect = true; _bottom = point; _preview = null;
+        tools.RefreshOptions(); tools.Context.SetStatus("Pick the other floor above or below this connection · Esc cancels");
+    }
     public bool Cancel() { bool pending = _bottom is not null || _preview is not null; _bottom = null; _preview = null; _view?.Redraw(); return pending; }
     public void Deactivate() => Cancel();
     public void BuildOptions(HBoxContainer bar)
     {
-        bar.AddChild(new Label { Text = Connect ? "Pick bottom, then upper floor · R rotate · F reverse turn · Esc cancel" : "Click to place · R rotate · F reverse turn · Esc cancel" });
+        bar.AddChild(new Label { Text = Connect ? _bottom is null ? "Pick two floor connections · R rotate · F reverse turn · Esc cancel" : "Pick the other floor above or below · Esc cancel" : "Click to place · R rotate · F reverse turn · Esc cancel" });
     }
     public bool Input(EditorViewport view, InputEvent e)
     {
@@ -66,12 +71,12 @@ public sealed class StairTool(ToolManager tools) : IViewportTool
         Vec3 at = Point(view, pointer.Value, tools);
         try
         {
-            _preview = Connect && _bottom is { } bottom ? StairFit.Between("StairPreview", Settings, bottom, at)
+            _preview = Connect && _bottom is { } bottom ? StairFit.Between("StairPreview", Settings, bottom.Z <= at.Z ? bottom : at, bottom.Z <= at.Z ? at : bottom)
                 : StairGeometry.Create("StairPreview", Settings, at, new Rot(0, Yaw, 0));
             _problem = StairPlacement.Problem(tools.Context.Project, _preview, tools.Context.Session.Folder);
         }
         catch (ArgumentException ex) { _preview = null; _problem = ex.Message; }
-        tools.Context.SetStatus(_problem ?? (Connect && _bottom is null ? "Pick the bottom floor connection" : Connect ? "Pick the upper floor connection" : "Click to place staircase"));
+        tools.Context.SetStatus(_problem ?? (Connect && _bottom is null ? "Pick the first floor connection" : Connect ? "Pick the other floor connection above or below" : "Click to place staircase"));
         view.Redraw();
         if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
         {
@@ -91,7 +96,7 @@ public sealed class StairTool(ToolManager tools) : IViewportTool
     }
     public static Vec3 Point(EditorViewport view, Vector2 mouse, ToolManager tools)
     {
-        Vec3 p = Picking.Surface(view.Cam, tools.Context.Project, mouse)?.Point ?? (view.Cam.IsOrtho
+        Vec3 p = Picking.Surface(view.Cam, tools.Context.Project, mouse, displayedBrushes: true)?.Point ?? (view.Cam.IsOrtho
             ? view.Cam.PlanePoint(mouse, 0) : view.Cam.Ray(mouse).Origin + view.Cam.Ray(mouse).Direction * 512);
         double grid = tools.GridSnap ? tools.GridSize : 1;
         return new Vec3(Math.Round(p.X / grid) * grid, Math.Round(p.Y / grid) * grid, p.Z);

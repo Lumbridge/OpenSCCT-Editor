@@ -17,7 +17,8 @@ internal static class Bounce
     private const double DefaultAlbedo = 0.5;
     private const int Run = 256;
 
-    public static long Add(BakeScene scene, ChartSamples[] samples, bool[]?[] buried, float[][] texels, BakeQuality q, CancellationToken cancel)
+    public static long Add(BakeScene scene, ChartSamples[] samples, bool[]?[] buried, float[][] texels, BakeQuality q, CancellationToken cancel,
+        WindowBakeCapture? capture = null)
     {
         IReadOnlyList<LightmapChart> charts = scene.Charts;
         float[][] direct = texels.Select(t => (float[])t.Clone()).ToArray();
@@ -63,7 +64,9 @@ internal static class Bounce
                         continue;
                     }
 
-                    Vec3 light = LightAt(scene, direct, scene.Occluders.SourceOf(hit.Triangle), origin + (dir * hit.Distance), out Vec3 albedo);
+                    Vec3 light = LightAt(scene, direct, scene.Occluders.SourceOf(hit.Triangle), origin + (dir * hit.Distance), out Vec3 albedo,
+                        out int sourceChart, out int sourcePixel, out Vec3 ambient);
+                    if (sourceChart >= 0) capture?.Bounce(c, i, sourceChart, sourcePixel, albedo * (q.Bounce / count), ambient);
                     r += albedo.X * light.X;
                     g += albedo.Y * light.Y;
                     b += albedo.Z * light.Z;
@@ -82,8 +85,10 @@ internal static class Bounce
     }
 
     /// <summary>The light the lights put where a bounce ray landed, and the colour that surface reflects.</summary>
-    private static Vec3 LightAt(BakeScene scene, float[][] direct, int source, Vec3 at, out Vec3 albedo)
+    private static Vec3 LightAt(BakeScene scene, float[][] direct, int source, Vec3 at, out Vec3 albedo,
+        out int sourceChart, out int sourcePixel, out Vec3 ambient)
     {
+        sourceChart = -1; sourcePixel = -1; ambient = Vec3.Zero;
         albedo = new Vec3(DefaultAlbedo, DefaultAlbedo, DefaultAlbedo);
         if (source < 0 || scene.ChartAt?.Invoke(source, at) is not (int ci, int pi))
         {
@@ -96,6 +101,7 @@ internal static class Bounce
         int x = Math.Clamp((int)t.X, 0, chart.Width - 1), y = Math.Clamp((int)t.Y, 0, chart.Height - 1), i = 3 * ((y * chart.Width) + x);
         albedo = scene.Albedo?.Invoke(chart, piece) ?? albedo;
         Vec3 fill = scene.Ambient(piece.Zone);
+        sourceChart = ci; sourcePixel = (y * chart.Width) + x; ambient = fill;
         return new Vec3(Math.Max(0, direct[ci][i] - fill.X), Math.Max(0, direct[ci][i + 1] - fill.Y), Math.Max(0, direct[ci][i + 2] - fill.Z));
     }
 }

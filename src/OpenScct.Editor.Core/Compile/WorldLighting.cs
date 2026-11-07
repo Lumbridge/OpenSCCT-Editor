@@ -140,11 +140,14 @@ public sealed class WorldLighting
     private bool _cacheRead;
     private TriangleBvh? _bvh;
     private readonly WindowLightTransmission _windowLight;
+    public bool CaptureWindows { get; set; }
+    public OpenScct.Content.WindowLightTransfer WindowResponse { get; } = new();
 
     public WorldLighting(CompileContext ctx)
     {
         _ctx = ctx;
         _windowLight = new WindowLightTransmission(ctx.Project.Actors.Where(a => a.Window is not null && !ctx.Rules.Flag(a, "bHidden")));
+        WindowResponse.Panes.AddRange(_windowLight.Panes);
         Settings = ctx.Options.FastLighting ? Fast(ctx.Project.Lighting) : ctx.Project.Lighting;
         Quality = ctx.Options.FastLighting ? new BakeQuality { Shadows = false } : BakeQuality.From(Settings);
         double levelBrightness = LevelBrightness(ctx.Project, ctx.Classes, ctx.LevelInfoClass);
@@ -577,6 +580,8 @@ public sealed class WorldLighting
             Lights = Lights,
             Occluders = Occluders,
             Transmission = _windowLight.IsEmpty ? null : _windowLight.Filter,
+            TransmissionPath = _windowLight.IsEmpty ? null : _windowLight.Path,
+            CaptureWindows = CaptureWindows,
             Ambient = LightmapAmbient,
             Albedo = (_, piece) => piece.Source is Poly poly ? Albedo(poly.Surface) : Grey,
             ChartAt = ChartAt,
@@ -653,6 +658,7 @@ public sealed class WorldLighting
         {
             Glb.UePrimitive p = prims[pi];
             var rgba = new byte[p.Positions.Length * 4];
+            var captured = CaptureWindows && shadows && !_windowLight.IsEmpty ? new OpenScct.Content.WindowLightTransfer.Sample?[p.Positions.Length] : null;
             Vec3[] w = world[pi];
             Parallel.For(0, p.Positions.Length, i =>
             {
@@ -660,6 +666,8 @@ public sealed class WorldLighting
                 Vec3 local = new Vec3(p.Normals[i].X / scale.X, p.Normals[i].Y / scale.Y, p.Normals[i].Z / scale.Z);
                 Vec3 n = a.Rotation.Rotate(local).Normalized();
                 Vec3 sum = Vec3.Zero;
+                Vec3 plain = Vec3.Zero;
+                var terms = captured is null ? null : new List<OpenScct.Content.WindowLightTransfer.Term>();
                 foreach (BakeLight l in lights)
                 {
                     double f = l.Vertex(w[i], n);
@@ -673,16 +681,41 @@ public sealed class WorldLighting
                         continue;
                     }
 
-                    sum += l.Colour.Scale(shadows ? _windowLight.Filter(l, w[i]) : Vec3.One) * f;
+                    WindowLightPath? path = shadows ? _windowLight.Path(l, w[i]) : null;
+                    sum += l.Colour.Scale(path?.Colour ?? Vec3.One) * f;
+                    if (path is { Panes.Length: > 0 })
+                    {
+                        Vec3 coefficient = l.Colour * (f * glow);
+                        terms?.Add(new() { Panes = path.Panes, Colour = [(float)coefficient.X, (float)coefficient.Y, (float)coefficient.Z] });
+                    }
+                    else plain += l.Colour * (f * glow);
                 }
 
                 sum *= glow;
+                if (captured is not null && terms is { Count: > 0 })
+                    captured[i] = new() { Base = [(float)plain.X, (float)plain.Y, (float)plain.Z],
+                        Direct = [(float)sum.X, (float)sum.Y, (float)sum.Z], Initial = [(float)sum.X, (float)sum.Y, (float)sum.Z], Terms = terms };
                 rgba[4 * i] = Byte(sum.X);
                 rgba[(4 * i) + 1] = Byte(sum.Y);
                 rgba[(4 * i) + 2] = Byte(sum.Z);
                 rgba[(4 * i) + 3] = 255;
             });
             result[p.Index] = rgba;
+            if (captured is not null && captured.Any(s => s is not null))
+            {
+                var batch = new OpenScct.Content.WindowLightTransfer.Batch();
+                batch.Resources.Add(new() { Kind = "mesh", Name = a.Id, Surface = p.Index });
+                var used = new HashSet<(Vec3, Vec3)>();
+                for (int i = 0; i < captured.Length; i++)
+                {
+                    if (captured[i] is not { } sample || !used.Add((p.Positions[i], p.Normals[i]))) continue;
+                    Vec3 v = p.Positions[i], n = p.Normals[i];
+                    sample.Destinations.Add(new() { Element = i, Point = [(float)(v.X / 100), (float)(v.Z / 100), (float)(v.Y / 100)],
+                        Normal = [(float)n.X, (float)n.Z, (float)n.Y] });
+                    batch.Samples.Add(sample);
+                }
+                WindowResponse.Batches.Add(batch);
+            }
         }
 
         return result;

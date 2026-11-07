@@ -9,6 +9,9 @@ namespace OpenScct.Editor.Core.Geometry.Edit;
 /// carved brush's outward face normal, level), and the face's material.</summary>
 public readonly record struct WallAnchor(FaceRef Face, Vec3 Point, Vec3 Into, string? Material)
 {
+    public bool Vertical => Math.Abs(Into.Z) > .95;
+    public Vec3 PlaneNormal { get; init; }
+    public string Surface => Vertical ? Into.Z > 0 ? "ceiling" : "floor" : "wall";
     /// <summary>The yaw that turns a blockout piece's +X (its length) into the wall.</summary>
     public Rot Facing => new(0, (int)Math.Round(Math.Atan2(Into.Y, Into.X) * Rot.UnitsPerTurn / (2 * Math.PI)), 0);
 }
@@ -25,6 +28,13 @@ public static class WallPieces
     public const string PortalDoorway = "portal-doorway";
 
     public static readonly IReadOnlyList<string> Kinds = ["doorway", PortalDoorway, "window", "corridor", "vent", "crawlway", "room"];
+    public static readonly IReadOnlyList<string> VerticalKinds = ["hatch", "shaft", "room", "stairs"];
+    public static IReadOnlyList<string> KindsAt(WallAnchor anchor) => anchor.Vertical ? VerticalKinds : Kinds;
+    public static string Title(string kind, WallAnchor anchor) => anchor.Vertical ? kind switch
+    {
+        "hatch" => "Hatch Opening", "shaft" => anchor.Into.Z > 0 ? "Shaft Up" : "Shaft Down",
+        "room" => anchor.Into.Z > 0 ? "Room Above" : "Room Below", "stairs" => "Connect Stairs…", _ => Title(kind)
+    } : Title(kind);
 
     /// <summary>The menu title of a kind ("Doorway with Zone Portal").</summary>
     public static string Title(string kind) =>
@@ -46,7 +56,8 @@ public static class WallPieces
     /// </summary>
     public static WallAnchor? Anchor(MapProject p, FaceRef face, Vec3? at = null)
     {
-        if (p.FindBrush(face.Brush) is not { Oper: CsgOper.Subtract } b || face.Face < 0 || face.Face >= b.Shape.Faces.Count)
+        if (p.FindBrush(face.Brush) is not { } b || b.Editor.Hidden || b.Editor.Locked
+            || Compile.BakedContent.SurfacesLocked(p, b) || face.Face < 0 || face.Face >= b.Shape.Faces.Count)
         {
             return null;
         }
@@ -54,7 +65,13 @@ public static class WallPieces
         BrushFace f = b.Shape.Faces[face.Face];
         List<Vec3> w = ShapeTransform.For(b).FaceToWorld(f);
         Vec3 n = Poly.Normal(w);
-        if (w.Count < 3 || Math.Abs(n.Z) >= 0.3)
+        if (w.Count < 3) return null;
+        if (Math.Abs(n.Z) > .95)
+        {
+            Vec3 on = Plane3.FromPointNormal(w[0], n).Project(at ?? Poly.Average(w));
+            return new WallAnchor(face, Poly.Tidy(on), Vec3.UnitZ * Math.Sign(n.Z) * (b.Oper == CsgOper.Subtract ? 1 : -1), f.Material) { PlaneNormal = n };
+        }
+        if (b.Oper != CsgOper.Subtract || Math.Abs(n.Z) >= 0.3)
         {
             return null;
         }
@@ -70,6 +87,7 @@ public static class WallPieces
     public static List<Brush> Build(MapProject p, WallAnchor a, string kind, WorldGeometry? world = null)
     {
         string k = kind.ToLowerInvariant();
+        if (a.Vertical) return BuildVertical(p, a, k, world ?? new WorldGeometry(p, null));
         switch (k)
         {
             case "doorway" or "window":
@@ -102,6 +120,28 @@ public static class WallPieces
             default:
                 throw new ArgumentException($"wall piece must be {string.Join(", ", Kinds)}, not '{kind}'");
         }
+    }
+
+    private static List<Brush> BuildVertical(MapProject p, WallAnchor a, string kind, WorldGeometry world)
+    {
+        if (kind is not ("hatch" or "shaft" or "room")) throw new ArgumentException("Choose a hatch opening, shaft or connected room on this floor/ceiling");
+        var ids = new FreshIds(p);
+        Brush Cut(string stem, Vec3 size, Vec3 center)
+        {
+            var shape = OpenScct.Editor.Core.Geometry.Box.Shape(size);
+            foreach (BrushFace face in shape.Faces) face.Material = a.Material ?? Starter.DefaultMaterial;
+            return new Brush(ids.Next(stem)) { Shape = shape, Oper = CsgOper.Subtract, Location = Poly.Tidy(center) };
+        }
+        double depth = WallDepth(world, a, 0);
+        double overlap = 2 + (Math.Abs(a.PlaneNormal.Z) > .01 ? 128 * (Math.Abs(a.PlaneNormal.X) + Math.Abs(a.PlaneNormal.Y)) / Math.Abs(a.PlaneNormal.Z) : 0);
+        if (kind == "shaft") depth = Math.Max(512, depth);
+        if (kind == "room")
+        {
+            const double height = 384;
+            return [Cut("Hatch", new(256, 256, RoomGap + 2 * overlap), a.Point + a.Into * RoomGap / 2),
+                Cut("Room", new(1024, 1024, height), a.Point + a.Into * (RoomGap + height / 2))];
+        }
+        return [Cut(kind == "hatch" ? "Hatch" : "Shaft", new(256, 256, depth + 2 * overlap), a.Point + a.Into * depth / 2)];
     }
 
     /// <summary>How thick the solid behind the wall is at <paramref name="height"/> over the floor: the distance to the
@@ -146,5 +186,5 @@ public static class WallPieces
 
     /// <summary>A short description of where a piece went, for status lines and CLI reports.</summary>
     public static string Describe(WallAnchor a, string kind) => string.Create(CultureInfo.InvariantCulture,
-        $"{kind} on {a.Face} at {a.Point.X:0.#}, {a.Point.Y:0.#}, {a.Point.Z:0.#}");
+        $"{kind} on {a.Surface} {a.Face} at {a.Point.X:0.#}, {a.Point.Y:0.#}, {a.Point.Z:0.#}");
 }

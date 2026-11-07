@@ -12,8 +12,10 @@ direction and invisible smoothing envelope. **R** rotates a dragged preset by 45
 **F** reverses its turn. Escape cancels without adding anything. The palette's settings
 apply to the captured preset, so set dimensions before dragging.
 
-**Place stairs** starts a click-to-place preview. **Connect floors** instead takes a bottom
-connection followed by an upper connection. It fits the selected layout to those points;
+**Place stairs** starts a click-to-place preview. **Connect floors** instead takes two floor
+connections, in either height order. The Surface tool's floor/ceiling '+' menu can seed the first connection;
+choose **Connect Stairs…** and then the other floor above or below. A ceiling starts at the clear floor beneath it.
+It fits the selected layout to those points;
 an impossible fit stays pending and explains which dimension needs changing. A U flight's
 connections are separated by its width; a full spiral turn ends over its starting point.
 

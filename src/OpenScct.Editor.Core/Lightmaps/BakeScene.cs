@@ -2,6 +2,8 @@ using OpenScct.Editor.Core.Model;
 
 namespace OpenScct.Editor.Core.Lightmaps;
 
+public sealed record WindowLightPath(int[] Panes, Vec3 Colour);
+
 /// <summary>
 /// What one bake reads: the charts to light, the lights, the shadow scene and the zones' ambient. Built from a
 /// compile (<see cref="Compile.WorldLighting"/>) or from a converted map's own lightmap layout
@@ -18,6 +20,8 @@ public sealed class BakeScene
 
     /// <summary>RGB light transmitted through glass, after opaque shadow visibility; null leaves it unchanged.</summary>
     public Func<BakeLight, Vec3, Vec3>? Transmission { get; init; }
+    public Func<BakeLight, Vec3, WindowLightPath>? TransmissionPath { get; init; }
+    public bool CaptureWindows { get; init; }
 
     /// <summary>The lightmap ambient fill of a zone in stored units (<see cref="LightColour.LightmapAmbient"/>).</summary>
     public required Func<int, Vec3> Ambient { get; init; }

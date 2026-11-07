@@ -8,6 +8,7 @@ public sealed class WindowLightTransmission
 {
     private readonly TriangleBvh _panes;
     private readonly Vec3[] _colours;
+    public List<OpenScct.Content.WindowLightTransfer.Pane> Panes { get; } = [];
 
     public WindowLightTransmission(IEnumerable<Actor> windows)
     {
@@ -26,6 +27,7 @@ public sealed class WindowLightTransmission
             }
             double transmission = d.Finish == "frosted" ? .5 : d.Finish == "tinted" ? .72 : .94;
             colours.Add(new Vec3(Math.Clamp(d.Tint[0], 0, 1), Math.Clamp(d.Tint[1], 0, 1), Math.Clamp(d.Tint[2], 0, 1)) * transmission);
+            Panes.Add(new() { Actor = actor.Id, Tint = [(float)colours[^1].X, (float)colours[^1].Y, (float)colours[^1].Z] });
         }
         _panes = TriangleBvh.Build(triangles);
         _colours = colours.ToArray();
@@ -36,10 +38,15 @@ public sealed class WindowLightTransmission
     public Vec3 Filter(BakeLight light, Vec3 point) => Between(point,
         light.IsSun ? point - light.Direction.Normalized() * BakeLight.SunTraceLength : light.Location);
 
-    public Vec3 Between(Vec3 from, Vec3 to)
+    public WindowLightPath Path(BakeLight light, Vec3 point) => Trace(point,
+        light.IsSun ? point - light.Direction.Normalized() * BakeLight.SunTraceLength : light.Location);
+
+    public Vec3 Between(Vec3 from, Vec3 to) => Trace(from, to).Colour;
+    private WindowLightPath Trace(Vec3 from, Vec3 to)
     {
-        if (IsEmpty) return Vec3.One;
+        if (IsEmpty) return new([], Vec3.One);
         Vec3 colour = Vec3.One;
+        var panes = new List<int>();
         Vec3 direction = (to - from).Normalized();
         double remaining = (to - from).Length - .1;
         Vec3 origin = from + direction * .05;
@@ -47,11 +54,12 @@ public sealed class WindowLightTransmission
         {
             BvhHit? hit = _panes.Closest(LightmapBaker.F(origin), LightmapBaker.F(direction), (float)remaining);
             if (hit is not { } h) break;
-            colour = colour.Scale(_colours[_panes.SourceOf(h.Triangle)]);
+            int pane = _panes.SourceOf(h.Triangle);
+            if (!panes.Contains(pane)) { panes.Add(pane); colour = colour.Scale(_colours[pane]); }
             double step = h.Distance + .05;
             origin += direction * step;
             remaining -= step;
         }
-        return colour;
+        return new(panes.ToArray(), colour);
     }
 }

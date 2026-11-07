@@ -87,7 +87,7 @@ public sealed class ToolbarPart : IShellPart
         Gap();
         foreach (string tool in new[] { "select", "move", "rotate", "scale", "place", "brush", "stairs", "windows", "ge", "conveyor", "face", "vertex", "clip", "measure", "security" })
         {
-            Button("tools." + tool, tool == "stairs" ? "Stairs" : tool == "windows" ? "Windows" : null);
+            Button("tools." + tool);
         }
 
         Gap();

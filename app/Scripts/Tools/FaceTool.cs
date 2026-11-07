@@ -205,7 +205,7 @@ public sealed class FaceTool : IViewportTool
         ToolOptions.Command(bar, "Whole brush", "Pick every face of the picked faces' brushes", SurfaceCommands.SelectAllFaces);
         ToolOptions.Command(bar, "Select brushes", "Select the brushes of the picked faces", SurfaceCommands.SelectBrushes);
         ToolOptions.Hint(bar, "Alt+click applies the Assets material", "Drag a picked face to extrude it (Alt while dragging flips Neighbour Snap)",
-            "Click the + on a hovered wall to add to it");
+            "Click the + on a wall, floor or ceiling to add a connector");
     }
 
     public void Deactivate()
@@ -378,6 +378,10 @@ public sealed class FaceTool : IViewportTool
         FaceHit? hit = FacePicking.Pick(view.Cam, Project, mouse);
         FaceRef? hover = hit?.Face;
         WallAnchor? wall = hit is { } h ? WallPieces.Anchor(Project, h.Face, h.Point) : null;
+        // Keep the floor/ceiling badge beside the cursor, with a stable target while the pointer approaches it.
+        // Clicking the surface itself must still select the face.
+        if (wall is { Vertical: true } && _wall is { Vertical: true } previous && previous.Face == wall.Value.Face
+            && _hoverView == view && Badge(view) is { } oldBadge && oldBadge.DistanceTo(mouse) < 40) wall = previous;
         if (hover != _hover || _hoverView != view || wall?.Point != _wall?.Point)
         {
             EditorViewport? old = _hoverView;
@@ -395,7 +399,8 @@ public sealed class FaceTool : IViewportTool
 
     /// <summary>Where the "+" of the hovered wall is drawn in a view, or null.</summary>
     private Vector2? Badge(EditorViewport view) =>
-        _wall is { } w ? view.Cam.ToScreen(w.Point + new Vec3(0, 0, BadgeHeight)) : null;
+        _wall is { } w && view.Cam.ToScreen(w.Point + (w.Vertical ? -w.Into * 2 : new Vec3(0, 0, BadgeHeight))) is { } point
+            ? point + (w.Vertical ? new Vector2(18,-18) : Vector2.Zero) : null;
 
     private WallAnchor? BadgeAt(EditorViewport view, Vector2 mouse) =>
         _hoverView == view && _wall is { } w && Badge(view) is { } b && b.DistanceTo(mouse) <= BadgeRadius + 2 ? w : null;
@@ -403,12 +408,13 @@ public sealed class FaceTool : IViewportTool
     private void WallMenu(EditorViewport view, Vector2 at, WallAnchor wall)
     {
         var menu = new PopupMenu();
-        foreach (string kind in WallPieces.Kinds)
+        var kinds = WallPieces.KindsAt(wall);
+        foreach (string kind in kinds)
         {
-            menu.AddItem("Add " + WallPieces.Title(kind));
+            menu.AddItem((kind == "stairs" ? "" : "Add ") + WallPieces.Title(kind, wall));
         }
 
-        menu.IndexPressed += i => WallPieceCommands.Add(WallPieces.Kinds[(int)i], wall);
+        menu.IndexPressed += i => WallPieceCommands.Add(kinds[(int)i], wall);
         menu.PopupHide += () => menu.QueueFree();
         view.AddChild(menu);
         menu.Position = PanelUi.ScreenPoint(view, at);

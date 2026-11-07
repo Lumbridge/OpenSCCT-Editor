@@ -31,6 +31,7 @@ public sealed class LightmapResult
     public bool Faithful { get; }
 
     public BakeStats Stats { get; }
+    public WindowBakeCapture? WindowResponse { get; internal set; }
 
     /// <summary>The atlas UV (0..1) of a point given in a chart's texel space.</summary>
     public (float U, float V) Uv(LightmapChart chart, TexelPoint t)
