@@ -22,12 +22,13 @@ public sealed class BrushActions : IShellPart
     {
         _ctx = context;
         _tools = ToolManager.Instance!;
+        Add("brush.palette", "Geometry Palettes", "Brush", null, 5, () => DockTabs.ShowPanel("Geometry"));
         bool BrushSelected() => SelectedBrushes().Any();
 
-        Add("brush.add", "Add", "Brush", "Alt+A", 10, () => Place(CsgOper.Add, 0), "Add the builder brush as solid");
-        Add("brush.subtract", "Subtract", "Brush", "Alt+S", 20, () => Place(CsgOper.Subtract, 0), "Carve the builder brush out of the world");
-        Add("brush.addSemisolid", "Add Semisolid", "Brush", null, 30, () => Place(CsgOper.Add, PolyFlags.Semisolid));
-        Add("brush.addNonSolid", "Add Non-Solid", "Brush", null, 40, () => Place(CsgOper.Add, PolyFlags.NotSolid));
+        Add("brush.add", "Add", "Brush", "Alt+A", 10, () => Place(CsgOper.Add, 0), "Add the builder brush as solid", () => !_tools.Builder.GestureActive);
+        Add("brush.subtract", "Subtract", "Brush", "Alt+S", 20, () => Place(CsgOper.Subtract, 0), "Carve the builder brush out of the world", () => !_tools.Builder.GestureActive);
+        Add("brush.addSemisolid", "Add Semisolid", "Brush", null, 30, () => Place(CsgOper.Add, PolyFlags.Semisolid), enabled: () => !_tools.Builder.GestureActive);
+        Add("brush.addNonSolid", "Add Non-Solid", "Brush", null, 40, () => Place(CsgOper.Add, PolyFlags.NotSolid), enabled: () => !_tools.Builder.GestureActive);
         Add("brush.intersect", "Intersect", "Brush", null, 50, () => Clip(keepSolid: true),
             "Shrink the builder brush to the solid world inside it");
         Add("brush.deintersect", "Deintersect", "Brush", null, 60, () => Clip(keepSolid: false),
@@ -38,6 +39,7 @@ public sealed class BrushActions : IShellPart
             () => ViewportLayout.Instance?.CursorWorld is not null);
         Add("brush.resetBuilder", "Reset Builder Brush", "Brush", null, 220, () =>
         {
+            if (_tools.Builder.GestureActive) _tools.Active.Cancel();
             _tools.Builder.SetKind("cube");
             _tools.Builder.Location = new Vec3(0, 0, 128);
             _tools.Builder.Rotation = Rot.Zero;
@@ -49,6 +51,7 @@ public sealed class BrushActions : IShellPart
             string k = kind;
             _ctx.AddAction(new EditorAction("brush.kind." + k, BuilderBrush.KindTitle(k), "Brush/Builder Shape", () =>
             {
+                if (_tools.Builder.GestureActive) _tools.Active.Cancel();
                 _tools.Builder.SetKind(k);
                 _tools.Activate("brush");
             })
@@ -87,14 +90,14 @@ public sealed class BrushActions : IShellPart
             IsChecked = isChecked,
         });
 
-    private IEnumerable<ObjectRef> SelectedBrushes() => _ctx.Selection.Items.Where(r => r.Kind == ObjectKind.Brush);
+    private IEnumerable<ObjectRef> SelectedBrushes() => _ctx.Selection.Items.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair));
 
     /// <summary>The last selected brush (its state is what the toggles show).</summary>
     private Brush? Primary()
     {
         foreach (ObjectRef r in _ctx.Selection.Items.Reverse())
         {
-            if (r.Kind == ObjectKind.Brush)
+            if (r.Kind is (ObjectKind.Brush or ObjectKind.Stair))
             {
                 return _ctx.Project.FindBrush(r.Id);
             }
@@ -105,6 +108,7 @@ public sealed class BrushActions : IShellPart
 
     private void Place(CsgOper oper, int flags)
     {
+        if (_tools.Builder.GestureActive) return;
         List<Brush> brushes = _tools.Builder.MakeBrushes(_ctx.Project, oper, flags);
         string what = oper == CsgOper.Add ? flags == 0 ? "Add" : (flags & PolyFlags.Semisolid) != 0 ? "Add semisolid" : "Add non-solid" : "Subtract";
         if (brushes.Count == 0)
@@ -126,6 +130,7 @@ public sealed class BrushActions : IShellPart
     /// <summary>Intersect or Deintersect: the builder brush becomes the solid (or empty) part of the world it covers.</summary>
     private void Clip(bool keepSolid)
     {
+        if (_tools.Builder.GestureActive) _tools.Active.Cancel();
         string what = keepSolid ? "Intersect" : "Deintersect";
         BuilderCsgResult result = keepSolid
             ? BuilderCsg.Intersect(_ctx.Project, _tools.Builder)
@@ -154,6 +159,7 @@ public sealed class BrushActions : IShellPart
 
     private void CopyToBuilder()
     {
+        if (_tools.Builder.GestureActive) _tools.Active.Cancel();
         if (_ctx.Selection.Primary is { Kind: ObjectKind.Brush } r && _ctx.Project.FindBrush(r.Id) is { } b)
         {
             _tools.Builder.CopyFrom(b);
@@ -163,6 +169,7 @@ public sealed class BrushActions : IShellPart
 
     private void BuilderHere()
     {
+        if (_tools.Builder.GestureActive) _tools.Active.Cancel();
         if (ViewportLayout.Instance?.CursorWorld is { } at)
         {
             _tools.Builder.Location = at;

@@ -57,7 +57,7 @@ public static class ActorSnapBox
             return hit;
         }
 
-        ObjectRef owner = ObjectRef.Brush(b.Id);
+        ObjectRef owner = ObjectRef.ForBrush(b);
         var faces = new List<SnapFace>(w.Faces.Count);
         for (int i = 0; i < w.Faces.Count; i++)
         {

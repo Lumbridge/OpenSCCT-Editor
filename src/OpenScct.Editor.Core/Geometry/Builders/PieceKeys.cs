@@ -36,7 +36,7 @@ public static class PieceKeys
     }
 
     public static HashSet<string> BrushIds(IEnumerable<ObjectRef> refs) =>
-        refs.Where(r => r.Kind == ObjectKind.Brush).Select(r => r.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        refs.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)).Select(r => r.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     private static string? KeyOf(Brush b) => b.Shape.Builder?.Strings.GetValueOrDefault(BuilderArgs.PieceKey);
 }

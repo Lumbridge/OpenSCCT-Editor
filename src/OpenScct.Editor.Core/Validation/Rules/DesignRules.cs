@@ -54,7 +54,7 @@ internal sealed class DesignRules : MapRule
 
     private static void Check(CheckContext c, Brush b, BuilderSpec spec)
     {
-        ObjectRef r = ObjectRef.Brush(b.Id);
+        ObjectRef r = ObjectRef.ForBrush(b);
         double Get(string key) => spec.Get(key, double.NaN);
         void Report(Severity s, string code, string message) => c.Report(s, code, $"{b.Id} ({spec.Kind}): {message}", b.Location, r);
 

@@ -64,7 +64,7 @@ public static class SdcWriter
     {
         try
         {
-            project = GeGeometry.Expand(project);
+            project = Stairs.StairGeometry.Lower(GeGeometry.Expand(project));
         }
         catch (ArgumentException ex)
         {

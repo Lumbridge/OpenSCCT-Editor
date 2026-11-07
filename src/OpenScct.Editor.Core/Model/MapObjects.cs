@@ -193,6 +193,8 @@ public sealed class BrushFace
     /// <summary>The poly's group name from the original (ItemName), kept for round trips.</summary>
     public string? ItemName { get; set; }
 
+    public string? StairRole { get; set; }
+
     /// <summary>The original poly link (iLink), kept for round trips; -1 when none.</summary>
     public int Link { get; set; } = -1;
 
@@ -209,6 +211,7 @@ public sealed class BrushFace
         LightMapScale = LightMapScale,
         LightMapScalePsx2 = LightMapScalePsx2,
         ItemName = ItemName,
+        StairRole = StairRole,
         Link = Link,
     };
 
@@ -280,6 +283,8 @@ public sealed class Brush
 {
     public Brush(string id) => Id = id;
 
+    public OpenScct.Editor.Core.Stairs.StairDesign? Stair { get; set; }
+
     public string Id { get; set; }
 
     public CsgOper Oper { get; set; } = CsgOper.Subtract;
@@ -318,6 +323,7 @@ public sealed class Brush
 
     public Brush Clone(string? newId = null) => new(newId ?? Id)
     {
+        Stair = Stair?.Clone(),
         Oper = Oper,
         PolyFlags = PolyFlags,
         Location = Location,

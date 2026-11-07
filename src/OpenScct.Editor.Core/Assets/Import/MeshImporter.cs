@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Text.Json.Nodes;
 using OpenScct.Editor.Core.Compile.Output;
+using OpenScct.Editor.Core.Identity;
 using OpenScct.Editor.Core.Model;
 
 namespace OpenScct.Editor.Core.Assets.Import;
@@ -204,18 +205,26 @@ public static class MeshImporter
         }
     }
 
-    /// <summary>The material's image as PNG: the file or embedded image when it is a PNG, else a flat colour swatch.</summary>
+    /// <summary>Keep source PNGs as-is, transcode other supported images, or make a flat colour swatch.</summary>
     private static byte[] TexturePng(SourceMaterial m, List<string> notes)
     {
         byte[]? data = m.ImageBytes ?? (m.ImageFile is { } f && File.Exists(f) ? File.ReadAllBytes(f) : null);
-        if (data is { Length: > 8 } && data[0] == 0x89 && data[1] == (byte)'P' && data[2] == (byte)'N' && data[3] == (byte)'G')
-        {
-            return data;
-        }
-
         if (data is not null)
         {
-            notes.Add($"material {m.Name}: only PNG images are imported ({Path.GetFileName(m.ImageFile ?? "embedded image")}); it uses its colour");
+            if (RgbaImage.FormatOf(data) == "PNG")
+            {
+                return data;
+            }
+
+            try
+            {
+                RgbaImage image = RgbaImage.Decode(data);
+                return Png.EncodeRgba(image.Width, image.Height, image.Pixels);
+            }
+            catch (InvalidDataException e)
+            {
+                notes.Add($"material {m.Name}: cannot read {Path.GetFileName(m.ImageFile ?? "embedded image")}: {e.Message}; it uses its colour");
+            }
         }
         else if (m.ImageFile is not null)
         {

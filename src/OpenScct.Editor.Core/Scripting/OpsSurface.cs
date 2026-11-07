@@ -23,7 +23,7 @@ public static partial class ChangeApplier
     private static void Surface(ChangeContext ctx, SvJsonObject op)
     {
         List<ObjectRef> targets = ctx.Targets(op);
-        foreach (ObjectRef r in targets.Where(r => r.Kind != ObjectKind.Brush))
+        foreach (ObjectRef r in targets.Where(r => r.Kind is not (ObjectKind.Brush or ObjectKind.Stair)))
         {
             ctx.Warn("id", $"{r.Id} is not a brush and has no faces");
         }
@@ -34,7 +34,7 @@ public static partial class ChangeApplier
             throw new ApiException("give at least one of mat, flags, clearFlags, lightmap, align, scale, rotate, pan, flip", "op");
         }
 
-        foreach (ObjectRef r in targets.Where(r => r.Kind == ObjectKind.Brush))
+        foreach (ObjectRef r in targets.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)))
         {
             Brush live = ctx.Project.FindBrush(r.Id)!;
             List<int> faces = SurfaceFaces(ctx.Project, live, op["faces"]);

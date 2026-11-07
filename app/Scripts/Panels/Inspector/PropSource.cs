@@ -50,7 +50,7 @@ internal sealed class ObjectPropSource : PropSource
     private readonly IReadOnlyList<ObjectRef> _refs;
 
     public ObjectPropSource(IEnumerable<ObjectRef> refs) =>
-        _refs = refs.Where(r => r.Kind is ObjectKind.Actor or ObjectKind.Brush).ToList();
+        _refs = refs.Where(r => r.Kind is ObjectKind.Actor or ObjectKind.Brush or ObjectKind.Stair).ToList();
 
     public IReadOnlyList<ObjectRef> Refs => _refs;
 

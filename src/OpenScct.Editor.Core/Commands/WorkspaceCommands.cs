@@ -175,7 +175,7 @@ public static class LayerEdits
     public static List<ObjectRef> Members(MapProject p, string stored)
     {
         var refs = new List<ObjectRef>();
-        refs.AddRange(p.Brushes.Where(b => Same(b.Editor.Layer, stored)).Select(b => ObjectRef.Brush(b.Id)));
+        refs.AddRange(p.Brushes.Where(b => Same(b.Editor.Layer, stored)).Select(b => ObjectRef.ForBrush(b)));
         refs.AddRange(p.Actors.Where(a => Same(a.Editor.Layer, stored)).Select(a => ObjectRef.Actor(a.Id)));
         refs.AddRange(p.Ges.Where(g => Same(g.Editor.Layer, stored)).Select(g => ObjectRef.Ge(g.Id)));
         return refs;

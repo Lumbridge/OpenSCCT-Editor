@@ -35,6 +35,8 @@ public sealed class SkeletalLibrary
     public static SkeletalLibrary For(string? contentRoot) =>
         contentRoot is null || !Directory.Exists(contentRoot) ? Empty : s_libraries.GetOrAdd(Path.GetFullPath(contentRoot), r => new SkeletalLibrary(r));
 
+    internal static void Invalidate(string contentRoot) => s_libraries.TryRemove(Path.GetFullPath(contentRoot), out _);
+
     /// <summary>Whether a converted copy of <paramref name="asset"/> exists, without reading it (the file list only).</summary>
     public bool Has(string asset) => _files.Value.ContainsKey(AssetPaths.Short(asset));
 

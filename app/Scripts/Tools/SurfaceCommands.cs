@@ -101,7 +101,7 @@ public static class SurfaceCommands
         List<string> brushes = Geo.Faces.Select(f => f.Brush).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (brushes.Count == 0)
         {
-            brushes = Ctx.Selection.Items.Where(r => r.Kind == ObjectKind.Brush).Select(r => r.Id).ToList();
+            brushes = Ctx.Selection.Items.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)).Select(r => r.Id).ToList();
         }
 
         Geo.SetFaces(FaceEdit.AllFaces(Ctx.Project, brushes));
@@ -196,7 +196,7 @@ public static class SurfaceCommands
     public static void SelectBySlope(string kind)
     {
         List<string> brushes = Geo.Faces.Select(f => f.Brush)
-            .Concat(Ctx.Selection.Items.Where(r => r.Kind == ObjectKind.Brush).Select(r => r.Id))
+            .Concat(Ctx.Selection.Items.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)).Select(r => r.Id))
             .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         Geo.SetFaces(FaceEdit.BySlope(Ctx.Project, brushes, kind));
         Report();

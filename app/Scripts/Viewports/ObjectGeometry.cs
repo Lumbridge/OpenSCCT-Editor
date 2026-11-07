@@ -40,7 +40,7 @@ public static class ObjectGeometry
     /// <summary>World bounds of an object, or null when it does not exist.</summary>
     public static (Vec3 Min, Vec3 Max)? Bounds(MapProject p, ObjectRef r) => r.Kind switch
     {
-        ObjectKind.Brush when p.FindBrush(r.Id) is { } b => BrushBounds(b),
+        ObjectKind.Brush or ObjectKind.Stair when p.FindBrush(r.Id) is { } b => BrushBounds(b),
         ObjectKind.Actor when p.FindActor(r.Id) is { } a => ActorBounds(a),
         ObjectKind.Ge when p.FindGe(r.Id) is { Points.Count: > 0 } g => GeBounds(g),
         _ => null,
@@ -99,7 +99,7 @@ public static class ObjectGeometry
     /// <summary>The point an object transforms around: an actor's or brush's location, a GE's first point.</summary>
     public static Vec3? Pivot(MapProject p, ObjectRef r) => r.Kind switch
     {
-        ObjectKind.Brush => p.FindBrush(r.Id)?.Location,
+        ObjectKind.Brush or ObjectKind.Stair => p.FindBrush(r.Id)?.Location,
         ObjectKind.Actor => p.FindActor(r.Id)?.Location,
         ObjectKind.Ge when p.FindGe(r.Id) is { Points.Count: > 0 } g => g.Points[0],
         _ => null,

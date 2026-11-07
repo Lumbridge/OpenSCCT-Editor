@@ -58,7 +58,7 @@ public static class Picking
                 if (RayPolygon(o, d, f.Vertices, f.Normal, out double t) && (best is null || t < best.Value.Distance))
                 {
                     // A subtractive brush's faces bound empty space: the surface you stand on faces into the brush.
-                    best = new SurfaceHit(ObjectRef.Brush(b.Id), t, o + d * t, inward ? -f.Normal : f.Normal,
+                    best = new SurfaceHit(ObjectRef.ForBrush(b), t, o + d * t, inward ? -f.Normal : f.Normal,
                         sheet || (f.Flags & PolyFlags.TwoSided) != 0);
                 }
             }
@@ -128,7 +128,7 @@ public static class Picking
         {
             if (IsShown(ObjectKind.Brush) && ObjectFilter.IsPickable(p, b.Editor) && b.Shape.Faces.Count > 0 && BoxInside(ObjectGeometry.BrushBounds(b)))
             {
-                result.Add(ObjectRef.Brush(b.Id));
+                result.Add(ObjectRef.ForBrush(b));
             }
         }
 
@@ -210,7 +210,7 @@ public static class Picking
 
             foreach (WorldFace f in world.Faces)
             {
-                Consider(ObjectRef.Brush(b.Id), PolylineDistance(cam, f.Vertices, mouse, closed: true));
+                Consider(ObjectRef.ForBrush(b), PolylineDistance(cam, f.Vertices, mouse, closed: true));
             }
         }
 

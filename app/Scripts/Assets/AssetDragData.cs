@@ -24,6 +24,19 @@ public sealed partial class AssetDragData : RefCounted
 
     private AssetDragData(Placeable placeable) => Placeable = placeable;
 
+    private AssetDragData(AssetDrag drag, LightPreset light) { Drag = drag; FixtureLight = light; }
+
+    public LightPreset? FixtureLight { get; }
+
+    public static Variant StartFixture(Control from, AssetEntry mesh, LightPreset light, Texture2D? picture)
+    {
+        from.SetDragPreview(Preview(mesh.Name + " + light", picture));
+        return Variant.From(new AssetDragData(AssetDrag.Of(mesh), light));
+    }
+
+    public static LightPreset? ReadFixtureLight(Variant data) =>
+        data.VariantType == Variant.Type.Object && data.AsGodotObject() is AssetDragData payload ? payload.FixtureLight : null;
+
     public AssetDrag? Drag { get; }
 
     /// <summary>The palette placeable being dragged, or null for an asset.</summary>

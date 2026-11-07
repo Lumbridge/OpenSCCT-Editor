@@ -3,7 +3,9 @@
 Run `dotnet run --project tools/beginner-checks/BeginnerChecks.csproj` for guide persistence and backward compatibility,
 undo/redo, content-derived completion, missing dependencies and independent actor/event connections in all eight
 featured prefabs. Add `-- --compile` to build a two-room tutorial with an objective and validate it through
-OpenSCCT's strict loader, using installed content.
+OpenSCCT's strict loader, using installed content. The compiled terminal is also loaded into the real gameplay
+simulation: its Story mission must reveal it, activate it and enable its interaction. The wall lesson checks a
+manually assembled doorway/corridor/room chain, undo and persisted progress.
 
 Run `pwsh tools/Invoke-EditorShots.ps1 -Script tools/beginner-checks/ui-shots.json -Out local/beginner-review` for a
 fresh-profile visual pass at normal and 150% scale. It checks the new workspace, R selecting Rotate, guide actions,

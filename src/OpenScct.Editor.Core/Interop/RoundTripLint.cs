@@ -50,7 +50,7 @@ public static class RoundTripLint
         CheckNames(p, f);
         foreach (Brush b in p.Brushes)
         {
-            CheckShape(b.Shape, ObjectRef.Brush(b.Id), b.LocalToWorld, f, AsImported(b), BakedContent.IsRecovered(b));
+            CheckShape(b.Shape, ObjectRef.ForBrush(b), b.LocalToWorld, f, AsImported(b), BakedContent.IsRecovered(b));
         }
 
         foreach (Actor a in p.Actors.Where(a => a.Shape is not null))
@@ -214,7 +214,7 @@ public static class RoundTripLint
     private static void CheckNames(MapProject p, List<Finding> f)
     {
         var seen = new Dictionary<string, ObjectRef>(StringComparer.OrdinalIgnoreCase);
-        foreach (ObjectRef r in p.Brushes.Select(b => ObjectRef.Brush(b.Id)).Concat(p.Actors.Select(a => ObjectRef.Actor(a.Id))))
+        foreach (ObjectRef r in p.Brushes.Select(b => ObjectRef.ForBrush(b)).Concat(p.Actors.Select(a => ObjectRef.Actor(a.Id))))
         {
             if (!InteropValues.IsValidName(r.Id))
             {
@@ -327,7 +327,7 @@ public static class RoundTripLint
     private static void CheckText(MapProject p, bool wholeMap, List<Finding> f)
     {
         IEnumerable<(ObjectRef? Owner, PropSet Props)> sets = p.Actors.Select(a => ((ObjectRef?)ObjectRef.Actor(a.Id), a.Props))
-            .Concat(p.Brushes.Select(b => ((ObjectRef?)ObjectRef.Brush(b.Id), b.Props)))
+            .Concat(p.Brushes.Select(b => ((ObjectRef?)ObjectRef.ForBrush(b), b.Props)))
             .Concat(wholeMap ? [(null, p.LevelInfo)] : []);
         foreach ((ObjectRef? owner, PropSet props) in sets)
         {
@@ -632,13 +632,34 @@ public static class RoundTripLint
         ConveyorHandoff handoff = ConveyorHandoff.Of(p);
         foreach (Actor a in p.Actors.Where(handoff.Writes))
         {
-            // An emitter's own sub-objects (Begin Object blocks) are written with it, not imported.
+            // An emitter's own sub-objects are written with it. The assets they use still need to be available.
             HashSet<string> own = SubObjectNames(a);
+            SvJsonArray? systems = Compile.EmitterBuild.SystemsOf(a, p);
             foreach ((string key, SvJsonNode value) in T3d.LiftedWriteBack.Props(p, a, projectFolder: projectFolder).Where(kv => Original.LocalAssets.IsAssetProperty(kv.Key)))
             {
+                if (systems is not null && key.Equals("Emitters", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
                 foreach (string path in AssetsIn(value).Where(x => !own.Contains(AssetPaths.Split(x).Name)))
                 {
                     yield return (path, key, ObjectRef.Actor(a.Id));
+                }
+            }
+
+            if (systems is not null)
+            {
+                foreach (SvJsonObject part in Compile.EmitterBuild.ValidSystems(systems))
+                {
+                    var props = (SvJsonObject)part["props"]!;
+                    foreach ((string key, SvJsonNode value) in props.Where(kv => Original.LocalAssets.IsAssetProperty(kv.Key)))
+                    {
+                        foreach (string path in AssetsIn(value))
+                        {
+                            yield return (path, key, ObjectRef.Actor(a.Id));
+                        }
+                    }
                 }
             }
 
@@ -652,7 +673,7 @@ public static class RoundTripLint
         {
             foreach (string m in b.Shape.Faces.Select(x => x.Material).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                yield return (m, "Material", ObjectRef.Brush(b.Id));
+                yield return (m, "Material", ObjectRef.ForBrush(b));
             }
         }
 

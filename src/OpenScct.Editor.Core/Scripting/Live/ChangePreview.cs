@@ -104,7 +104,7 @@ public sealed class ChangePreview
 
                 switch (c.Kind)
                 {
-                    case ObjectKind.Brush when project.FindBrush(c.Id) is { } b:
+                    case ObjectKind.Brush or ObjectKind.Stair when project.FindBrush(c.Id) is { } b:
                         brushes.Add(b.Clone());
                         break;
                     case ObjectKind.Actor when project.FindActor(c.Id) is { } a:

@@ -158,7 +158,7 @@ public partial class InspectorPanel : EditorPanel
         _header.GetParent<Control>().Visible = _refs.Count > 0;
         _scroll.Visible = _refs.Count > 0;
         _empty.Visible = _refs.Count == 0;
-        bool props = _refs.Any(r => r.Kind is ObjectKind.Actor or ObjectKind.Brush);
+        bool props = _refs.Any(r => r.Kind is ObjectKind.Actor or ObjectKind.Brush or ObjectKind.Stair);
         _grid.CommonOnly = Compact;
         _propsHeader.Visible = props;
         if (_refs.Count == 0)
@@ -171,16 +171,25 @@ public partial class InspectorPanel : EditorPanel
         HFlowContainer tools = PanelUi.Toolbar(_sections);
         PanelUi.Button(tools, "Focus", "Frame the selection in the views", () => Context.Focus(_refs));
         if (!Compact) PanelUi.Button(tools, "Same class", "Select every object of the selected classes", SelectSameClass);
-        if (WorkspaceMode.Simple) PanelUi.Button(tools, _moreProperties ? "Fewer properties" : "More properties",
+        if (WorkspaceMode.Simple && !(_refs.Count == 1 && Index.Brush(_refs[0])?.Stair is not null)) PanelUi.Button(tools, _moreProperties ? "Fewer properties" : "More properties",
             "Show technical settings for this selection. Changes still use the usual undo history.", () => { _moreProperties = !_moreProperties; _rebuild.Queue(); });
 
-        if (_refs.Any(r => r.Kind is ObjectKind.Actor or ObjectKind.Brush))
+        if (_refs.Any(r => r.Kind is ObjectKind.Actor or ObjectKind.Brush or ObjectKind.Stair))
         {
             TransformSection();
         }
+        if (_refs.Count == 1 && Index.Brush(_refs[0]) is { Stair: not null } staircase)
+        {
+            StairSection(staircase);
+            _bar.Visible = false; _propsHeader.Visible = false;
+            _grid.ShowSource(null);
+            _signature = Signature();
+            SyncAll();
+            return;
+        }
         if (Compact && _refs.Count == 1 && Index.Brush(_refs[0])?.Shape.Builder is { } builder) BuilderRows(_refs[0], builder);
 
-        if (!Compact && _refs.Any(r => r.Kind == ObjectKind.Brush))
+        if (!Compact && _refs.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)))
         {
             BrushSection();
         }
@@ -233,12 +242,12 @@ public partial class InspectorPanel : EditorPanel
         {
             ObjectRef r = _refs[0];
             string cls = Index.Actor(r)?.Class ?? "";
-            string brush = Index.Brush(r)?.Oper == CsgOper.Subtract ? "Brush · subtract" : "Brush · add";
+            string brush = Index.Brush(r)?.Stair is { } stairDesign ? stairDesign.Layout.ToUpperInvariant() + " staircase" : Index.Brush(r)?.Oper == CsgOper.Subtract ? "Brush · subtract" : "Brush · add";
             string ge = ObjectInfo.GeClass(Index.Ge(r)?.Kind ?? "");
             return r.Kind switch
             {
                 ObjectKind.Actor => (r.Id, cls.Length == 0 ? "" : PanelUi.DisplayName(cls), cls, PanelIcons.TypeIconName(cls)),
-                ObjectKind.Brush => (r.Id, brush, brush, Index.Brush(r)?.Oper == CsgOper.Subtract ? "type-brush-subtract" : "type-brush"),
+                ObjectKind.Brush or ObjectKind.Stair => (r.Id, brush, brush, Index.Brush(r)?.Oper == CsgOper.Subtract ? "type-brush-subtract" : "type-brush"),
                 _ => (r.Id, ge, ge, "type-ge"),
             };
         }
@@ -263,10 +272,11 @@ public partial class InspectorPanel : EditorPanel
         foreach (ObjectRef r in _refs)
         {
             parts.Add(r.ToString());
+            if (Index.Brush(r)?.Stair is { } stair) parts.Add(stair.ToJson());
             parts.Add(r.Kind switch
             {
                 ObjectKind.Actor => Index.Actor(r)?.Class ?? "",
-                ObjectKind.Brush => Index.Brush(r)?.Shape.Builder is { } b ? b.Kind + string.Join(',', b.Numbers.Keys) : "",
+                ObjectKind.Brush or ObjectKind.Stair => Index.Brush(r)?.Shape.Builder is { } b ? b.Kind + string.Join(',', b.Numbers.Keys) : "",
                 _ => Index.Ge(r) is { } ge ? $"{ge.Kind}:{ge.Points.Count}:{ge.Appearance is not null}" : "",
             });
         }
@@ -317,7 +327,7 @@ public partial class InspectorPanel : EditorPanel
             r => r.Kind switch
             {
                 ObjectKind.Actor => Index.Actor(r) is { } a ? Arr(a.Location) : null,
-                ObjectKind.Brush => Index.Brush(r) is { } b ? Arr(b.Location) : null,
+                ObjectKind.Brush or ObjectKind.Stair => Index.Brush(r) is { } b ? Arr(b.Location) : null,
                 _ => null,
             },
             brush: (b, i, v) => b.Location = b.Location.With(i, v),
@@ -327,7 +337,7 @@ public partial class InspectorPanel : EditorPanel
             r => r.Kind switch
             {
                 ObjectKind.Actor => Index.Actor(r) is { } a ? Deg(a.Rotation) : null,
-                ObjectKind.Brush => Index.Brush(r) is { } b ? Deg(b.Rotation) : null,
+                ObjectKind.Brush or ObjectKind.Stair => Index.Brush(r) is { } b ? Deg(b.Rotation) : null,
                 _ => null,
             },
             brush: (b, i, v) => b.Rotation = WithAxis(b.Rotation, i, v),
@@ -342,12 +352,12 @@ public partial class InspectorPanel : EditorPanel
         }
 
         if (Compact) return;
-        if (_refs.Any(r => r.Kind == ObjectKind.Brush))
+        if (_refs.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)))
         {
-            VecRow("Main scale", ["X", "Y", "Z"], r => r.Kind == ObjectKind.Brush && Index.Brush(r) is { } b ? Arr(b.MainScale) : null,
+            VecRow("Main scale", ["X", "Y", "Z"], r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && Index.Brush(r) is { } b ? Arr(b.MainScale) : null,
                 brush: (b, i, v) => _scaleSeries.Rescale(b, x => x.MainScale = x.MainScale.With(i, v), SurfaceActions.ScaleKeepsTextures),
                 tooltip: "Brush MainScale (applied before rotation)");
-            VecRow("Post scale", ["X", "Y", "Z"], r => r.Kind == ObjectKind.Brush && Index.Brush(r) is { } b ? Arr(b.PostScale) : null,
+            VecRow("Post scale", ["X", "Y", "Z"], r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && Index.Brush(r) is { } b ? Arr(b.PostScale) : null,
                 brush: (b, i, v) => _scaleSeries.Rescale(b, x => x.PostScale = x.PostScale.With(i, v), SurfaceActions.ScaleKeepsTextures),
                 tooltip: "Brush PostScale (applied after rotation)");
         }
@@ -356,7 +366,7 @@ public partial class InspectorPanel : EditorPanel
             r => r.Kind switch
             {
                 ObjectKind.Actor => Index.Actor(r) is { } a ? Arr(a.PrePivot) : null,
-                ObjectKind.Brush => Index.Brush(r) is { } b ? Arr(b.PrePivot) : null,
+                ObjectKind.Brush or ObjectKind.Stair => Index.Brush(r) is { } b ? Arr(b.PrePivot) : null,
                 _ => null,
             },
             brush: (b, i, v) => b.PrePivot = b.PrePivot.With(i, v),
@@ -422,8 +432,8 @@ public partial class InspectorPanel : EditorPanel
     private void BrushSection()
     {
         PanelUi.Header(_sections, "Brush");
-        List<Brush> Brushes() => _refs.Where(r => r.Kind == ObjectKind.Brush).Select(r => Index.Brush(r)).OfType<Brush>().ToList();
-        List<ObjectRef> brushRefs = _refs.Where(r => r.Kind == ObjectKind.Brush).ToList();
+        List<Brush> Brushes() => _refs.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)).Select(r => Index.Brush(r)).OfType<Brush>().ToList();
+        List<ObjectRef> brushRefs = _refs.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)).ToList();
 
         HBoxContainer csgRow = PanelUi.Row(_sections, "CSG", labelWidth: LabelWidth);
         OptionButton csg = PanelUi.Options(csgRow);
@@ -471,7 +481,7 @@ public partial class InspectorPanel : EditorPanel
         }
 
         TextRow("Material", "Material of every face (Package.Group.Name); empty for the default",
-            r => r.Kind == ObjectKind.Brush && Index.Brush(r) is { } b
+            r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && Index.Brush(r) is { } b
                 ? b.Shape.Faces.Select(f => f.Material ?? "").Distinct().Count() == 1 ? b.Shape.Faces.FirstOrDefault()?.Material ?? "" : null
                 : null,
             text => ReplaceObjectsCommand.Edit(Context.Project, brushRefs, "Set material", brush: b =>
@@ -502,6 +512,8 @@ public partial class InspectorPanel : EditorPanel
     private void BuilderRows(ObjectRef brushRef, BuilderSpec spec)
     {
         IShapeBuilder? builder = EditorServices.ShapeBuilder(spec.Kind);
+        if (spec.Kind is "stairs" or "linearStair" or "curvedStair" or "spiralStair")
+            PanelUi.Button(_sections, "Convert to Editable Stairs", "Upgrade the complete intact staircase into one editable object", () => Context.Run("stairs.convert"));
         foreach (string key in spec.Numbers.Keys.Order(StringComparer.Ordinal))
         {
             HBoxContainer row = PanelUi.Row(_sections, PanelUi.Words(key),

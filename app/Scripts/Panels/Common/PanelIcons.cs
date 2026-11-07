@@ -34,7 +34,7 @@ internal static partial class PanelIcons
     /// <summary>The type icon of an outliner row: brush, GE, or the actor's class.</summary>
     public static Texture2D Type(ObjectRow row) => row.Ref.Kind switch
     {
-        ObjectKind.Brush => TypeIcon("type-brush"),
+        ObjectKind.Brush or ObjectKind.Stair => TypeIcon("type-brush"),
         ObjectKind.Ge => TypeIcon(GeIconName(row.Class.StartsWith("GE ", StringComparison.Ordinal) ? row.Class[3..] : row.Class)),
         _ => Type(row.Class),
     };

@@ -114,7 +114,7 @@ public static class VertexCommands
     /// <summary>Selects every vertex of the selected brushes.</summary>
     public static void SelectAll()
     {
-        IEnumerable<Brush> brushes = Ctx.Selection.Items.Where(r => r.Kind == ObjectKind.Brush).Select(r => Ctx.Project.FindBrush(r.Id)).OfType<Brush>();
+        IEnumerable<Brush> brushes = Ctx.Selection.Items.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)).Select(r => Ctx.Project.FindBrush(r.Id)).OfType<Brush>();
         Geo.SetVertices(brushes.SelectMany(b => VertexEdit.Vertices(b).Select(v => new VertexRef(b.Id, v))));
         Ctx.SetStatus($"{Geo.Vertices.Count} vertices selected");
     }
@@ -137,7 +137,7 @@ public sealed class VertexActions : IShellPart
         double Grid() => ToolManager.Instance?.GridSize ?? 16;
 
         Add("vertex.selectAll", "Select All Vertices", 100, VertexCommands.SelectAll,
-            () => context.Selection.Items.Any(r => r.Kind == ObjectKind.Brush), "Every vertex of the selected brushes");
+            () => context.Selection.Items.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)), "Every vertex of the selected brushes");
         Add("vertex.clear", "Clear Vertex Selection", 110, () => geo.SetVertices([]), HasVertices);
         Add("vertex.weld", "Weld", 200, VertexCommands.Weld, () => geo.Vertices.Count >= 2, "Merge the selected vertices at their centre");
         Add("vertex.delete", "Delete Vertices", 210, VertexCommands.Delete, HasVertices, "The brush becomes the hull of the vertices left");

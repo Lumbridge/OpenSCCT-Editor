@@ -38,6 +38,9 @@ public sealed class GameplayPack
             : s_packs.GetOrAdd(Path.GetFullPath(render), r => new GameplayPack(r));
     }
 
+    internal static void Invalidate(string contentRoot) =>
+        s_packs.TryRemove(Path.GetFullPath(Path.Combine(contentRoot, "shared", "render")), out _);
+
     /// <summary>A mesh by its full path (Package.Group.Name), else by Package.Name, ignoring case.</summary>
     public LibraryMesh? FindMesh(string asset)
     {

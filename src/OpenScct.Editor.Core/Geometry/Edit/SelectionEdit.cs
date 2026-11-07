@@ -151,7 +151,7 @@ public static class SelectionEdit
             {
                 switch (r.Kind)
                 {
-                    case ObjectKind.Brush when p.FindBrush(r.Id) is { } b:
+                    case ObjectKind.Brush or ObjectKind.Stair when p.FindBrush(r.Id) is { } b:
                         Brush nb = b.Clone(ids.Next(b.Id));
                         nb.Location += d;
                         nb.Editor.UnlinkPrefab();
@@ -160,6 +160,7 @@ public static class SelectionEdit
                         break;
                     case ObjectKind.Actor when p.FindActor(r.Id) is { } a:
                         Actor na = a.Clone(ids.Next(a.Id));
+                        copyOf[a.Id] = na.Id;
                         na.Location += d;
                         MoverBase.Shift(na, d);
                         na.Editor.UnlinkPrefab();
@@ -239,7 +240,7 @@ public static class SelectionEdit
     {
         List<Vec3> pts = refs.SelectMany(r => r.Kind switch
         {
-            ObjectKind.Brush when p.FindBrush(r.Id) is { } b => [b.Location],
+            ObjectKind.Brush or ObjectKind.Stair when p.FindBrush(r.Id) is { } b => [b.Location],
             ObjectKind.Actor when p.FindActor(r.Id) is { } a => [a.Location],
             ObjectKind.Ge when p.FindGe(r.Id) is { } g => g.Points,
             _ => Enumerable.Empty<Vec3>(),

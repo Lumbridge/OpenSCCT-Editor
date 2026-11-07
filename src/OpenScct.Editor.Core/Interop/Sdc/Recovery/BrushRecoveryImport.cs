@@ -129,7 +129,7 @@ public static class BrushRecoveryImport
         Add(p, recovered, findings);
         if (keptNote is not null)
         {
-            findings.Add(Finding.Info(KeptCode, keptNote, [.. kept.Select(b => ObjectRef.Brush(b.Id))]));
+            findings.Add(Finding.Info(KeptCode, keptNote, [.. kept.Select(b => ObjectRef.ForBrush(b))]));
         }
     }
 
@@ -240,7 +240,7 @@ public static class BrushRecoveryImport
         p.Extra.Add(BrushRecovery.ReportKey, report.ToJson());
 
         findings.Add(Finding.Info(RecoveredCode, $"{report.Summary()}, in the {BrushRecovery.Folder} layer",
-            [.. recovered.Brushes.Select(b => ObjectRef.Brush(b.Id))]));
+            [.. recovered.Brushes.Select(b => ObjectRef.ForBrush(b))]));
         if (p.Baked is { KeepRender: true } or { KeepCollision: true })
         {
             findings.Add(Finding.Info(RecoveredCode,

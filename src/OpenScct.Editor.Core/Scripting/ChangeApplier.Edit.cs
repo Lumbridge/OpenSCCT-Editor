@@ -26,7 +26,7 @@ public static partial class ChangeApplier
                 continue; // a part of a piece another target already rebuilt
             }
 
-            if (r.Kind == ObjectKind.Brush && (op["shape"] ?? op["brush"]) is { } spec && IsPiece(ctx, r.Id, spec))
+            if (r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && (op["shape"] ?? op["brush"]) is { } spec && IsPiece(ctx, r.Id, spec))
             {
                 rebuilt.UnionWith(UpdatePiece(ctx, op, r.Id, spec, unset));
                 continue;
@@ -38,6 +38,7 @@ public static partial class ChangeApplier
                     ctx.Edit([r], $"Edit {r.Id}", actor: a => UpdateActor(ctx, op, a, place, unset));
                     break;
                 case ObjectKind.Brush:
+                case ObjectKind.Stair:
                     ctx.Edit([r], $"Edit {r.Id}", brush: b => UpdateBrush(ctx, op, b, place, unset));
                     break;
                 default:
@@ -252,7 +253,7 @@ public static partial class ChangeApplier
 
         foreach (Brush b in edit.Removed)
         {
-            ctx.Touch(ObjectRef.Brush(b.Id));
+            ctx.Touch(ObjectRef.ForBrush(b));
         }
 
         foreach (Brush b in edit.Added)
@@ -267,7 +268,7 @@ public static partial class ChangeApplier
             Unset(b.Props, unset);
             SetMeta(op, b.Editor);
             ctx.Stamp(b.Editor);
-            ctx.Created(ObjectRef.Brush(b.Id));
+            ctx.Created(ObjectRef.ForBrush(b));
         }
 
         ctx.Run(edit);
@@ -306,7 +307,7 @@ public static partial class ChangeApplier
 
         var gone = new HashSet<string>(targets.Select(t => t.Id), StringComparer.OrdinalIgnoreCase);
         int baked = BakedContent.BakedWorldKept(ctx.Project)
-            ? targets.Count(r => r.Kind == ObjectKind.Brush && ctx.Project.FindBrush(r.Id) is { } b && BakedContent.IsBaked(b))
+            ? targets.Count(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && ctx.Project.FindBrush(r.Id) is { } b && BakedContent.IsBaked(b))
             : 0;
         if (baked > 0)
         {
@@ -373,7 +374,7 @@ public static partial class ChangeApplier
             Vec3 origin = MapObjects.Origin(ctx.Project, r);
             (Vec3 min, Vec3 max) = MapObjects.Bounds(ctx.Project, r);
             Vec3 start = origin + (single ? by : groupDelta);
-            Placed p = Placement.Resolve(ctx, placement, start, (min - origin, max - origin), r.Kind == ObjectKind.Brush ? r.Id : null);
+            Placed p = Placement.Resolve(ctx, placement, start, (min - origin, max - origin), r.Kind is (ObjectKind.Brush or ObjectKind.Stair) ? r.Id : null);
 
             Vec3 delta = p.Location - origin;
             for (int a = 0; a < 3; a++)
@@ -554,6 +555,7 @@ public static partial class ChangeApplier
                         ctx.Add($"Duplicate {r.Id}", actors: [a]);
                         break;
                     case ObjectKind.Brush:
+                case ObjectKind.Stair:
                         Brush br = ctx.Project.FindBrush(r.Id)!.Clone(id);
                         br.Location += delta;
                         br.Editor.UnlinkPrefab();
@@ -625,7 +627,7 @@ public static partial class ChangeApplier
         string old = r.Id;
         ctx.Edit([r], $"Rename {old}", brush: b => b.Id = newId, actor: a => a.Id = newId, ge: g => g.Id = newId);
         ctx.Renamed(old, newId);
-        if (r.Kind == ObjectKind.Brush)
+        if (r.Kind is (ObjectKind.Brush or ObjectKind.Stair))
         {
             ctx.RekeyPieces(new HashSet<string>([old], StringComparer.OrdinalIgnoreCase));
         }

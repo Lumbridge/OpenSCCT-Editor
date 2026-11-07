@@ -350,7 +350,7 @@ public static partial class MapQuery
 
         var near = s.Project.AllRefs()
             .Select(r => (Ref: r, Dist: (MapObjects.Origin(s.Project, r) - at).Length))
-            .Where(x => x.Dist <= radius && x.Ref.Kind != ObjectKind.Brush)
+            .Where(x => x.Dist <= radius && x.Ref.Kind is not (ObjectKind.Brush or ObjectKind.Stair))
             .OrderBy(x => x.Dist).Take(10)
             .Select(x => (SvJsonNode)ApiJson.Arr([ApiJson.Str(x.Ref.Id), ApiJson.Str(MapObjects.Short(MapObjects.ClassOf(s.Project, x.Ref))), ApiJson.Num(x.Dist)]));
         return ApiJson.Obj(

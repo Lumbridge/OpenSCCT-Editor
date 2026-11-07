@@ -8,12 +8,16 @@ public enum ObjectKind
     Brush,
     Actor,
     Ge,
+    Stair,
 }
 
 /// <summary>A reference to one placed object by kind and id.</summary>
 public readonly record struct ObjectRef(ObjectKind Kind, string Id)
 {
     public static ObjectRef Brush(string id) => new(ObjectKind.Brush, id);
+
+    public static ObjectRef Stair(string id) => new(ObjectKind.Stair, id);
+    public static ObjectRef ForBrush(Brush b) => b.Stair is null ? Brush(b.Id) : Stair(b.Id);
 
     public static ObjectRef Actor(string id) => new(ObjectKind.Actor, id);
 
@@ -340,7 +344,7 @@ public sealed class MapProject
 
     public int IndexOf(ObjectRef r) => r.Kind switch
     {
-        ObjectKind.Brush => IndexOfBrush(r.Id),
+        ObjectKind.Brush or ObjectKind.Stair => IndexOfBrush(r.Id),
         ObjectKind.Actor => IndexOfActor(r.Id),
         _ => IndexOfGe(r.Id),
     };
@@ -356,7 +360,7 @@ public sealed class MapProject
 
         if (_brushIndex.Hit(Brushes, id) is int b and >= 0)
         {
-            return ObjectRef.Brush(Brushes[b].Id);
+            return ObjectRef.ForBrush(Brushes[b]);
         }
 
         if (_geIndex.Hit(Ges, id) is int g and >= 0)
@@ -371,7 +375,7 @@ public sealed class MapProject
 
         if (FindBrush(id) is { } brush)
         {
-            return ObjectRef.Brush(brush.Id);
+            return ObjectRef.ForBrush(brush);
         }
 
         return FindGe(id) is { } ge ? ObjectRef.Ge(ge.Id) : null;
@@ -381,7 +385,7 @@ public sealed class MapProject
 
     public EditorMeta? MetaOf(ObjectRef r) => r.Kind switch
     {
-        ObjectKind.Brush => FindBrush(r.Id)?.Editor,
+        ObjectKind.Brush or ObjectKind.Stair => FindBrush(r.Id)?.Editor,
         ObjectKind.Actor => FindActor(r.Id)?.Editor,
         ObjectKind.Ge => FindGe(r.Id)?.Editor,
         _ => null,
@@ -407,7 +411,7 @@ public sealed class MapProject
     }
 
     public IEnumerable<ObjectRef> AllRefs() =>
-        Brushes.Select(b => ObjectRef.Brush(b.Id)).Concat(Actors.Select(a => ObjectRef.Actor(a.Id))).Concat(Ges.Select(g => ObjectRef.Ge(g.Id)));
+        Brushes.Select(b => ObjectRef.ForBrush(b)).Concat(Actors.Select(a => ObjectRef.Actor(a.Id))).Concat(Ges.Select(g => ObjectRef.Ge(g.Id)));
 
     /// <summary>A new empty map: one subtractive 1024 cube room, a player start per team, and default settings.</summary>
     public static MapProject CreateDefault(string id, string title)

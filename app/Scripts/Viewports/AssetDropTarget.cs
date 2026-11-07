@@ -125,7 +125,8 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         {
             if (PrefabDragData.Read(data) is { } prefab)
             {
-                prefab.Place(PrefabPoint(view, Pointer(view, position)));
+                if (prefab.GeometryPreview is not null && !ShowPrefab(view, Pointer(view, position), prefab)) return;
+                prefab.Place((prefab.StairPreview is not null || prefab.GeometryPreview is not null) && _stairGhost is { } stairGhost ? stairGhost.Location : PrefabPoint(view, Pointer(view, position), prefab.SurfaceOffset));
             }
             else if (AssetDragData.ReadPlaceable(data) is { } placeable)
             {
@@ -133,7 +134,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
             }
             else if (drag is { IsMesh: true })
             {
-                PlaceMesh(view, Pointer(view, position), drag);
+                PlaceMesh(view, Pointer(view, position), drag, AssetDragData.ReadFixtureLight(data));
             }
             else if (drag is { IsSurface: true })
             {
@@ -152,6 +153,15 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
     public override void _Input(InputEvent e)
     {
+        if (e is InputEventKey { Pressed: true, Echo: false } stairKey && GetViewport().GuiIsDragging()
+            && PrefabDragData.Read(GetViewport().GuiGetDragData()) is { StairPreview: not null } stairDrag
+            && stairKey.Keycode is Key.R or Key.F)
+        {
+            if (stairKey.Keycode == Key.R) stairDrag.StairYaw = Rot.Wrap(stairDrag.StairYaw + Rot.UnitsPerTurn / 8);
+            else stairDrag.StairPreview.Left = !stairDrag.StairPreview.Left;
+            if (_over is { } stairView) CanDrop(stairView, EditorPointer.Local(stairView), GetViewport().GuiGetDragData());
+            GetViewport().SetInputAsHandled(); return;
+        }
         if (e is InputEventKey { Pressed: true, Keycode: Key.R } key && GetViewport().GuiIsDragging()
             && (AssetDragData.ReadPlaceable(GetViewport().GuiGetDragData()) is not null
                 || AssetDragData.Read(GetViewport().GuiGetDragData()) is { IsMesh: true }))
@@ -330,7 +340,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
             // Snapped along the surface only, so the mesh stays on it.
             (Vec3 location, Rot rotation) = MeshDrop.OnSurface(h.Point, h.Normal, min, max, SnapExcept(Placement.DominantAxis(h.Normal)), _dragYaw);
             location = SnapMesh(view, location, rotation, min, max, h.Normal);
-            return new Land(location, rotation, min, max, h.Object is { } on ? on.Id : "the map's collision");
+            return new Land(location, rotation, min, max, h.Object is { } on ? on.Id : "the map's collision", h.Normal);
         }
 
         // Nothing under the pointer: the mesh stands on the point, unturned; on the view plane in a 2D view.
@@ -349,7 +359,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
         (Vec3 loc, Rot rot) = MeshDrop.OnSurface(free, Vec3.UnitZ, min, max, SnapExcept(fixedAxis), _dragYaw);
         loc = SnapMesh(view, loc, rot, min, max, Vec3.Zero.With(fixedAxis, 1));
-        return new Land(loc, rot, min, max, null);
+        return new Land(loc, rot, min, max, null, Vec3.UnitZ);
     }
 
     private Vec3 SnapMesh(EditorViewport view, Vec3 location, Rot rotation, Vec3 min, Vec3 max, Vec3 normal)
@@ -555,12 +565,25 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
     // ---- the drop ---------------------------------------------------------------------------------------------------
 
-    private void PlaceMesh(EditorViewport view, Vector2 at, AssetDrag drag)
+    private void PlaceMesh(EditorViewport view, Vector2 at, AssetDrag drag, LightPreset? fixtureLight = null)
     {
         MapProject p = _ctx.Project;
         Land land = Landing(view, at, drag.Path);
         Actor actor = AssetEdits.MeshActor(p, drag.Path, land.Location, rotation: land.Rotation);
-        AddObjectsCommand cmd = AssetEdits.PlaceMesh(actor);
+        AddObjectsCommand cmd;
+        if (fixtureLight is not null)
+        {
+            Vec3 centre = land.Location + land.Rotation.Rotate((land.Min + land.Max) * 0.5);
+            Vec3 half = (land.Max - land.Min) * 0.5;
+            var axes = land.Rotation.Axes();
+            double extent = Math.Abs(Vec3.Dot(axes.Forward, land.Normal)) * half.X
+                + Math.Abs(Vec3.Dot(land.Rotation.Rotate(Vec3.UnitY), land.Normal)) * half.Y
+                + Math.Abs(Vec3.Dot(land.Rotation.Rotate(Vec3.UnitZ), land.Normal)) * half.Z;
+            Actor light = fixtureLight.Create(p, centre + land.Normal * (extent + 16));
+            actor.Editor.Folder = light.Editor.Folder = $"Lights/{actor.Id}";
+            cmd = new AddObjectsCommand($"Place {drag.Name} + light", actors: [actor, light]);
+        }
+        else cmd = AssetEdits.PlaceMesh(actor);
         _ctx.Execute(cmd);
         _ctx.Selection.Set(cmd.Added);
         string text = $"Placed {actor.Id} ({drag.Path}) at {actor.Location}{On(land)} in the {view.Kind} view.";
@@ -581,6 +604,11 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         }
 
         _refused = null;
+        if (_ctx.Project.FindBrush(t.Hit.Face.Brush) is { Stair: not null } staircase && FaceEdit.Find(_ctx.Project, t.Hit.Face)?.StairRole is { } role)
+        {
+            _ctx.Execute(OpenScct.Editor.Core.Stairs.StairCommands.Material(_ctx.Project, staircase.Id, role, t.Material));
+            return;
+        }
         SurfaceCommands.ApplyMaterial(t.Material, t.Picked ? null : [t.Hit.Face]);
     }
 
@@ -648,6 +676,8 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         GeometrySelection geo = GeometrySelection.Instance;
         bool picked = ToolManager.Instance?.Active is FaceTool && geo.HasFace(h.Face);
         var target = new SurfaceTarget(h, picked, material);
+        if (p.FindBrush(h.Face.Brush)?.Stair is not null && FaceEdit.Find(p, h.Face)?.StairRole is { } role)
+            return (target, $"Apply to all {(role == "tread" ? "treads" : role == "riser" ? "risers" : "sides")} of {h.Face.Brush}");
         if (!picked)
         {
             string now = FaceEdit.Find(p, h.Face)?.Material is { Length: > 0 } m ? $" (now {AssetPaths.Split(m).Name})" : "";
@@ -707,6 +737,14 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     {
         if (_prefabTarget is { } targetPoint && targetPoint.View == view && view.Cam.ToScreen(targetPoint.Point) is { } screen)
         {
+            if (_stairGhost is { Stair: not null }) Tools.StairTool.DrawPreview(view, canvas, _stairGhost, _stairPlacementProblem is not null);
+            else if (_stairGhost is { } geometryGhost)
+            {
+                foreach (BrushFace ghostFace in geometryGhost.WorldFaces())
+                    for (int i = 0; i < ghostFace.Vertices.Count; i++)
+                        if (view.Cam.ToScreen(ghostFace.Vertices[i]) is { } a && view.Cam.ToScreen(ghostFace.Vertices[(i + 1) % ghostFace.Vertices.Count]) is { } b)
+                            canvas.DrawLine(a, b, SceneStyle.DropTarget, 1.5f, true);
+            }
             canvas.DrawCircle(screen, 7, SceneStyle.DropTarget, filled: false, width: 2);
             canvas.DrawLine(screen - new Vector2(12, 0), screen + new Vector2(12, 0), SceneStyle.DropTarget);
             canvas.DrawLine(screen - new Vector2(0, 12), screen + new Vector2(0, 12), SceneStyle.DropTarget);
@@ -724,6 +762,11 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
         MapProject p = _ctx.Project;
         ViewCamera cam = view.Cam;
+        if (p.FindBrush(target.Hit.Face.Brush) is { Stair: not null } staircase && FaceEdit.Find(p, target.Hit.Face)?.StairRole is { } role)
+        {
+            foreach (var f in staircase.WorldFaces().Where(f => f.StairRole == role))
+                FacePicking.DrawPolygon(cam, canvas, f.Vertices, new Color(SceneStyle.DropTarget, .3f), SceneStyle.DropTarget);
+        }
         if (target.Picked)
         {
             // A whole map can be picked: past a few hundred faces only the one under the pointer is drawn.
@@ -784,6 +827,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         if (_prefabTarget is { } prefabTarget)
         {
             _prefabTarget = null;
+            _stairGhost = null; _stairGhostAt = null; _stairPlacementProblem = null;
             if (IsInstanceValid(prefabTarget.View)) prefabTarget.View.Redraw();
         }
 
@@ -828,7 +872,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
     /// <summary>Where a dropped mesh goes, the local box it is placed by, and what it lands on (an object's id, the
     /// map's collision, or null in the air).</summary>
-    private readonly record struct Land(Vec3 Location, Rot Rotation, Vec3 Min, Vec3 Max, string? On);
+    private readonly record struct Land(Vec3 Location, Rot Rotation, Vec3 Min, Vec3 Max, string? On, Vec3 Normal);
 
     /// <summary>The drag is over (dropped, cancelled or the map changed): no ghost, and the next drag looks at the map
     /// afresh.</summary>

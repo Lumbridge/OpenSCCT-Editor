@@ -340,6 +340,7 @@ public static partial class ChangeApplier
             switch (r.Kind)
             {
                 case ObjectKind.Brush:
+                case ObjectKind.Stair:
                     Brush b = ctx.Project.FindBrush(r.Id)!.Clone();
                     local.Apply(b);
                     // A prefab holds copies: a brush imported with the baked world is a new brush in it.
@@ -684,7 +685,7 @@ public static partial class ChangeApplier
     private static (Vec3 At, Rot Rotation) AnchorPose(MapProject p, ObjectRef r) => r.Kind switch
     {
         ObjectKind.Actor => (p.FindActor(r.Id)!.Location, p.FindActor(r.Id)!.Rotation),
-        ObjectKind.Brush => (p.FindBrush(r.Id)!.Location, p.FindBrush(r.Id)!.Rotation),
+        ObjectKind.Brush or ObjectKind.Stair => (p.FindBrush(r.Id)!.Location, p.FindBrush(r.Id)!.Rotation),
         _ => (MapObjects.Origin(p, r), Rot.Zero),
     };
 

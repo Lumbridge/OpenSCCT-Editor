@@ -165,7 +165,7 @@ public sealed partial class WorldScene : Node3D
         {
             Brush b = p.Brushes[i];
             brushesChanged |= i >= _drawnBrushes.Count || !ReferenceEquals(_drawnBrushes[i], b);
-            var r = ObjectRef.Brush(b.Id);
+            var r = ObjectRef.ForBrush(b);
             seen.Add(r);
             SyncObject(r, b, () => BrushGeometry.ShapeKey(b), b.Location, e => BuildBrush(e, b));
         }
@@ -397,7 +397,7 @@ public sealed partial class WorldScene : Node3D
         {
             bool show = r.Kind switch
             {
-                ObjectKind.Brush => ShowBrushes,
+                ObjectKind.Brush or ObjectKind.Stair => ShowBrushes,
                 ObjectKind.Actor => ShowActors,
                 _ => ShowGes,
             };
@@ -416,12 +416,17 @@ public sealed partial class WorldScene : Node3D
             }
 
             // A brush off the storey shown stays in the CSG and the light bake: the views cut the world as they draw.
-            if (r.Kind == ObjectKind.Brush && (meta is null || !ObjectFilter.IsInWorld(p, meta)))
+            if (r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && (meta is null || !ObjectFilter.IsInWorld(p, meta)))
             {
                 hidden.Add(r.Id);
             }
         }
 
+        foreach (Brush stair in p.Brushes.Where(b => b.Stair is not null && hidden.Contains(b.Id)))
+        {
+            var generated = OpenScct.Editor.Core.Stairs.StairGeometry.Generate(stair);
+            hidden.UnionWith(generated.Cuts.Concat(generated.Solids).Select(b => b.Id));
+        }
         _hiddenBrushes = hidden;
         foreach (Brush part in _geBrushes)
         {
@@ -760,7 +765,7 @@ public sealed partial class WorldScene : Node3D
         foreach (WorldFace f in BrushGeometry.Of(b).Faces)
         {
             List<Vector3> pts = f.Vertices.Select(v => Space.ToGodot(v - b.Location)).ToList();
-            lines.Polyline(pts, color, closed: true);
+            if (b.Stair is null) lines.Polyline(pts, color, closed: true);
             if ((f.Flags & PolyFlags.Invisible) == 0 && pts.Count >= 3)
             {
                 Vector3 n = Space.DirToGodot(f.Normal);
@@ -768,12 +773,17 @@ public sealed partial class WorldScene : Node3D
             }
         }
 
+        if (b.Stair is not null)
+        {
+            var bounds = b.Shape.Bounds();
+            lines.Box(ObjectGeometry.Corners(bounds.Min, bounds.Max).Select(b.LocalToWorld).Select(v => Space.ToGodot(v - b.Location)).ToArray(), color);
+        }
         e.Wire = AddMesh(e.Root, lines.Build(), SceneStyle.Lines, VisualLayers.BrushWire);
         ArrayMesh? solid = surfaces.Build();
         if (solid is not null)
         {
             AddMesh(e.Root, solid, SceneStyle.Volume(color), VisualLayers.CsgVolumes);
-            if (EditorServices.Preview is null)
+            if (EditorServices.Preview is null && !b.IsPortal)
             {
                 // Without a CSG preview, brushes stand in for the world: additive ones show their outside,
                 // subtractive ones their inside, which reads like the carved rooms.

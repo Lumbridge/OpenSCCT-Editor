@@ -28,7 +28,7 @@ internal sealed class ObjectIndex
         }
     }
 
-    public Brush? Brush(ObjectRef r) => r.Kind == ObjectKind.Brush ? _brushes.GetValueOrDefault(r.Id) : null;
+    public Brush? Brush(ObjectRef r) => r.Kind is (ObjectKind.Brush or ObjectKind.Stair) ? _brushes.GetValueOrDefault(r.Id) : null;
 
     public Actor? Actor(ObjectRef r) => r.Kind == ObjectKind.Actor ? _actors.GetValueOrDefault(r.Id) : null;
 
@@ -40,5 +40,5 @@ internal sealed class ObjectIndex
 
     /// <summary>The short class the lists show: the actor's class, "Brush" or "GE kind".</summary>
     public string? Class(ObjectRef r) =>
-        Actor(r)?.ShortClass ?? (Brush(r) is not null ? ObjectInfo.BrushClass : Ge(r) is { } g ? ObjectInfo.GeClass(g.Kind) : null);
+        Actor(r)?.ShortClass ?? (Brush(r) is { } b ? b.Stair is null ? ObjectInfo.BrushClass : "Staircase" : Ge(r) is { } g ? ObjectInfo.GeClass(g.Kind) : null);
 }

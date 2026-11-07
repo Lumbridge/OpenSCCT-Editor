@@ -38,6 +38,7 @@ public static partial class ChangeApplier
 
     private static readonly Dictionary<string, (OpHandler Run, string[] Keys)> s_ops = new(StringComparer.OrdinalIgnoreCase)
     {
+        ["stair"] = (StairOp, ["id", "at", "rot", "set", "convert", "breakApart", "connectTo"]),
         ["create"] = (Create, [.. CreateKeys]),
         ["update"] = (Update, [.. UpdateKeys]),
         ["delete"] = (Delete, ["id", "ids", "where"]),

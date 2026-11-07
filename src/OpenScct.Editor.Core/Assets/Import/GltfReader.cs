@@ -259,8 +259,9 @@ public static class GltfReader
                 sm.Color = new Vector3(c[0]!.GetValue<float>(), c[1]!.GetValue<float>(), c[2]!.GetValue<float>());
             }
 
-            if (pbr?["baseColorTexture"]?["index"] is JsonValue ti && Json["textures"]?[ti.GetValue<int>()]?["source"] is JsonValue si &&
-                Json["images"]?[si.GetValue<int>()] is JsonObject image)
+            JsonNode? texture = pbr?["baseColorTexture"]?["index"] is JsonValue ti ? Json["textures"]?[ti.GetValue<int>()] : null;
+            JsonNode? source = texture?["extensions"]?["EXT_texture_webp"]?["source"] ?? texture?["source"];
+            if (source is JsonValue si && Json["images"]?[si.GetValue<int>()] is JsonObject image)
             {
                 if (image["uri"]?.GetValue<string>() is { } uri)
                 {

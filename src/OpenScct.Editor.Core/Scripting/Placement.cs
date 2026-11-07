@@ -88,7 +88,7 @@ internal static class Placement
                 // Onto an object: from just under a room's ceiling, or just over a solid thing's top.
                 ObjectRef target = ctx.Resolve(s.Value, "on");
                 (Vec3 min, Vec3 max) = MapObjects.Bounds(ctx.Project, target);
-                bool carves = target.Kind == ObjectKind.Brush && ctx.Project.FindBrush(target.Id)!.Oper == CsgOper.Subtract;
+                bool carves = target.Kind is (ObjectKind.Brush or ObjectKind.Stair) && ctx.Project.FindBrush(target.Id)!.Oper == CsgOper.Subtract;
                 Vec3 xy = fromPoint ? loc : ChangeContext.Center((min, max));
                 // A placed thing (not a volume, which is a space) with a known size is stood on.
                 bool solidActor = target.Kind == ObjectKind.Actor && ctx.Project.FindActor(target.Id)!.Shape is null && max.Z > min.Z;

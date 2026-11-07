@@ -43,7 +43,7 @@ public partial class AssetBrowserPanel
         {
             Order = 110,
             IsEnabled = () => (IsSelected(AssetKind.Material) || IsSelected(AssetKind.Texture))
-                && (FacesPicked() || Context.Selection.Items.Any(r => r.Kind == ObjectKind.Brush)),
+                && (FacesPicked() || Context.Selection.Items.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair))),
             Description = "Set the selected material or texture on the faces picked in the surface tool, or on every face of the selected brushes",
         });
         Context.AddAction(new EditorAction("assets.findUsages", "Find Usages in This Map", "Assets", FindUsages)
@@ -216,7 +216,7 @@ public partial class AssetBrowserPanel
 
         MapProject p = Context.Project;
         IReadOnlyList<ObjectRef> refs = target is { } t ? [t] : Context.Selection.Items;
-        List<Brush> brushes = refs.Where(r => r.Kind == ObjectKind.Brush).Select(r => p.FindBrush(r.Id)).OfType<Brush>().Distinct().ToList();
+        List<Brush> brushes = refs.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)).Select(r => p.FindBrush(r.Id)).OfType<Brush>().Distinct().ToList();
         if (brushes.Count == 0)
         {
             Context.SetStatus("Pick faces (surface tool) or select brushes to apply it to.");
@@ -235,7 +235,7 @@ public partial class AssetBrowserPanel
         }
 
         List<Brush> changing = editable.Where(b => b.Shape.Faces.Any(f => !string.Equals(f.Material, material, StringComparison.OrdinalIgnoreCase))).ToList();
-        if (changing.Count == 0 || AssetEdits.ApplyMaterial(p, changing.Select(b => ObjectRef.Brush(b.Id)), material) is not { } command)
+        if (changing.Count == 0 || AssetEdits.ApplyMaterial(p, changing.Select(b => ObjectRef.ForBrush(b)), material) is not { } command)
         {
             Context.SetStatus($"Apply {name}: already on every face of {(editable.Count == 1 ? "that brush" : $"those {editable.Count} brushes")}{skipped}.");
             return;

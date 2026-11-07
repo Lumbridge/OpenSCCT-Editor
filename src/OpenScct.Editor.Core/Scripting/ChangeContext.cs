@@ -134,7 +134,7 @@ internal sealed partial class ChangeContext
             ge: ge is null ? null : g => { ge(g); Stamp(g.Editor); });
         if (!cmd.IsEmpty)
         {
-            Run(cmd, refs.Any(r => r.Kind == ObjectKind.Brush));
+            Run(cmd, refs.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)));
         }
     }
 
@@ -147,7 +147,7 @@ internal sealed partial class ChangeContext
             Created(r);
         }
 
-        Run(cmd, cmd.Added.Any(r => r.Kind == ObjectKind.Brush));
+        Run(cmd, cmd.Added.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)));
     }
 
     public void Delete(IReadOnlyList<ObjectRef> refs)
@@ -157,7 +157,7 @@ internal sealed partial class ChangeContext
             Touch(r);
         }
 
-        Run(new DeleteObjectsCommand(refs), refs.Any(r => r.Kind == ObjectKind.Brush));
+        Run(new DeleteObjectsCommand(refs), refs.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)));
         RekeyPieces(PieceKeys.BrushIds(refs));
     }
 
@@ -166,7 +166,7 @@ internal sealed partial class ChangeContext
     {
         foreach ((IReadOnlyList<Brush> parts, string key) in PieceKeys.Orphans(Project, gone))
         {
-            Edit(parts.Select(b => ObjectRef.Brush(b.Id)).ToList(), $"Rename piece {key}",
+            Edit(parts.Select(b => ObjectRef.ForBrush(b)).ToList(), $"Rename piece {key}",
                 brush: b => b.Shape.Builder!.Strings[BuilderArgs.PieceKey] = key);
         }
     }
@@ -470,7 +470,7 @@ internal sealed partial class ChangeContext
     public static SvJsonObject? ObjectJson(MapProject p, ObjectRef r) => r.Kind switch
     {
         ObjectKind.Actor => p.FindActor(r.Id) is { } a ? ModelJson.ActorToJson(a) : null,
-        ObjectKind.Brush => p.FindBrush(r.Id) is { } b ? ModelJson.BrushToJson(b) : null,
+        ObjectKind.Brush or ObjectKind.Stair => p.FindBrush(r.Id) is { } b ? ModelJson.BrushToJson(b) : null,
         _ => p.FindGe(r.Id) is { } g ? ModelJson.GeToJson(g) : null,
     };
 

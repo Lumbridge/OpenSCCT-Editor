@@ -123,7 +123,7 @@ public sealed class T3dExporter : IMapExporter
         var picked = new MapProject
         {
             Id = project.Id,
-            Brushes = project.Brushes.Where(b => set.Contains(ObjectRef.Brush(b.Id))).ToList(),
+            Brushes = project.Brushes.Where(b => set.Contains(ObjectRef.ForBrush(b))).ToList(),
             Actors = project.Actors.Where(a => set.Contains(ObjectRef.Actor(a.Id))).ToList(),
             Ges = project.Ges.Where(g => set.Contains(ObjectRef.Ge(g.Id))).ToList(),
         };

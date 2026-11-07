@@ -186,7 +186,7 @@ public sealed class EditActions : IShellPart
         {
             switch (r.Kind)
             {
-                case ObjectKind.Brush when p.FindBrush(r.Id) is { } b:
+                case ObjectKind.Brush or ObjectKind.Stair when p.FindBrush(r.Id) is { } b:
                     brushes.Add(ModelJson.BrushToJson(b));
                     break;
                 case ObjectKind.Actor when p.FindActor(r.Id) is { } a:
@@ -225,7 +225,7 @@ public sealed class EditActions : IShellPart
         copiedIds = brushes.Select(b => b.Id).ToList();
         var copyOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         brushes.ForEach(b => b.Id = copyOf[b.Id] = Fresh(b.Id));
-        actors.ForEach(a => a.Id = Fresh(a.Id));
+        actors.ForEach(a => a.Id = copyOf[a.Id] = Fresh(a.Id));
         ges.ForEach(g => g.Id = Fresh(g.Id));
 
         // A pasted prefab part is a plain object, not a second copy of the part in its instance.

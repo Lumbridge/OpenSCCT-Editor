@@ -1,0 +1,846 @@
+[
+  {
+    "id": "builtin.fire_with_smoke",
+    "name": "Fire with smoke",
+    "category": "Fire",
+    "mode": "continuous",
+    "source": {
+      "map": "CpusS",
+      "actors": [
+        "Emitter23652"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "texture",
+        "from": "PCF09_TXT.Mat_2.flamme",
+        "to": "SQU13_txt.stm_na.flammes",
+        "why": "pixel-identical; SQU13_txt (3.6 MB) is shared with the barrel fire, PCF09_TXT is 9.6 MB"
+      },
+      {
+        "op": "offset",
+        "by": [
+          0,
+          0,
+          50
+        ],
+        "why": "the flames spawn 50 units below the actor; this puts their base on the pivot"
+      },
+      {
+        "op": "set",
+        "emitter": 3,
+        "property": "FadeIn",
+        "value": "True",
+        "why": "CpusS's smoke popped in and out at full size; it now fades and grows like the stock pipe smoke (SteeD.Emitter16611)"
+      },
+      {
+        "op": "set",
+        "emitter": 3,
+        "property": "FadeInEndTime",
+        "value": "0.500000"
+      },
+      {
+        "op": "set",
+        "emitter": 3,
+        "property": "FadeOut",
+        "value": "True"
+      },
+      {
+        "op": "set",
+        "emitter": 3,
+        "property": "FadeOutStartTime",
+        "value": "2.000000"
+      },
+      {
+        "op": "set",
+        "emitter": 3,
+        "property": "SpinParticles",
+        "value": "True"
+      },
+      {
+        "op": "set",
+        "emitter": 3,
+        "property": "SpinsPerSecondRange",
+        "value": "(X=(Min=-0.100000,Max=0.100000))"
+      },
+      {
+        "op": "set",
+        "emitter": 3,
+        "property": "UseSizeScale",
+        "value": "True"
+      },
+      {
+        "op": "set",
+        "emitter": 3,
+        "property": "UseRegularSizeScale",
+        "value": "False"
+      },
+      {
+        "op": "set",
+        "emitter": 3,
+        "property": "SizeScale(0)",
+        "value": "(RelativeTime=1.000000,RelativeSize=3.000000)"
+      }
+    ],
+    "description": "An open fire with a lazy grey smoke column above it. Additive flame tongues (SQU13 flammes, a 3x2 flipbook, 20 at a time) lick up to about 50 units. An orange glow flare flickers at the base, and a few sparks (sfx ATT_flare) climb about 100 units. Ten alpha smoke puffs (sfx smoke_grenade, 10-35 units) rise 25-40 units a second from 50 units above the flames' base, fading in, growing to three times their size and fading out over 4 seconds. Place the pivot where the flames start, such as a barrel rim or a pile of burning debris. No light is included: add a flickering Light for the glow."
+  },
+  {
+    "id": "builtin.fire_barrel",
+    "name": "Burning barrel",
+    "category": "Fire",
+    "mode": "continuous",
+    "source": {
+      "map": "SteeD",
+      "actors": [
+        "Emitter6332"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "offset",
+        "by": [
+          0,
+          0,
+          50
+        ],
+        "why": "the flames spawn 50 units below the actor; this puts their base on the pivot"
+      }
+    ],
+    "description": "Oil-drum fire from the Steel mill: additive flame tongues (SQU13 flammes, a 3x2 flipbook) about 35 units across and up to 50 units tall, an orange glow flare, and a few sparks rising about 100 units. Place the pivot on the barrel's rim. No smoke and no light: use Fire with smoke for the smoke column, and add a flickering Light for the glow."
+  },
+  {
+    "id": "builtin.fire_torch",
+    "name": "Wall torch flame",
+    "category": "Fire",
+    "mode": "continuous",
+    "source": {
+      "map": "PyroD",
+      "actors": [
+        "Emitter23529"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "untag",
+        "why": "TorchFireGood only groups the PyroD torches"
+      }
+    ],
+    "description": "The crypt torch flame from PyroD, the most-placed fire in the stock maps. Two animated flame sheets (crypt_txt FireSmallPart and FirePart, 25-40 units, following the actor) rise about 100 units. Glowing sparks drift up from 30 units above the base. Place the pivot at the top of the torch or brazier. crypt_txt is a 10 MB texture package, so the first placement takes a moment. No light is included: add a warm Light for the glow."
+  },
+  {
+    "id": "builtin.fire_gas_flare",
+    "name": "Gas flare jet",
+    "category": "Fire",
+    "mode": "continuous",
+    "source": {
+      "map": "OffsD",
+      "actors": [
+        "Emitter5070"
+      ]
+    },
+    "tweaks": [],
+    "description": "The oil rig's flare stack from OffsD: a roaring 200-unit-wide flame (Oilrig flame, 30 alpha and 50 additive sprites) shot about 600 units up in 1.5 seconds and bent by the wind toward +X and +Y, shrinking to nothing as it rises. DrawScale 10 only widens the culling bounds so the big flame is not clipped. For the top of a flare stack, burning pipe or chimney."
+  },
+  {
+    "id": "builtin.fire_embers",
+    "name": "Hot coals: embers and steam",
+    "category": "Fire",
+    "mode": "continuous",
+    "source": {
+      "map": "ClubD",
+      "actors": [
+        "Emitter1751"
+      ]
+    },
+    "tweaks": [],
+    "description": "Sauna-stove coals from ClubD: tiny glowing embers (CLU04 CLU_fx_sparks, additive) spiral up from a 128 x 64 unit bed while 20 soft steam puffs (FX_steam_occlude2, 15-20 units growing to 60) rise gently above them. Place the pivot on top of the coals or embers."
+  },
+  {
+    "id": "builtin.smoke_plume",
+    "name": "Large distant smoke plume",
+    "category": "Smoke",
+    "mode": "continuous",
+    "preview": {
+      "target": [
+        3000,
+        0,
+        800
+      ],
+      "radius": 2500,
+      "distance": 6000
+    },
+    "source": {
+      "map": "OrphD",
+      "actors": [
+        "Emitter417"
+      ]
+    },
+    "tweaks": [],
+    "description": "A huge dark smoke column for skylines and backdrops, from OrphD. 26 sprites (sfx smoke_grenade, 250-650 units wide) live 15-20 seconds and are blown 250-450 units a second along +X with a slow lift, so the plume stretches thousands of units downwind. DrawScale 10 only widens the culling bounds. Place it far from the play area; turn the actor to change the drift."
+  },
+  {
+    "id": "builtin.smoke_chimney",
+    "name": "Chimney smoke",
+    "category": "Smoke",
+    "mode": "continuous",
+    "source": {
+      "map": "MuseD",
+      "actors": [
+        "Emitter5461"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "texture",
+        "from": "drpoc_chantier_XBOX.FX.fumee_tuyau_light",
+        "to": "MHOsfx_xbox.FX.fumee_tuyau_light",
+        "why": "pixel-identical copy in a 135 KB package instead of 1.4 MB"
+      },
+      {
+        "op": "actorremove",
+        "property": "AmbientSound",
+        "why": "the museum rumble does not belong to a generic chimney"
+      },
+      {
+        "op": "actorremove",
+        "property": "SoundRadius"
+      },
+      {
+        "op": "actorremove",
+        "property": "SoundPitch"
+      }
+    ],
+    "description": "Soft grey smoke puffs from a roof vent or chimney, from MuseD. Four sprites (MHOsfx fumee_tuyau_light, 20-40 units) leave the vent, grow to four times their size and drift toward +X with a slight lift for about 4 seconds. Place the pivot at the chimney mouth."
+  },
+  {
+    "id": "builtin.smoke_smoulder",
+    "name": "Smouldering smoke",
+    "category": "Smoke",
+    "mode": "continuous",
+    "source": {
+      "map": "BankD",
+      "actors": [
+        "Emitter4538"
+      ]
+    },
+    "tweaks": [],
+    "description": "Thick slow smoke from something smouldering, from BankD: 15 alpha puffs (sfx smoke_grenade, 30 units) fade in, rise slowly and spread to about 240 units wide over 6 seconds, drifting a little toward -X. Only uses the always-loaded sfx package. Place the pivot at the source of the smoke."
+  },
+  {
+    "id": "builtin.smoke_exhaust",
+    "name": "Engine exhaust puffs",
+    "category": "Smoke",
+    "mode": "continuous",
+    "source": {
+      "map": "StatD",
+      "actors": [
+        "Emitter257"
+      ]
+    },
+    "tweaks": [],
+    "description": "Short grey puffs from a running vehicle's tailpipe, with the engine loop sound (Amb_Gare gar_moteurLoop), from StatD. Puffs (sfx smoke_grenade, 5-10 units growing to 25) shoot out 150-200 units a second along the actor's +X, slow down sharply and fade within a second. Place at the tailpipe and turn the actor so +X points out of it."
+  },
+  {
+    "id": "builtin.steam_vent",
+    "name": "Steam vent (grate)",
+    "category": "Steam",
+    "mode": "continuous",
+    "source": {
+      "map": "StatD",
+      "actors": [
+        "Emitter6308"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "texture",
+        "from": "GAR_TXT.sfx.GAR_steam_occlude2",
+        "to": "CLU04_TXT.FX.FX_steam_occlude2",
+        "why": "pixel-identical; CLU04_TXT (2 MB) is shared with the other steam entries, GAR_TXT is 4 MB"
+      }
+    ],
+    "description": "A wide sheet of white steam rising from a grate or manhole with a steam hiss (Amb_Gare Mis_vapeur), from StatD. 15 alpha sprites (FX_steam_occlude2) spawn along a 180-unit line on X, rise and billow to about 300 units wide while drifting slightly toward -X. Place the pivot on the grate."
+  },
+  {
+    "id": "builtin.steam_pipe",
+    "name": "Steam from a pipe",
+    "category": "Steam",
+    "mode": "continuous",
+    "source": {
+      "map": "SteeD",
+      "actors": [
+        "Emitter16611"
+      ]
+    },
+    "tweaks": [],
+    "description": "A soft grey-green steam plume leaking from a pipe end, from SteeD, where it is placed 41 times. Seven alpha puffs (sfx smoke_grenade, 30-40 units growing six-fold) leave along the actor's +X, which points straight up, and drift upward for 4 seconds. Visible to thermal vision. Turn the actor to change the direction the steam leaves the pipe."
+  },
+  {
+    "id": "builtin.steam_jet",
+    "name": "Steam jet (hissing)",
+    "category": "Steam",
+    "mode": "continuous",
+    "source": {
+      "map": "DeftD",
+      "actors": [
+        "Emitter292"
+      ]
+    },
+    "tweaks": [],
+    "description": "A steady hissing steam jet from machinery, with the Jet_Vapeur sound (amb_Belew), from DeftD. Eight alpha puffs (DTK fumee_tuyau, 10 units growing to 50) shoot 40-70 units a second along the actor's +X and curl upward over 2 seconds. Place at the leak and turn the actor so +X points out of it."
+  },
+  {
+    "id": "builtin.steam_sauna",
+    "name": "Sauna steam haze",
+    "category": "Steam",
+    "mode": "continuous",
+    "source": {
+      "map": "ClubD",
+      "actors": [
+        "Emitter400"
+      ]
+    },
+    "tweaks": [],
+    "description": "A slow translucent haze filling a steam room, with the sauna ambience (Amb_Club clu_saunaFum), from the ClubD bathhouse. Three large grey sheets (FX_steam_occlude2, 100-140 units) fade in and out over 3 seconds and barely move. Place in the middle of the room at head height."
+  },
+  {
+    "id": "builtin.steam_spill",
+    "name": "Cold vapour spilling down",
+    "category": "Steam",
+    "mode": "continuous",
+    "source": {
+      "map": "ClubD",
+      "actors": [
+        "Emitter373"
+      ]
+    },
+    "tweaks": [],
+    "description": "Vapour pouring down out of an opening, like cold air from a freezer or steam from a ceiling vent, with the sauna ambience (Amb_Club clu_saunaFum), from ClubD. 25 white puffs (FX_steam_occlude2, 40-50 units growing to double) spawn along a 128-unit line on Y, 30 units below the pivot, and sink 40-50 units a second. Place the pivot at the opening."
+  },
+  {
+    "id": "builtin.water_bubbles",
+    "name": "Rising bubbles",
+    "category": "Water",
+    "mode": "continuous",
+    "source": {
+      "map": "AquaD",
+      "actors": [
+        "Emitter269"
+      ]
+    },
+    "tweaks": [],
+    "description": "A column of rising bubbles for aquariums and underwater scenes, with a bubbling sound (Amb_Aqua Aqua_bulle), from AquaD. Up to 60 additive bubbles (Aquarium bubulles, a 4x4 flipbook, 1-5 units growing to double) wobble slightly and rise about 100 units over 3-4 seconds. Place the pivot at the air stone or bottom of the column."
+  },
+  {
+    "id": "builtin.water_drips",
+    "name": "Ceiling drips",
+    "category": "Water",
+    "mode": "continuous",
+    "source": {
+      "map": "OrphD",
+      "actors": [
+        "Emitter326"
+      ]
+    },
+    "tweaks": [],
+    "description": "Occasional water drops falling fast from a damp ceiling, from OrphD. About two drops a second (ORP_Gouttes) appear over a 100 x 100 area, fall with strong gravity and stop where they hit the floor (particle collision). Place the pivot just under the ceiling."
+  },
+  {
+    "id": "builtin.water_drip_splash",
+    "name": "Drip with splash",
+    "category": "Water",
+    "mode": "continuous",
+    "source": {
+      "map": "ScheE",
+      "actors": [
+        "Emitter5490"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "set",
+        "emitter": 0,
+        "property": "StartLocationOffset",
+        "value": "(Z=243.000000)",
+        "why": "the drop falls 243 units in its 1.8 s life; starting it that high lands it on the splash"
+      },
+      {
+        "op": "remove",
+        "emitter": 1,
+        "property": "StartLocationOffset",
+        "why": "the splash sat 350 units below the actor; it now plays at the pivot"
+      }
+    ],
+    "description": "A slow single drip with a tiny bright splash where it lands, from the ScheE sewers. Drops (SFX_SCH water_drops) start 243 units above the pivot and fall onto it, where small splash sprites (water_drops_giclure, Brighten) burst up. Place the pivot on the floor or water surface under the leak."
+  },
+  {
+    "id": "builtin.water_drip_puddle",
+    "name": "Drip into a puddle",
+    "category": "Water",
+    "mode": "continuous",
+    "preview": {
+      "pitch": -4096
+    },
+    "source": {
+      "map": "ShadD",
+      "actors": [
+        "Emitter857"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "set",
+        "emitter": 0,
+        "property": "StartLocationOffset",
+        "value": "(Z=382.000000)",
+        "why": "the drops now start where the ceiling was, 382 units above the puddle"
+      },
+      {
+        "op": "set",
+        "emitter": 0,
+        "property": "LifetimeRange",
+        "value": "(Min=3.550000,Max=3.550000)",
+        "why": "falling at 60 units/s/s a drop reaches the puddle after 3.55 s; the default 4 s carried it through the floor"
+      },
+      {
+        "op": "remove",
+        "emitter": 1,
+        "property": "StartLocationOffset",
+        "why": "the ripples sat 382 units below the actor; they now spread at the pivot"
+      }
+    ],
+    "description": "Water drips into a puddle from ShadD: a drop (sfx fx_sprinkler) falls from 382 units up every second, and a ripple ring (sfx impact_onde, lying flat and growing) spreads on the puddle every second with a drip sound (amb_Belew Ogout2). Only uses sfx textures. Place the pivot on the puddle; with a lower ceiling the drops simply appear from it."
+  },
+  {
+    "id": "builtin.water_leak_spray",
+    "name": "Leaking pipe spray",
+    "category": "Water",
+    "mode": "continuous",
+    "source": {
+      "map": "ScheE",
+      "actors": [
+        "Emitter345"
+      ]
+    },
+    "tweaks": [],
+    "description": "A fine mist of water squirting from a cracked pipe, from the ScheE sewers. 15 grey spray sprites (SFX_SCH Water_spray) shoot out along the actor's +X, which is turned 47 degrees down, grow six-fold and vanish within 0.6 seconds. Place at the crack and turn the actor to aim the spray."
+  },
+  {
+    "id": "builtin.water_shower",
+    "name": "Shower spray",
+    "category": "Water",
+    "mode": "continuous",
+    "source": {
+      "map": "PrisD",
+      "actors": [
+        "Emitter10844"
+      ]
+    },
+    "tweaks": [],
+    "description": "Water pouring from a shower head, from the PrisD showers. 70 bright drops a second (sfx fx_gouttes, a 4x4 flipbook, turned to follow their motion) leave the nozzle along the actor's +X, which points up, and fall about 240 units in 2 seconds. Place the pivot at the shower head."
+  },
+  {
+    "id": "builtin.water_wave_spray",
+    "name": "Sea wave spray (periodic)",
+    "category": "Water",
+    "mode": "periodic",
+    "source": {
+      "map": "AquaD",
+      "actors": [
+        "Emitter277"
+      ]
+    },
+    "tweaks": [],
+    "description": "Periodic: every 5-15 seconds a wave hits and throws up a burst of 15 big white spray sprites (Aquarium FX_embrun, 50-150 units), which fly 300-700 units up and 300-400 units toward -Y, then fall back over 2-3 seconds. From the AquaD sea wall. Place the pivot where the waves break, with -Y pointing inland."
+  },
+  {
+    "id": "builtin.water_waterfall_foam",
+    "name": "Waterfall foam and ripples",
+    "category": "Water",
+    "mode": "continuous",
+    "preview": {
+      "pitch": -6144
+    },
+    "source": {
+      "map": "ClubD",
+      "actors": [
+        "Emitter379",
+        "Emitter434"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "offset",
+        "by": [
+          3.9534912109375,
+          -9.44921875,
+          3.0
+        ],
+        "why": "puts the ripple emitter, which lies on the pool surface, on the pivot"
+      }
+    ],
+    "description": "White foam and ripple rings where falling water hits a pool, from the ClubD garden waterfall. One emitter churns 30 foam puffs (sfx extincteur_hud) along a 150-unit line on Y; the other spreads ripple rings (sfx impact_onde, 70-80 units) that flow away toward -X. Place the pivot where a waterfall or pipe mesh meets the water surface."
+  },
+  {
+    "id": "builtin.water_ripples",
+    "name": "Flowing water ripples",
+    "category": "Water",
+    "mode": "continuous",
+    "preview": {
+      "pitch": -8192
+    },
+    "source": {
+      "map": "ClubD",
+      "actors": [
+        "Emitter409"
+      ]
+    },
+    "tweaks": [],
+    "description": "Ripple rings flowing across a pool or stream, from the ClubD garden. Four rings (sfx impact_onde, 30-40 units growing by half) lie flat on the water and drift 50-60 units a second toward -X. Place the pivot on the water surface; combine several along a stream."
+  },
+  {
+    "id": "builtin.water_stream",
+    "name": "Water stream from a pipe",
+    "category": "Water",
+    "mode": "continuous",
+    "source": {
+      "map": "ClarD",
+      "actors": [
+        "Emitter14240"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "untag",
+        "why": "weather only groups the ClarD rain"
+      }
+    ],
+    "description": "Thin streaks of water pouring from a pipe outlet or gutter, from ClarD. Two long streaks (claritysoft Rain, stretched 100-500 units along their motion) fall 1400 units a second from a 96 x 96 opening. Place the pivot at the outlet."
+  },
+  {
+    "id": "builtin.rain_curtain",
+    "name": "Rain curtain",
+    "category": "Weather",
+    "mode": "continuous",
+    "preview": {
+      "target": [
+        0,
+        0,
+        -700
+      ],
+      "radius": 900,
+      "distance": 2000
+    },
+    "source": {
+      "map": "ClarD",
+      "actors": [
+        "Emitter374"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "untag",
+        "why": "weather only groups the ClarD rain"
+      },
+      {
+        "op": "set",
+        "emitter": 0,
+        "property": "StartLocationRange",
+        "value": "(X=(Min=-512.000000,Max=512.000000),Y=(Min=-1024.000000,Max=1024.000000))",
+        "why": "ClarD's strip is 1024 x 8192; a 1024 x 2048 area suits most maps"
+      },
+      {
+        "op": "set",
+        "emitter": 0,
+        "property": "MaxParticles",
+        "value": "90",
+        "why": "keeps ClarD's density (360 over 8192 units) on the smaller area"
+      }
+    ],
+    "description": "Falling rain streaks for outdoor areas, from ClarD. 90 streaks (claritysoft Rain, stretched 100-1000 units along their motion) fall 2000 units a second from a 1024 x 2048 area and live 1.5 seconds. Place the pivot high above the area; the streaks fall about 3000 units. The game's own rain uses ERainVolume; this is the emitter version. Pair it with Rain ground splashes."
+  },
+  {
+    "id": "builtin.rain_splashes",
+    "name": "Rain ground splashes",
+    "category": "Weather",
+    "mode": "continuous",
+    "preview": {
+      "pitch": -6144
+    },
+    "source": {
+      "map": "ClarD",
+      "actors": [
+        "Emitter17978"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "untag",
+        "why": "weather only groups the ClarD rain"
+      }
+    ],
+    "description": "Raindrops splashing on the ground, from ClarD. Up to 80 bright splash sprites (SFX_SCH water_drops_giclure, Brighten) pop and fade within half a second across a 1216 x 384 area. Place the pivot on the ground under a Rain curtain."
+  },
+  {
+    "id": "builtin.snowfall",
+    "name": "Snowfall (blizzard)",
+    "category": "Weather",
+    "mode": "continuous",
+    "preview": {
+      "target": [
+        0,
+        0,
+        300
+      ],
+      "radius": 700,
+      "distance": 1600
+    },
+    "source": {
+      "map": "ShadD",
+      "actors": [
+        "Emitter5204"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "set",
+        "emitter": 0,
+        "property": "StartLocationRange",
+        "value": "(X=(Min=-1024.000000,Max=1024.000000),Y=(Min=-1024.000000,Max=1024.000000),Z=(Min=-150.000000,Max=1024.000000))",
+        "why": "ShadD's box is 3000 x 5000 x 2150; a 2048 x 2048 x 1174 box suits most maps"
+      },
+      {
+        "op": "set",
+        "emitter": 0,
+        "property": "MaxParticles",
+        "value": "600",
+        "why": "half of ShadD's 1200, on a box a quarter of its area"
+      },
+      {
+        "op": "set",
+        "emitter": 0,
+        "property": "ParticlesPerSecond",
+        "value": "150.000000"
+      },
+      {
+        "op": "set",
+        "emitter": 0,
+        "property": "InitialParticlesPerSecond",
+        "value": "150.000000"
+      }
+    ],
+    "description": "Wind-driven snow for outdoor areas, from the ShadD blizzard. 150 flakes a second (ShadowMoses schneeflocke, 2-3 units, additive) appear in a 2048 x 2048 area up to 1024 units above the pivot, blow 300-500 units a second toward -X while falling, and stop where they hit the ground (particle collision). Place the pivot at ground level; move it upwind, since the snow drifts about 1600 units toward -X."
+  },
+  {
+    "id": "builtin.mist_drift",
+    "name": "Blowing mist",
+    "category": "Weather",
+    "mode": "continuous",
+    "preview": {
+      "target": [
+        0,
+        300,
+        40
+      ],
+      "radius": 500,
+      "distance": 1100
+    },
+    "source": {
+      "map": "PolaD",
+      "actors": [
+        "Emitter278"
+      ]
+    },
+    "tweaks": [],
+    "description": "Faint wisps of mist or powder snow blown across the ground, from PolaD. Ten wisps a second (sfx extincteur_hud, 30-60 units growing to triple, at most a tenth opaque) appear over a 900 x 400 area and race 300-600 units a second toward +Y. Only uses sfx textures. Place the pivot just above the ground."
+  },
+  {
+    "id": "builtin.sparks_shower",
+    "name": "Electrical sparks shower",
+    "category": "Sparks & Electrical",
+    "mode": "continuous",
+    "source": {
+      "map": "ClarD",
+      "actors": [
+        "Emitter14207"
+      ]
+    },
+    "tweaks": [],
+    "description": "Hot sparks spitting from a faulty cable or junction box, with an electric crackle (Amb_Tme Tme_elec), from ClarD. Bursts of additive sparks (sfx decal_metal_hotspot) shoot 100-200 units a second up and outward and fall back under gravity within a second; a new burst follows every 1-5 seconds. Place the pivot at the fault."
+  },
+  {
+    "id": "builtin.electric_arcs",
+    "name": "Electric arcs",
+    "category": "Sparks & Electrical",
+    "mode": "continuous",
+    "source": {
+      "map": "FactD",
+      "actors": [
+        "Emitter312"
+      ]
+    },
+    "tweaks": [],
+    "description": "Blue electric arcs crawling up an electrified fence or transformer, from FactD. Two additive arc sprites (FAC_TXT FX_electricfence_0, a 2x4 flipbook, 80 units wide) flicker and climb 100-250 units, facing the actor's Y axis. Place the pivot at the bottom of the fence and turn the actor so the arcs lie in the fence plane."
+  },
+  {
+    "id": "builtin.dust_motes",
+    "name": "Floating dust motes",
+    "category": "Dust & Debris",
+    "mode": "continuous",
+    "source": {
+      "map": "PrisD",
+      "actors": [
+        "Emitter6014"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "texture",
+        "from": "Penitentiary_TXT.Emitter.spark2",
+        "to": "sfx.Emitter.spark2",
+        "why": "Penitentiary_TXT is a 34.5 MB package; the always-loaded sfx has a small look-alike speck"
+      },
+      {
+        "op": "remove",
+        "emitter": 0,
+        "property": "StartLocationOffset",
+        "why": "with the range below the box is centred on the pivot instead of off to one side"
+      },
+      {
+        "op": "set",
+        "emitter": 0,
+        "property": "StartLocationRange",
+        "value": "(X=(Min=-70.000000,Max=70.000000),Y=(Min=-37.500000,Max=37.500000),Z=(Min=10.000000,Max=200.000000))",
+        "why": "PrisD's 140 x 75 x 190 box, moved so it sits over the pivot"
+      }
+    ],
+    "description": "Tiny pale specks drifting slowly in the air, as in a shaft of light, from PrisD. 20 additive specks (sfx spark2, 1-3 units, tinted pale yellow) fade in and out over 2.5 seconds inside a 140 x 75 x 190 box above the pivot, moving with the actor. Place the pivot on the floor under a window or lamp."
+  },
+  {
+    "id": "builtin.insects_moths",
+    "name": "Moths around a light",
+    "category": "Insects",
+    "mode": "continuous",
+    "source": {
+      "map": "PrisD",
+      "actors": [
+        "Emitter42704"
+      ]
+    },
+    "tweaks": [],
+    "description": "Three moths fluttering erratically around a lamp, from PrisD. Each moth (SFX_SCH butterfly, a 3x3 wing-beat flipbook, Brighten, 6 units) circles and darts within about 60 units of the pivot and is replaced every 0.7 seconds. Place the pivot just below the lamp."
+  },
+  {
+    "id": "builtin.light_beam",
+    "name": "Searchlight beam glow",
+    "category": "Lights & Glows",
+    "mode": "continuous",
+    "source": {
+      "map": "ShadD",
+      "actors": [
+        "Emitter296"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "untag",
+        "why": "spotlights_emitter only ties it to the ShadD searchlight mover"
+      },
+      {
+        "op": "actorremove",
+        "property": "bHardAttach",
+        "why": "the attachment tag is dropped, so there is nothing to attach to"
+      }
+    ],
+    "description": "A soft volumetric searchlight beam, from ShadD. Eight faint glow sprites (ShadowMoses corona1, Brighten) spaced 80 units apart along X grow from 100 to 240 units wide and dim toward the far end, making a 560-unit beam. In ShadD it rides a rotating searchlight; this copy is static. Place the pivot at the lamp lens and pair it with a spotlight."
+  },
+  {
+    "id": "builtin.gas_explosion",
+    "name": "Gas explosion (triggered)",
+    "category": "Explosions & Bursts",
+    "mode": "triggered",
+    "preview": {
+      "target": [
+        0,
+        0,
+        300
+      ],
+      "radius": 600,
+      "distance": 1400
+    },
+    "source": {
+      "map": "SteeD",
+      "actors": [
+        "Emitter251"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "tag",
+        "value": "GasExplosion",
+        "why": "boomgaz3 was the SteeD trigger name; placement prefixes the Tag with RE_<id>_"
+      }
+    ],
+    "description": "Triggered: shows nothing until an Event matching its Tag fires, then plays once per trigger. A gas-bottle blast from SteeD: a burst of shrapnel, a fireball of 11 flipbook flames (sfx frag_grenade, 80-120 units), a smoke puff spreading to 250 units, burning streaks thrown high into the air and a tall column of dark smoke rising for 7 seconds. Placing gives it the Tag RE_<id>_GasExplosion; set a trigger's Event to that Tag. Add the sound and damage separately."
+  },
+  {
+    "id": "builtin.electrical_short",
+    "name": "Electrical short (triggered)",
+    "category": "Explosions & Bursts",
+    "mode": "triggered",
+    "source": {
+      "map": "ClubD",
+      "actors": [
+        "Emitter3234"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "tag",
+        "value": "ElectricalShort",
+        "why": "electro_box_4 was the ClubD trigger name; placement prefixes the Tag with RE_<id>_"
+      }
+    ],
+    "description": "Triggered: shows nothing until an Event matching its Tag fires, then plays once per trigger. An electrical box shorting out, from ClubD: a spray of white-hot sparks (sfx spark_metal) shot 300-500 units a second, a bright flash streak (flare_fixe) and falling glass shards (glassbreaking3), all along the actor's +X, which points down as it was mounted under a ceiling box. Placing gives it the Tag RE_<id>_ElectricalShort; set a trigger's Event to that Tag. Turn the actor to aim it."
+  },
+  {
+    "id": "builtin.steam_burst",
+    "name": "Pressure valve steam burst (triggered)",
+    "category": "Explosions & Bursts",
+    "mode": "triggered",
+    "source": {
+      "map": "MissD",
+      "actors": [
+        "Emitter359"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "tag",
+        "value": "SteamBurst",
+        "why": "pression05 was the MissD trigger name; placement prefixes the Tag with RE_<id>_"
+      }
+    ],
+    "description": "Triggered: shows nothing until an Event matching its Tag fires, then plays once per trigger. A pressure valve venting, from MissD: 15 white steam puffs (sfx smoke_grenade) blast out at 600 units a second along the actor's +X, slow down sharply and billow to four times their size within a second. Placing gives it the Tag RE_<id>_SteamBurst; set a trigger's Event to that Tag. Turn the actor to aim it."
+  },
+  {
+    "id": "builtin.dust_fall",
+    "name": "Falling dust (triggered)",
+    "category": "Explosions & Bursts",
+    "mode": "triggered",
+    "source": {
+      "map": "MissD",
+      "actors": [
+        "Emitter1321"
+      ]
+    },
+    "tweaks": [
+      {
+        "op": "tag",
+        "value": "DustFall",
+        "why": "passerelle was the MissD trigger name; placement prefixes the Tag with RE_<id>_"
+      }
+    ],
+    "description": "Triggered: shows nothing until an Event matching its Tag fires, then plays once per trigger. Brown dust shaken loose from a catwalk or ceiling, from MissD: for 5 seconds, ten dust puffs a second (sfx extincteur_hud, 10-15 units growing to triple) fall from a 60 x 60 patch and fade within 2 seconds. Placing gives it the Tag RE_<id>_DustFall; set a trigger's Event to that Tag. Place the pivot just under the catwalk or ceiling."
+  }
+]

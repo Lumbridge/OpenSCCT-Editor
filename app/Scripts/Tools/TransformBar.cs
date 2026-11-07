@@ -148,7 +148,7 @@ public sealed partial class TransformBar : HBoxContainer
     {
         Rot Add(Rot r) => new(r.Pitch + pitch, r.Yaw + yaw, r.Roll + roll);
         return ReplaceObjectsCommand.Edit(p, s.Refs, "Rotate (typed)",
-            brush: b => b.Rotation = Add(s.Start(ObjectRef.Brush(b.Id))!.Value.Rotation),
+            brush: b => b.Rotation = Add(s.Start(ObjectRef.ForBrush(b))!.Value.Rotation),
             actor: a => a.Rotation = Add(s.Start(ObjectRef.Actor(a.Id))!.Value.Rotation));
     }
 

@@ -91,9 +91,10 @@ public sealed class MapCompiler : IMapCompiler
         RenderBuild.Write(ctx);
         SideFiles.Write(ctx);
         StrategicMapBuild.WritePictures(ctx);
-        IdentityBuild.Write(ctx);
         MatchBuild.Write(ctx);
         MoverLegsBuild.Write(ctx);
+        // Camera pictures are keyed on the complete sim and render output.
+        IdentityBuild.Write(ctx);
         if (ctx.HasErrors)
         {
             ctx.Info("compile.not-written", "the map was not written because of the errors above");

@@ -46,10 +46,12 @@ and restarts into it with your map. Help > Check for Updates asks at any time.
 ## What it does
 
 New users start in a **Simple workspace** with one large 3D view, a **Building** palette and **Your first map**
-guide. Name and save your map, explore the starter room, connect another room, position the teams and drag in an
+guide. Name and save your map, explore the starter room, build a doorway, corridor and room with the highlighted
+Surface tool and wall '+' menu, position the teams and drag in an
 objective computer, then check and play. The guide follows the map as you edit, undo and reopen it; hide it at any
 time and resume from **Help > Your First Map**. Gameplay pieces include their connections and explain any missing
-content before placement. Hover over common settings for plain-language explanations.
+content before placement. Objective computers include an activating Story mission so their laptops appear during
+play. Hover over common settings for plain-language explanations.
 
 The **Advanced** switch in the status bar (also **View > Workspace**) exposes all tools and panels. Each workspace
 remembers its view, dock sizes and tabs separately. Existing settings keep the advanced workspace. Default tool keys
@@ -72,13 +74,21 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   Layers, Inspector, Map, Surface, History, Log, Map Check, Classes, Bookmarks, Assets, Prefabs and References panels;
   select, move, rotate, scale, place, builder brush, face, vertex, clip, measure, GE and security tools; neighbour
   snap; a storey slider; rebindable shortcuts with stock, RE+, Hammer and Blender-like presets.
+- **Geometry palettes and builder preview.** Open **Geometry** from Building or the builder toolbar for common
+  floor slabs, walls, rooms, passages and other shapes. Drag a preset into a view or use **Use builder preview**.
+  In **Builder Brush** (B), arrows move, square handles resize a dimension with the opposite face fixed, and circles
+  adjust radii. **Place Here** previews surface contact; **Draw Box** draws a cube in a 2D view. **Add/Subtract** commits
+  the preview; **Escape** restores the state before a gesture. The separate **Stairs** palette creates editable stair assemblies.
 - **Gameplay.** Ledge detection, flush and corner joins, GE IDs; event wiring and the event graph; missions; the
   mover, SMagicEvent, camera network, property set, zone action and zone tip workbenches; player-count rules, map
   outfits and native conveyors; the map's name, dossier, places, pictures and translations.
 - **Analysis.** Map Check with stable rule codes and fixes, a deep check of the compiled map (leaks, void, floating
   meshes, collision caps), the stealth light map, reachability and routes for each side, and the bots' nav graph.
 - **Assets and prefabs.** An asset catalogue of the materials, meshes, textures and sounds a map can use, glTF and OBJ
-  mesh import with generated collision, and prefabs with a starter library.
+  mesh import with generated collision, and prefabs with a starter library. Use **Get Packs…** in Assets to download
+  shared data and map asset libraries from [OpenSCCT-Content](https://github.com/Lumbridge/OpenSCCT-Content). The editor
+  indexes the new assets as soon as installation finishes. Open **Tools > Emitter Library** to browse,
+  preview and place the 37 RE+ stock effects from installed OpenSCCT maps, save your own effects or import RE+ effect packs.
 - **Command line, scripting and MCP.** Everything the app does is also an `ose` command
   ([docs/CLI.md](docs/CLI.md)). Scripts edit maps through change documents and queries, one shot or over a JSON-lines
   server, and can edit the map open in the editor as ghost proposals to accept or reject

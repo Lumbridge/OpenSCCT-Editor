@@ -12,6 +12,7 @@ public static class MapObjects
 
     public static string KindName(ObjectKind k) => k switch
     {
+        ObjectKind.Stair => "stair",
         ObjectKind.Brush => "brush",
         ObjectKind.Actor => "actor",
         _ => "ge",
@@ -21,14 +22,14 @@ public static class MapObjects
     public static string ClassOf(MapProject p, ObjectRef r) => r.Kind switch
     {
         ObjectKind.Actor => p.FindActor(r.Id)?.Class ?? "",
-        ObjectKind.Brush => "Engine.Brush",
+        ObjectKind.Brush or ObjectKind.Stair => "Engine.Brush",
         _ => "GE." + (p.FindGe(r.Id)?.Kind ?? ""),
     };
 
     public static PropSet? Props(MapProject p, ObjectRef r) => r.Kind switch
     {
         ObjectKind.Actor => p.FindActor(r.Id)?.Props,
-        ObjectKind.Brush => p.FindBrush(r.Id)?.Props,
+        ObjectKind.Brush or ObjectKind.Stair => p.FindBrush(r.Id)?.Props,
         _ => null,
     };
 
@@ -36,7 +37,7 @@ public static class MapObjects
     public static Vec3 Origin(MapProject p, ObjectRef r) => r.Kind switch
     {
         ObjectKind.Actor => p.FindActor(r.Id)?.Location ?? Vec3.Zero,
-        ObjectKind.Brush => p.FindBrush(r.Id)?.Location ?? Vec3.Zero,
+        ObjectKind.Brush or ObjectKind.Stair => p.FindBrush(r.Id)?.Location ?? Vec3.Zero,
         _ => p.FindGe(r.Id)?.Points.FirstOrDefault() ?? Vec3.Zero,
     };
 
@@ -46,7 +47,7 @@ public static class MapObjects
     {
         switch (r.Kind)
         {
-            case ObjectKind.Brush when p.FindBrush(r.Id) is { } b:
+            case ObjectKind.Brush or ObjectKind.Stair when p.FindBrush(r.Id) is { } b:
                 return BrushBounds(b);
             case ObjectKind.Actor when p.FindActor(r.Id) is { } a:
                 return ActorBounds(a);
@@ -105,7 +106,7 @@ public static class MapObjects
     public static string? Tag(MapProject p, ObjectRef r) => r.Kind switch
     {
         ObjectKind.Actor => p.FindActor(r.Id)?.Tag,
-        ObjectKind.Brush => p.FindBrush(r.Id)?.Props.GetString("Tag"),
+        ObjectKind.Brush or ObjectKind.Stair => p.FindBrush(r.Id)?.Props.GetString("Tag"),
         _ => null,
     };
 

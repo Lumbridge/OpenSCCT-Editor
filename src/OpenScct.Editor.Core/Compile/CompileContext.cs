@@ -19,6 +19,16 @@ public sealed class CompileContext
         try
         {
             Project = GeGeometry.Expand(project);
+            if (Project.Brushes.Any(b => b.Stair is not null))
+            {
+                Project = Session.ProjectSnapshot.Take(Project);
+                foreach (var stair in Project.Brushes.Where(b => b.Stair is not null))
+                {
+                    if (stair.Stair!.Carve && BakedContent.BakedWorldKept(Project))
+                        throw new ArgumentException($"{stair.Id}: disable clearance cutting before building stairs in a retained baked world");
+                    Project.Actors.AddRange(Stairs.StairGeometry.Generate(stair).Smoothing);
+                }
+            }
         }
         catch (ArgumentException ex)
         {

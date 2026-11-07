@@ -31,6 +31,7 @@ public sealed class TransformSnapshot
             switch (r.Kind)
             {
                 case ObjectKind.Brush:
+                case ObjectKind.Stair:
                     _brushes[r.Id] = p.FindBrush(r.Id)!.Clone();
                     break;
                 case ObjectKind.Actor:
@@ -155,7 +156,7 @@ public sealed class TransformSnapshot
     /// <summary>The start location, rotation and scale of an object (for typed values).</summary>
     public (Vec3 Location, Rot Rotation, Vec3 Scale)? Start(ObjectRef r) => r.Kind switch
     {
-        ObjectKind.Brush when _brushes.TryGetValue(r.Id, out Brush? b) => (b.Location, b.Rotation, b.MainScale),
+        ObjectKind.Brush or ObjectKind.Stair when _brushes.TryGetValue(r.Id, out Brush? b) => (b.Location, b.Rotation, b.MainScale),
         ObjectKind.Actor when _actors.TryGetValue(r.Id, out Actor? a) => (a.Location, a.Rotation, a.DrawScale3D * a.DrawScale),
         ObjectKind.Ge when _ges.TryGetValue(r.Id, out Ge? g) && g.Points.Count > 0 => (g.Points[0], Rot.Zero, Vec3.One),
         _ => null,

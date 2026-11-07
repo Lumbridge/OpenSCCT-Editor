@@ -24,7 +24,7 @@ internal static class ObjectInfo
         p.Brushes.Select(Row).Concat(p.Actors.Select(Row)).Concat(p.Ges.Select(Row));
 
     public static ObjectRow Row(Brush b) =>
-        new(ObjectRef.Brush(b.Id), b.Editor, BrushClass, b.Props.GetString("Tag") ?? "", "", Groups(b.Props.GetString("Group")));
+        new(ObjectRef.ForBrush(b), b.Editor, b.Stair is null ? BrushClass : "Staircase", b.Props.GetString("Tag") ?? "", "", Groups(b.Props.GetString("Group")));
 
     public static ObjectRow Row(Actor a) =>
         new(ObjectRef.Actor(a.Id), a.Editor, a.ShortClass, a.Tag, a.Props.GetString("Event") ?? "", Groups(a.Props.GetString("Group")));
@@ -56,7 +56,7 @@ internal static class ObjectInfo
 
     public static ObjectRow? Find(MapProject p, ObjectRef r) => r.Kind switch
     {
-        ObjectKind.Brush when p.FindBrush(r.Id) is { } b => Row(b),
+        ObjectKind.Brush or ObjectKind.Stair when p.FindBrush(r.Id) is { } b => Row(b),
         ObjectKind.Actor when p.FindActor(r.Id) is { } a => Row(a),
         ObjectKind.Ge when p.FindGe(r.Id) is { } g => Row(g),
         _ => null,

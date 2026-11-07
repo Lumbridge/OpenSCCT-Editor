@@ -1,0 +1,272 @@
+[
+  {
+    "op": "size",
+    "w": 1600,
+    "h": 900
+  },
+  {
+    "op": "run",
+    "action": "workspace.advanced"
+  },
+  {
+    "op": "run",
+    "action": "view.layout.quad"
+  },
+  {
+    "op": "tool",
+    "id": "brush"
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.cube"
+  },
+  {
+    "op": "shot",
+    "name": "cube",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.cylinder"
+  },
+  {
+    "op": "shot",
+    "name": "cylinder",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.cone"
+  },
+  {
+    "op": "shot",
+    "name": "cone",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.tetrahedron"
+  },
+  {
+    "op": "shot",
+    "name": "tetrahedron",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.volumetric"
+  },
+  {
+    "op": "shot",
+    "name": "volumetric",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.sheet"
+  },
+  {
+    "op": "shot",
+    "name": "sheet",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.room"
+  },
+  {
+    "op": "shot",
+    "name": "room",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.corridor"
+  },
+  {
+    "op": "shot",
+    "name": "corridor",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.vent"
+  },
+  {
+    "op": "shot",
+    "name": "vent",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.crawlway"
+  },
+  {
+    "op": "shot",
+    "name": "crawlway",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.doorway"
+  },
+  {
+    "op": "shot",
+    "name": "doorway",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.window"
+  },
+  {
+    "op": "shot",
+    "name": "window",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.ramp"
+  },
+  {
+    "op": "shot",
+    "name": "ramp",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.platform"
+  },
+  {
+    "op": "shot",
+    "name": "platform",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.ledge"
+  },
+  {
+    "op": "shot",
+    "name": "ledge",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.linearStair"
+  },
+  {
+    "op": "shot",
+    "name": "linearStair",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.curvedStair"
+  },
+  {
+    "op": "shot",
+    "name": "curvedStair",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.spiralStair"
+  },
+  {
+    "op": "shot",
+    "name": "spiralStair",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.stairs"
+  },
+  {
+    "op": "shot",
+    "name": "stairs",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "brush.resetBuilder"
+  },
+  {
+    "op": "run",
+    "action": "brush.kind.cube"
+  },
+  {
+    "op": "hover",
+    "at": "view:Top",
+    "offset": [
+      0.585,
+      0.5
+    ],
+    "seconds": 0
+  },
+  {
+    "op": "shot",
+    "name": "hover-size"
+  },
+  {
+    "op": "drag",
+    "at": "view:Top",
+    "offset": [
+      0.585,
+      0.5
+    ],
+    "to": "view:Top",
+    "toOffset": [
+      0.65,
+      0.5
+    ],
+    "hold": true
+  },
+  {
+    "op": "shot",
+    "name": "live-resize"
+  },
+  {
+    "op": "key",
+    "key": "Escape"
+  },
+  {
+    "op": "release",
+    "at": "view:Top",
+    "offset": [
+      0.65,
+      0.5
+    ]
+  },
+  {
+    "op": "click",
+    "at": "text:Place Here"
+  },
+  {
+    "op": "move",
+    "at": "view:Perspective",
+    "offset": [
+      0.6,
+      0.7
+    ]
+  },
+  {
+    "op": "shot",
+    "name": "surface-placement"
+  },
+  {
+    "op": "key",
+    "key": "Escape"
+  },
+  {
+    "op": "run",
+    "action": "brush.palette"
+  },
+  {
+    "op": "shot",
+    "name": "geometry-palette"
+  },
+  {
+    "op": "quit"
+  }
+]

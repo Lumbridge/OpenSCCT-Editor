@@ -62,7 +62,7 @@ public sealed class VertexTool : IViewportTool
     private List<Brush> Targets()
     {
         Dictionary<string, Brush> brushes = FaceEdit.BrushIndex(Project);
-        return _tools.Context.Selection.Items.Where(r => r.Kind == ObjectKind.Brush)
+        return _tools.Context.Selection.Items.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair))
             .Select(r => brushes.GetValueOrDefault(r.Id)).OfType<Brush>()
             .Where(b => ObjectFilter.IsPickable(Project, b.Editor)).ToList();
     }

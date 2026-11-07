@@ -30,7 +30,7 @@ public static class WallPieceCommands
         {
             List<Brush> added = WallPieces.Build(Ctx.Project, anchor, kind);
             Ctx.Execute(new AddObjectsCommand($"Add {kind} on wall", added));
-            Ctx.Selection.Set(added.Select(b => ObjectRef.Brush(b.Id)));
+            Ctx.Selection.Set(added.Select(b => ObjectRef.ForBrush(b)));
             Ctx.SetStatus($"Added {WallPieces.Describe(anchor, kind)}: {string.Join(", ", added.Select(b => b.Id))}");
             return true;
         }

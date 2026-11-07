@@ -82,7 +82,18 @@ public static class MapShots
     /// laptops) from it, so a picture rendered from a build without it (every build before the table was written by
     /// default, or <c>ose build --no-classes</c>) is stale.</summary>
     public static string MapKey(IEnumerable<KeyValuePair<string, byte[]>> files) =>
-        SvMapHash.GroupHash(files.Where(f => IsShown(f.Key)).Select(f => (f.Key, SvMapHash.FileDigest(f.Key, f.Value))));
+        SvMapHash.GroupHash(files.Where(f => IsShown(f.Key)).Select(f => (f.Key, ShownDigest(f.Key, f.Value))));
+
+    private static string ShownDigest(string path, byte[] data)
+    {
+        // A warm lightmap cache changes the bake's ray count without changing the rendered lightmaps.
+        if (path == "render/lighting.json" && JsonNode.Parse(data) is JsonObject lighting && lighting.Remove("bake"))
+        {
+            return SvMapHash.FileDigest(path, JsonSerializer.SerializeToUtf8Bytes(lighting));
+        }
+
+        return SvMapHash.FileDigest(path, data);
+    }
 
     private static bool IsShown(string file) =>
         file.StartsWith("sim/", StringComparison.Ordinal) || file.StartsWith("render/", StringComparison.Ordinal);

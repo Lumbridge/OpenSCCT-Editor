@@ -144,7 +144,7 @@ public static partial class ChangeApplier
         if (solid.Count == 1)
         {
             ObjectRef r = solid[0];
-            if (r.Kind == ObjectKind.Brush && p.FindBrush(r.Id) is { } b)
+            if (r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && p.FindBrush(r.Id) is { } b)
             {
                 return SnapFaces.Shape(SnapFaces.OfBrush(b), r);
             }
@@ -170,7 +170,7 @@ public static partial class ChangeApplier
         var hi = new Vec3(double.MinValue, double.MinValue, double.MinValue);
         foreach (ObjectRef r in solid)
         {
-            (Vec3 Min, Vec3 Max)? b = r.Kind == ObjectKind.Brush && p.FindBrush(r.Id) is { } brush ? MapObjects.BrushBounds(brush)
+            (Vec3 Min, Vec3 Max)? b = r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && p.FindBrush(r.Id) is { } brush ? MapObjects.BrushBounds(brush)
                 : p.FindActor(r.Id) is { } actor ? (actor.Shape is null && boxes.Of(actor) is { } box ? box.Box.Bounds() : MapObjects.ActorBounds(actor))
                 : null;
             if (b is { } bb)

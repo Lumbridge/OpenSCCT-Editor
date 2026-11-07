@@ -22,7 +22,7 @@ public static class ObjectFilter
 
     /// <summary>Every visible, unlocked object.</summary>
     public static IEnumerable<ObjectRef> Pickable(MapProject p) =>
-        p.Brushes.Where(b => IsPickable(p, b.Editor)).Select(b => ObjectRef.Brush(b.Id))
+        p.Brushes.Where(b => IsPickable(p, b.Editor)).Select(b => ObjectRef.ForBrush(b))
             .Concat(p.Actors.Where(a => IsPickable(p, a.Editor)).Select(a => ObjectRef.Actor(a.Id)))
             .Concat(p.Ges.Where(g => IsPickable(p, g.Editor)).Select(g => ObjectRef.Ge(g.Id)));
 

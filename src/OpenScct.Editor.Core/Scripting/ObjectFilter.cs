@@ -50,6 +50,7 @@ public sealed class ObjectFilter
             {
                 "actor" or "actors" => ObjectKind.Actor,
                 "brush" or "brushes" => ObjectKind.Brush,
+                "stair" or "stairs" => ObjectKind.Stair,
                 "ge" or "ges" => ObjectKind.Ge,
                 _ => throw new ApiException($"unknown kind '{k}' (actor, brush, ge)", field + ".kind"),
             }).ToHashSet();
@@ -179,7 +180,7 @@ public sealed class ObjectFilter
             return false;
         }
 
-        if (_csg is not null && (r.Kind != ObjectKind.Brush || !string.Equals(p.FindBrush(r.Id)!.Oper == CsgOper.Add ? "add" : "subtract", _csg, StringComparison.OrdinalIgnoreCase)))
+        if (_csg is not null && (r.Kind is not (ObjectKind.Brush or ObjectKind.Stair) || !string.Equals(p.FindBrush(r.Id)!.Oper == CsgOper.Add ? "add" : "subtract", _csg, StringComparison.OrdinalIgnoreCase)))
         {
             return false;
         }

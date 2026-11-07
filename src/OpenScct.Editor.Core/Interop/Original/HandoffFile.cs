@@ -59,6 +59,7 @@ public static class HandoffFile
         o.Add("id", SvJsonNode.String(p.Id));
         o.Add("t3d", SvJsonNode.String(Convert.ToHexStringLower(SHA256.HashData(t3d))));
         o.Add("title", SvJsonNode.String(p.Title));
+        if (p.Brushes.Any(b => b.Stair is not null)) o.Add("stairs", Stairs.StairStore.Write(p));
         o.Add("mapInfo", p.MapInfo.ToJson());
         var settings = new SvJsonObject();
         foreach ((string mode, PropSet props) in p.MapSettings)
@@ -299,6 +300,14 @@ public static class HandoffFile
             p.Extra.TryAdd(LocalAssets.SourceMapKey, SvJsonNode.String(sourceMap));
         }
 
+        if (exported && o["stairs"] is SvJsonObject stairs)
+        {
+            var authored = new MapProject(); Stairs.StairStore.Read(authored, stairs);
+            var generated = authored.Brushes.SelectMany(b => Stairs.StairGeometry.Generate(b).Cuts.Concat(Stairs.StairGeometry.Generate(b).Solids)).Select(b => b.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var volumes = authored.Brushes.SelectMany(b => Stairs.StairGeometry.Generate(b).Smoothing).Select(a => a.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            p.Brushes.RemoveAll(b => generated.Contains(b.Id)); p.Actors.RemoveAll(a => volumes.Contains(a.Id));
+            Stairs.StairStore.Read(p, stairs); restored.Add("editable staircases");
+        }
         RestoreMatchAndOutfits(p, o, Full, restored, findings);
         if (o["builders"] is SvJsonObject builders)
         {

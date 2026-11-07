@@ -13,7 +13,7 @@ public static class FeaturedGameplay
     public static readonly IReadOnlyDictionary<string, string> Descriptions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["spawn_room"] = "A lit room with starting positions for one team and an exit doorway.",
-        ["objective_computer"] = "A computer spies can hack to complete an objective. The computer and objective are already connected.",
+        ["objective_computer"] = "A computer spies can hack to complete an objective. Its objective and activating Story mission are already connected.",
         ["door_switch"] = "A moving door and a switch that opens it. Each copy controls its own door.",
         ["camera_alarm"] = "A security camera that raises its own alarm when it spots an intruder.",
         ["laser_grid_alarm"] = "Laser beams that raise an alarm when a player crosses them.",

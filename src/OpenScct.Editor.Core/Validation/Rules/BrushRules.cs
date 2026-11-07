@@ -50,15 +50,15 @@ internal sealed class BrushRules : MapRule
             Vec3 s = b.MainScale.Scale(b.PostScale);
             if (s.X == 0 || s.Y == 0 || s.Z == 0)
             {
-                c.Report(Severity.Error, ZeroScale, $"{b.Id}: scale {s} has a zero component", b.Location, ObjectRef.Brush(b.Id));
+                c.Report(Severity.Error, ZeroScale, $"{b.Id}: scale {s} has a zero component", b.Location, ObjectRef.ForBrush(b));
             }
 
-            CheckShape(c, b.Shape, ObjectRef.Brush(b.Id), b.Id, CheckContext.Centre(b));
+            CheckShape(c, b.Shape, ObjectRef.ForBrush(b), b.Id, CheckContext.Centre(b));
             if (bakedKept && BakedContent.IsBaked(b) && BakedContent.ImportedHash(b) is { } imported && imported != BakedContent.Hash(b))
             {
                 c.Report(Severity.Warning, BakedEdited,
                     $"{b.Id}: the kept baked {KeptLayers(c.Project.Baked!)} still has this brush as imported; build it from the brushes instead (Map Settings, Baked world)",
-                    CheckContext.Centre(b), ObjectRef.Brush(b.Id));
+                    CheckContext.Centre(b), ObjectRef.ForBrush(b));
             }
         }
 

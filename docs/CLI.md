@@ -451,6 +451,18 @@ Prints a class's properties with type, category, enum values and defaults (edita
 
 ## Assets and prefabs
 
+### content-packs
+
+```
+ose content-packs list | install <id-or-map-code> [--content folder]
+```
+
+Lists the OpenSCCT-Content catalogue or installs a pack and its required shared data. Prints JSON.
+Use an id such as `shared/core` or `recovered/ClarD`, or a map code such as `ClarD`. Map installs use the full
+archive so its assets are available in the editor. `--content` sets the installation folder for the command.
+The launcher-managed editor and launcher use the same pack folder. A source build uses its active content folder.
+Existing local files that the pack installer does not own are protected.
+
 ### assets
 
 ```
@@ -500,6 +512,17 @@ ose prefab list [project] | show <name> [project] | place <project> <name> [--at
 ```
 
 Lists, places, saves, updates and unlinks prefabs (saved groups of brushes, actors and GEs with parameters); prints JSON.
+
+### emitters
+
+```
+ose emitters list | show <effect> | place <project> <effect> [--at x,y,z] [--loop-min seconds] [--loop-max seconds] [--dry-run] | save <project> <name> <ids...> [--category name] | import-pack <file.json> [--content folder]
+```
+
+Lists, inspects, places and saves Emitter Library effects and imports RE+ effect packs. Effect names and ids are accepted. Prints JSON.
+`--content` sets the source of stock presets and particle textures. `place` defaults to the map origin and saves the
+project unless `--dry-run` is given. With either loop bound set, each particle system repeats after a wait in that range.
+If you give only one bound, it sets a fixed wait. `save` captures the specified emitters around the centre of their positions.
 
 ## Updates
 

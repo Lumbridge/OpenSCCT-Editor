@@ -85,6 +85,7 @@ internal static class ChangeDiff
             }
 
             case ObjectKind.Brush:
+                case ObjectKind.Stair:
             {
                 Brush b = p.FindBrush(r.Id)!;
                 (Vec3 min, Vec3 max) = MapObjects.BrushBounds(b);

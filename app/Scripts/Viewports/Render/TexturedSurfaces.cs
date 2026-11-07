@@ -12,12 +12,12 @@ public sealed class TexturedSurfaces
 {
     private readonly Dictionary<ViewMaterial, Section> _sections = new();
 
-    /// <summary>Adds the visible polygons (invisible ones and degenerate ones are skipped).</summary>
+    /// <summary>Adds visible world surfaces. Zone portals are editing helpers, not opaque world faces.</summary>
     public void Add(IEnumerable<PreviewPolygon> polys)
     {
         foreach (PreviewPolygon p in polys)
         {
-            if (p.Vertices.Count < 3 || (p.Flags & PolyFlags.Invisible) != 0)
+            if (p.Vertices.Count < 3 || (p.Flags & (PolyFlags.Invisible | PolyFlags.Portal)) != 0)
             {
                 continue;
             }

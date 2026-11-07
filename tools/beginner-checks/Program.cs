@@ -10,6 +10,12 @@ using OpenScct.Editor.Core.Project;
 using OpenScct.Editor.Core.Scripting;
 using OpenScct.Editor.Core.Services;
 using OpenScct.Editor.Core.Session;
+using OpenScct.Content;
+using OpenScct.Content.Loading;
+using OpenScct.Core;
+using OpenScct.Core.Engine;
+using OpenScct.Game.SBase;
+using Actor = OpenScct.Editor.Core.Model.Actor;
 
 string root = Path.Combine(Path.GetTempPath(), "ose-beginner-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
@@ -56,6 +62,11 @@ session.Commands.Undo();
 Check(!FirstMapGuide.Steps(project, true, FirstMapGuide.Revision(project))[4], "Undo removes objective completion");
 session.Commands.Redo();
 Check(FirstMapGuide.Steps(project, true, FirstMapGuide.Revision(project))[4], "Redo restores objective completion");
+string missionId = project.Actors.Single(a => a.ShortClass == "SMission").Id;
+Apply(session, ApiJson.Obj(("op", ApiJson.Str("delete")), ("id", ApiJson.Str(missionId))));
+Check(!FirstMapGuide.Steps(project, true, FirstMapGuide.Revision(project))[4], "An unlisted objective must not complete the playable-computer lesson");
+session.Commands.Undo();
+Check(FirstMapGuide.Steps(project, true, FirstMapGuide.Revision(project))[4], "Restoring its Story mission restores objective completion");
 
 Apply(session, ApiJson.Obj(("op", ApiJson.Str("create")), ("brush", ApiJson.Obj(("kind", ApiJson.Str("room")), ("height", ApiJson.Num(512)))), ("at", ApiJson.Vec(new Vec3(1088, 0, 0)))));
 Check(!FirstMapGuide.HasConnectedRooms(project), "Separated rooms must not complete connection step");
@@ -63,6 +74,23 @@ Apply(session, ApiJson.Obj(("op", ApiJson.Str("create")), ("brush", ApiJson.Obj(
 Check(FirstMapGuide.HasConnectedRooms(project), "Doorway connects the starter and second room");
 session.Commands.Undo();
 Check(!FirstMapGuide.HasConnectedRooms(project), "Undoing doorway invalidates connection");
+
+var lesson = EditorSession.New("Learn", "Learn");
+Starter.AddStarterRoom(lesson.Project);
+lesson.Project.Workspace.FirstMap.ConstructionBaseline = lesson.Project.Brushes.Select(b => b.Id).ToArray();
+SvJsonObject Piece(string kind, Vec3 at, params (string Key, SvJsonNode? Value)[] settings) => ApiJson.Obj(
+    ("op", ApiJson.Str("create")), ("brush", ApiJson.Obj(new[] { ("kind", (SvJsonNode?)ApiJson.Str(kind)) }.Concat(settings).ToArray())), ("at", ApiJson.Vec(at)));
+Apply(lesson, Piece("doorway", new Vec3(544, 0, 0), ("depth", ApiJson.Num(64))));
+Check(FirstMapGuide.HasLessonPiece(lesson.Project, "doorway"), "Manually adding a doorway advances the wall lesson");
+Check(!FirstMapGuide.Steps(lesson.Project, true, FirstMapGuide.Revision(lesson.Project))[2], "A doorway alone must not finish building");
+Apply(lesson, Piece("corridor", new Vec3(832, 0, 0), ("length", ApiJson.Num(512))));
+Check(!FirstMapGuide.Steps(lesson.Project, true, FirstMapGuide.Revision(lesson.Project))[2], "A corridor without a new room must not finish building");
+Apply(lesson, Piece("doorway", new Vec3(1104, 0, 0), ("depth", ApiJson.Num(32))), Piece("room", new Vec3(1632, 0, 0)));
+Check(FirstMapGuide.Steps(lesson.Project, true, FirstMapGuide.Revision(lesson.Project))[2], "The manually assembled doorway-corridor-room chain completes the lesson");
+lesson.Commands.Undo();
+Check(!FirstMapGuide.Steps(lesson.Project, true, FirstMapGuide.Revision(lesson.Project))[2], "Undoing the new room reverses lesson completion");
+var baseline = ProjectStore.WorkspaceFromJson(ProjectStore.WorkspaceToJson(lesson.Project.Workspace)).FirstMap.ConstructionBaseline;
+Check(baseline?.SequenceEqual(lesson.Project.Workspace.FirstMap.ConstructionBaseline!) == true, "Construction lesson baseline survives workspace serialization");
 
 foreach (string name in FeaturedGameplay.Conditions.Keys)
 {
@@ -115,6 +143,16 @@ if (args.Contains("--compile", StringComparer.Ordinal))
     { ContentRoot = content, ProjectFolder = Path.Combine(root, "Tutorial.osmap"), FastLighting = true });
     foreach (var finding in compiled.Findings) Console.WriteLine(finding);
     Check(compiled.Ok, "Tutorial map compiles and loads with OpenSCCT's strict loader");
+    var registry = ActorClassRegistry.Create(CorePackage.Info, EnginePackage.Info, SBasePackage.Info);
+    var world = new World(1);
+    var loaded = new MapLoader(registry).Load(world, SvMap.Load(compiled.OutputFolder));
+    var terminal = (SComputerObjectiveTrigger)loaded.FindActor(project.Actors.Single(a => a.ShortClass == "SComputerObjectiveTrigger").Id)!;
+    var mission = (SMission)loaded.FindActor(project.Actors.Single(a => a.ShortClass == "SMission").Id)!;
+    mission.Desactivate();
+    Check(terminal.bHidden, "A deactivated mission hides the terminal as the game does before match start");
+    mission.Reset();
+    Check(!terminal.bHidden && terminal.bActive && terminal.ComputerInteraction is { bUsable: true },
+        "The compiled Story mission must reveal and activate the laptop and its use interaction");
     Console.WriteLine($"Tutorial compiled successfully: {compiled.OutputFolder}");
     foreach (string name in FeaturedGameplay.Conditions.Keys)
     {

@@ -25,6 +25,7 @@ public partial class BuildingPanel : PrefabsPanel
         }
         EditorLifetime.Defer(RefreshHint);
         ShortcutBindings.Changed += RefreshHint;
+        PanelUi.Button(this, "Geometry palettes", "Browse common floors, walls and builder shapes", () => DockTabs.ShowPanel("Geometry"));
         var shapes = new HFlowContainer();
         AddChild(shapes);
         foreach (var (name, kind, icon, help) in new[]
@@ -36,7 +37,7 @@ public partial class BuildingPanel : PrefabsPanel
         })
         {
             string action = "brush.kind." + kind;
-            Button button = PanelUi.Button(shapes, name, help, () => Context.Run(action));
+            Button button = PanelUi.Button(shapes, name, help, () => { if (kind == "stairs") DockTabs.ShowPanel("Stairs"); else Context.Run(action); });
             button.Icon = Icons.Get(icon, EditorTheme.TextDim);
         }
         var actions = PanelUi.Toolbar(this);

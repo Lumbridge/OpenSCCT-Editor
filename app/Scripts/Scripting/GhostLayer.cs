@@ -72,7 +72,7 @@ public sealed partial class GhostLayer : Node3D
         var created = preview.Created.ToHashSet();
         foreach (Brush b in preview.Brushes)
         {
-            Color c = created.Contains(ObjectRef.Brush(b.Id)) ? CreatedColor : UpdatedColor;
+            Color c = created.Contains(ObjectRef.ForBrush(b)) ? CreatedColor : UpdatedColor;
             AddBrush(lines, fill, b, c);
         }
 
@@ -90,7 +90,7 @@ public sealed partial class GhostLayer : Node3D
         {
             switch (r.Kind)
             {
-                case ObjectKind.Brush when map.FindBrush(r.Id) is { } b:
+                case ObjectKind.Brush or ObjectKind.Stair when map.FindBrush(r.Id) is { } b:
                     AddBrush(lines, null, b, DeletedColor);
                     break;
                 case ObjectKind.Actor when map.FindActor(r.Id) is { } a:

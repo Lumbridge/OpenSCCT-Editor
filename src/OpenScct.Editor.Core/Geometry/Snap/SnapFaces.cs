@@ -10,7 +10,7 @@ public static class SnapFaces
 
     /// <summary>A brush's world faces (degenerate ones, which recovered brushes can have, are skipped).</summary>
     public static IReadOnlyList<SnapFace> OfBrush(Brush b) =>
-        OfPolygons(ObjectRef.Brush(b.Id), SnapSource.Brush, b.WorldFaces().Select(f => (IReadOnlyList<Vec3>)f.Vertices));
+        OfPolygons(ObjectRef.ForBrush(b), SnapSource.Brush, b.WorldFaces().Select(f => (IReadOnlyList<Vec3>)f.Vertices));
 
     /// <summary>Faces from world polygons, numbered in order (degenerate polygons keep their number but give no face).</summary>
     public static IReadOnlyList<SnapFace> OfPolygons(ObjectRef? owner, SnapSource source, IEnumerable<IReadOnlyList<Vec3>> polygons, bool approximate = false)

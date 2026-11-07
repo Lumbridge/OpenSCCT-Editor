@@ -34,12 +34,14 @@ internal static class Fields
                 if (a.Legs is not null) yield return "legs";
                 if (a.Shape is not null)
                 {
-                    yield return "builder";
+                    if (p.FindBrush(r.Id)?.Stair is not null) yield return "stair";
+                yield return "builder";
                     yield return "bounds";
                 }
 
                 break;
             case ObjectKind.Brush:
+                case ObjectKind.Stair:
                 Brush b = p.FindBrush(r.Id)!;
                 yield return "csg";
                 if (b.PolyFlags != 0) yield return "flags";
@@ -48,6 +50,7 @@ internal static class Fields
                 if (b.MainScale != Vec3.One) yield return "scale";
                 if (b.PostScale != Vec3.One) yield return "postScale";
                 if (b.PrePivot != Vec3.Zero) yield return "prePivot";
+                if (p.FindBrush(r.Id)?.Stair is not null) yield return "stair";
                 yield return "builder";
                 yield return "faces";
                 yield return "mats";
@@ -78,7 +81,7 @@ internal static class Fields
     public static SvJsonNode? Get(MapProject p, ObjectRef r, string field)
     {
         Actor? a = r.Kind == ObjectKind.Actor ? p.FindActor(r.Id) : null;
-        Brush? b = r.Kind == ObjectKind.Brush ? p.FindBrush(r.Id) : null;
+        Brush? b = r.Kind is (ObjectKind.Brush or ObjectKind.Stair) ? p.FindBrush(r.Id) : null;
         Ge? g = r.Kind == ObjectKind.Ge ? p.FindGe(r.Id) : null;
         EditorMeta? m = p.MetaOf(r);
         if (m is null)
@@ -88,6 +91,7 @@ internal static class Fields
 
         switch (field)
         {
+            case "stair": return b?.Stair is { } stair ? ApiJson.Parse(stair.ToJson(), "stair") : null;
             case "id": return ApiJson.Str(r.Id);
             case "kind": return ApiJson.Str(MapObjects.KindName(r.Kind));
             case "class": return ApiJson.Str(a?.Class ?? (b is not null ? "Brush" : "GE." + g!.Kind));

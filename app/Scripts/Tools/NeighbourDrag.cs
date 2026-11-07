@@ -499,7 +499,7 @@ public sealed class NeighbourDrag
         ObjectRef main = primary is { Kind: not ObjectKind.Ge } pr && refs.Contains(pr) ? pr : refs[0];
         MovingShape? own = refs.Count <= 400 ? Single(snap, main) : null;
         IReadOnlyList<SnapFace> faces = box.Faces;
-        if (own is not null && main.Kind == ObjectKind.Brush && own.Faces.Count <= SnapFaces.MaxMovingFaces)
+        if (own is not null && main.Kind is (ObjectKind.Brush or ObjectKind.Stair) && own.Faces.Count <= SnapFaces.MaxMovingFaces)
         {
             faces = [.. box.Faces, .. own.Faces];
         }
@@ -511,7 +511,7 @@ public sealed class NeighbourDrag
     {
         switch (r.Kind)
         {
-            case ObjectKind.Brush when snap.StartBrush(r.Id) is { } b:
+            case ObjectKind.Brush or ObjectKind.Stair when snap.StartBrush(r.Id) is { } b:
                 return SnapFaces.Shape(ActorSnapBox.Faces(b), r);
             case ObjectKind.Actor when snap.StartActor(r.Id) is { Shape: not null } a:
                 return SnapFaces.Shape(SnapFaces.OfShape(a), r);
@@ -539,7 +539,7 @@ public sealed class NeighbourDrag
 
     private static (Vec3 Min, Vec3 Max)? BoundsAtStart(TransformSnapshot snap, ObjectRef r) => r.Kind switch
     {
-        ObjectKind.Brush when snap.StartBrush(r.Id) is { } b => (BrushGeometry.Of(b).Min, BrushGeometry.Of(b).Max),
+        ObjectKind.Brush or ObjectKind.Stair when snap.StartBrush(r.Id) is { } b => (BrushGeometry.Of(b).Min, BrushGeometry.Of(b).Max),
         ObjectKind.Actor when snap.StartActor(r.Id) is { Shape: not null } a => ObjectGeometry.ActorBounds(a),
         ObjectKind.Actor when snap.StartActor(r.Id) is { } a => ActorSnapBox.Of(a) is { } box ? box.Box.Bounds() : ObjectGeometry.ActorBounds(a),
         _ => null,
@@ -555,7 +555,7 @@ public sealed class NeighbourDrag
         static bool Square(Rot r) => r.Pitch % 16384 == 0 && r.Yaw % 16384 == 0 && r.Roll % 16384 == 0;
         foreach (ObjectRef r in snap.Refs)
         {
-            if (r.Kind == ObjectKind.Brush && snap.StartBrush(r.Id) is { } b && !Square(b.Rotation))
+            if (r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && snap.StartBrush(r.Id) is { } b && !Square(b.Rotation))
             {
                 return "turned selection, scale does not stick";
             }

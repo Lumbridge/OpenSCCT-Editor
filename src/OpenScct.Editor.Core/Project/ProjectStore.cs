@@ -32,6 +32,7 @@ public static class ProjectStore
     public const string Extension = ".osmap";
     public const string MapFile = "map.json";
     public const string BrushesFile = "world/brushes.json";
+    public const string StairsFile = "world/stairs.json";
     public const string ActorsFile = "world/actors.json";
     public const string GesFile = "world/ges.json";
     public const string PrefabInstancesFile = "world/prefabs.json";
@@ -69,7 +70,8 @@ public static class ProjectStore
         try
         {
             files.Add((MapFile, CanonicalJson.ToFileBytes(MapToJson(p))));
-            files.Add((BrushesFile, CanonicalJson.ToFileBytes(Wrap("brushes", p.Brushes.Select(b => ModelJson.BrushToJson(b))))));
+            files.Add((BrushesFile, CanonicalJson.ToFileBytes(Wrap("brushes", p.Brushes.Where(b => b.Stair is null).Select(b => ModelJson.BrushToJson(b))))));
+            files.Add((StairsFile, CanonicalJson.ToFileBytes(Stairs.StairStore.Write(p))));
             files.Add((ActorsFile, CanonicalJson.ToFileBytes(Wrap("actors", p.Actors.Select(a => ModelJson.ActorToJson(a))))));
             files.Add((GesFile, CanonicalJson.ToFileBytes(Wrap("ges", p.Ges.Select(g => ModelJson.GeToJson(g))))));
             if (p.Prefabs.Count > 0)
@@ -204,11 +206,12 @@ public static class ProjectStore
         }
 
         SvJsonObject map = Read(folder, MapFile) ?? new SvJsonObject();
-        if (ModelJson.Str(map, "format") is { } fmt && fmt != MapProject.FormatId)
+        if (ModelJson.Str(map, "format") is { } fmt && fmt != MapProject.FormatId && fmt != "osmap/2")
         {
             throw new InvalidDataException($"{mapPath}: format is '{fmt}', expected '{MapProject.FormatId}'.");
         }
 
+        if ((int)ModelJson.Num(map["version"]) > 2) throw new InvalidDataException("This project needs a newer editor");
         var p = new MapProject
         {
             Id = ModelJson.Str(map, "id") ?? Path.GetFileNameWithoutExtension(folder),
@@ -266,6 +269,7 @@ public static class ProjectStore
         }
 
         p.Brushes.AddRange(Items(Read(folder, BrushesFile), "brushes").Select(ModelJson.BrushFromJson));
+        Stairs.StairStore.Read(p, Read(folder, StairsFile));
         p.Actors.AddRange(Items(Read(folder, ActorsFile), "actors").Select(ModelJson.ActorFromJson));
         p.Ges.AddRange(Items(Read(folder, GesFile), "ges").Select(ModelJson.GeFromJson));
         p.Layers.AddRange(Items(Read(folder, LayersFile), "layers").Select(LayerFromJson));
@@ -293,8 +297,9 @@ public static class ProjectStore
     public static SvJsonObject MapToJson(MapProject p)
     {
         var o = new SvJsonObject();
-        o.Add("format", SvJsonNode.String(MapProject.FormatId));
-        o.Add("version", SvJsonNode.Integer(MapProject.FormatVersion));
+        int version = p.Brushes.Any(b => b.Stair is not null) ? 2 : MapProject.FormatVersion;
+        o.Add("format", SvJsonNode.String(version > 1 ? $"osmap/{version}" : MapProject.FormatId));
+        o.Add("version", SvJsonNode.Integer(version));
         o.Add("id", SvJsonNode.String(p.Id));
         o.Add("title", SvJsonNode.String(p.Title));
         var src = new SvJsonObject();
@@ -507,6 +512,7 @@ public static class ProjectStore
         guide.Add("explored", SvJsonNode.Bool(w.FirstMap.Explored));
         if (w.FirstMap.CheckedRevision is { } check) guide.Add("checkedRevision", SvJsonNode.String(check));
         if (w.FirstMap.PlayedRevision is { } play) guide.Add("playedRevision", SvJsonNode.String(play));
+        if (w.FirstMap.ConstructionBaseline is { } baseline) guide.Add("constructionBaseline", new SvJsonArray(baseline.Select(SvJsonNode.String)));
         o.Add("firstMap", guide);
         o.Add("rotationGrid", SvJsonNode.Integer(w.RotationGrid));
         o.Add("camera", new SvJsonArray([ModelJson.Vec(w.CameraLocation), ModelJson.RotJ(w.CameraRotation)]));
@@ -574,6 +580,7 @@ public static class ProjectStore
             w.FirstMap.Explored = guide["explored"]?.Kind == SvJsonKind.True;
             w.FirstMap.CheckedRevision = ModelJson.Str(guide, "checkedRevision");
             w.FirstMap.PlayedRevision = ModelJson.Str(guide, "playedRevision");
+            if (guide["constructionBaseline"] is SvJsonArray baseline) w.FirstMap.ConstructionBaseline = baseline.OfType<SvJsonString>().Select(s => s.Value).ToArray();
         }
         if (o["grid"] is SvJsonNumber)
         {

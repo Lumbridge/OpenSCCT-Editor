@@ -35,6 +35,15 @@ public static partial class T3dExport
     public static T3dDocument FromProject(MapProject p, UeSchema? schema, IReadOnlyCollection<ObjectRef>? only = null, Func<Actor, bool>? leaveOut = null,
         string? projectFolder = null, IReadOnlyList<Actor>? added = null)
     {
+        if (only is not null && p.Brushes.Any(b => b.Stair is not null))
+        {
+            var selected = new HashSet<ObjectRef>(only, ObjectRefComparer.Instance);
+            var generated = p.Brushes.Where(b => b.Stair is not null && (selected.Contains(ObjectRef.ForBrush(b)) || selected.Contains(ObjectRef.Brush(b.Id))))
+                .Select(Stairs.StairGeometry.Generate).ToList();
+            only = only.Concat(generated.SelectMany(g => g.Cuts.Concat(g.Solids)).Select(ObjectRef.ForBrush))
+                .Concat(generated.SelectMany(g => g.Smoothing).Select(a => ObjectRef.Actor(a.Id))).ToList();
+            p = Stairs.StairGeometry.Lower(p);
+        }
         // A copied GE brings its generated look with it. Other GEs' geometry is not part of a selection export.
         if (only is not null && p.Ges.Any(g => g.Appearance is not null))
         {
@@ -46,12 +55,12 @@ public static partial class T3dExport
             }
 
             int authoredBrushes = p.Brushes.Count;
-            p = GeGeometry.Expand(p);
-            only = only.Concat(p.Brushes.Skip(authoredBrushes).Select(b => ObjectRef.Brush(b.Id))).ToList();
+            p = Stairs.StairGeometry.Lower(GeGeometry.Expand(p));
+            only = only.Concat(p.Brushes.Skip(authoredBrushes).Select(b => ObjectRef.ForBrush(b))).ToList();
         }
         else
         {
-            p = GeGeometry.Expand(p);
+            p = Stairs.StairGeometry.Lower(GeGeometry.Expand(p));
         }
 
         var doc = new T3dDocument();
@@ -91,7 +100,7 @@ public static partial class T3dExport
             doc.Actors.Add(BuilderBrush(Unique("Brush", names)));
         }
 
-        foreach (Brush b in p.Brushes.Where(b => Picked(ObjectRef.Brush(b.Id))))
+        foreach (Brush b in p.Brushes.Where(b => Picked(ObjectRef.ForBrush(b))))
         {
             doc.Actors.Add(BrushActor(b, p.Id, types, names));
         }
@@ -198,13 +207,44 @@ public static partial class T3dExport
         AddTransform(a, actor.Location, actor.Rotation, actor.DrawScale, actor.DrawScale3D, actor.PrePivot);
         // A lifted RE+ actor carries the outfits or match rules as they are now (as imported when unchanged).
         a.Props.AddRange(types.FromProps(actor.Class, LiftedWriteBack.Props(p, actor, projectFolder: projectFolder).Where(kv => !s_skipped.Contains(kv.Key))));
-        AddSubObjects(a, T3dImport.ObjectsOf(actor), names);
+        List<List<string>> blocks = T3dImport.ObjectsOf(actor);
+        if (blocks.Count > 0)
+        {
+            AddSubObjects(a, blocks, names);
+        }
+        else if (Compile.EmitterBuild.SystemsOf(actor, p) is { } systems)
+        {
+            AddParticleSystems(a, types, systems, names);
+        }
         if (actor.Shape is not null)
         {
             a.Brush = Model(actor.Shape, ModelName(actor.Props["Brush"], actor.Id, p.Id, names), types);
         }
 
         return a;
+    }
+
+    private static void AddParticleSystems(T3dActor actor, T3dTypes types, SvJsonArray systems, HashSet<string> names)
+    {
+        actor.Props.RemoveAll(f => f.Name.Equals("Emitters", StringComparison.OrdinalIgnoreCase));
+        int nextIndex = 0;
+        foreach (SvJsonObject system in Compile.EmitterBuild.ValidSystems(systems))
+        {
+            string cls = Compile.EmitterBuild.Text(system["class"])!;
+            string shortClass = InteropValues.ShortClass(cls);
+            string name = Unique(shortClass, names);
+            var props = (SvJsonObject)system["props"]!;
+            var block = new List<string> { $"Begin Object Class={shortClass} Name={name}" };
+            block.AddRange(types.FromProps(cls, props.Where(kv => !kv.Key.Equals("Name", StringComparison.OrdinalIgnoreCase)))
+                .Select(field => "    " + field));
+            block.Add($"    Name=\"{name}\"");
+            block.Add("End Object");
+            actor.Objects.Add(block);
+
+            int index = system["index"] is SvJsonNumber n && n.TryGetInt32(out int slot) && slot >= nextIndex ? slot : nextIndex;
+            actor.Props.Add(new T3dField("Emitters", index, new T3dRef(shortClass, T3dTypes.LevelPackage + "." + name)));
+            nextIndex = index + 1;
+        }
     }
 
     /// <summary>

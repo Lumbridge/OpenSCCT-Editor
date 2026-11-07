@@ -1,6 +1,7 @@
 using Godot;
 using OpenScct.Editor.Core.Commands;
 using OpenScct.Editor.Core.Geometry;
+using OpenScct.Editor.Core.Geometry.Edit;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
 using OpenScct.Editor.Core.Scripting;
@@ -8,6 +9,7 @@ using OpenScctEditor.Viewports;
 using OpenScctEditor.Core;
 using OpenScctEditor.Shell;
 using OpenScctEditor.Shell.Background;
+using OpenScctEditor.Tools;
 
 namespace OpenScctEditor.Panels;
 
@@ -19,12 +21,14 @@ public partial class FirstMapPanel : EditorPanel
     public static FirstMapPanel? Instance { get; private set; }
     private string _revision = "";
     private bool _revisionDirty = true;
+    private int? _shownStep;
+    private bool _constructionActive;
     private static readonly string[] Titles = ["Save and name your map", "Explore the starter room", "Connect another room", "Position team starts", "Add an objective", "Check your map", "Play your map"];
     private static readonly string[] Hints =
     [
         "Give your creation a name, then choose where to save its project folder.",
         "Your map already has a room, a light and both team starts. Frame the room. Hold the right mouse button to look around; use W A S D while holding it to fly.",
-        "Select a carved room, then connect a new room to its east wall. A doorway and light are included. Move or resize pieces with the usual tools afterwards.",
+        "Build the connection yourself with the Surface tool: pick a room wall, add a doorway, extend a corridor, then add a room at its far end. The highlighted controls show where to work.",
         "Select the team starts, then use Move to position them on clear floors. Green labels mark spies; red labels mark mercenaries. The starter map already has one of each.",
         "Drag an Objective computer from Building into a room. It includes the objective and its connected hackable terminal. Place it where a spy can reach it.",
         "Run Map Check. Open its results to locate and fix errors, then check again. Editing the map makes the old check incomplete.",
@@ -46,10 +50,22 @@ public partial class FirstMapPanel : EditorPanel
         Context.AddAction(new EditorAction("guide.connectRoom", "Connect a Room", "Brush", ConnectRoom)
         { Order = 20, Description = "Add a room, connecting doorway and light to the east of the selected carved room" });
         Context.AddAction(new EditorAction("guide.setup", "Set Up Playtesting", "Help", ShowSetup) { Order = 25 });
+        Context.AddAction(new EditorAction("guide.buildingLesson", "Learn to Build Connected Rooms", "Help", () => ShowStep(2)) { Order = 22 });
         WorkspaceMode.Changed += () => _refresh.Queue();
+        GeometrySelection.Instance.Changed += () => _refresh.Queue();
+        EditorLifetime.Defer(() =>
+        {
+            if (ToolManager.Instance is { } tools) tools.Changed += () => _refresh.Queue();
+        });
     }
 
-    public override void Refresh() => RefreshRevision();
+    public override void Refresh()
+    {
+        _shownStep = null;
+        _constructionActive = false;
+        GuideSpotlight.Clear();
+        RefreshRevision();
+    }
     private void RefreshRevision()
     {
         _revisionDirty = true;
@@ -63,6 +79,7 @@ public partial class FirstMapPanel : EditorPanel
         PanelUi.Title(_body, "Your first map");
         if (Context.Project.Workspace.FirstMap.Hidden)
         {
+            GuideSpotlight.Clear();
             PanelUi.Caption(_body, "Guide hidden. Keep building at your own pace.");
             PanelUi.Button(_body, "Resume guide", "Continue this map's checklist", () => Context.UpdateGuide(g => g.Hidden = false));
             return;
@@ -70,13 +87,15 @@ public partial class FirstMapPanel : EditorPanel
         PanelUi.Caption(_body, "Build a small playable map, one step at a time.");
         bool[] done = FirstMapGuide.Steps(Context.Project, Context.Session.Folder is not null, _revision);
         int next = Array.FindIndex(done, d => !d);
+        if (_shownStep == 2 && _constructionActive && done[2]) { _shownStep = null; _constructionActive = false; }
+        GuideSpotlight.Clear();
         PanelUi.Caption(_body, $"{done.Count(d => d)} of {done.Length} complete");
         for (int i = 0; i < Titles.Length; i++)
         {
             int step = i;
             PanelUi.Button(_body, $"{(done[i] ? "✓" : (i + 1).ToString(System.Globalization.CultureInfo.InvariantCulture))}  {Titles[i]}", Hints[i], () => ShowStep(step));
         }
-        if (next >= 0) ShowExplanation(next);
+        if ((_shownStep ?? next) is >= 0 and var explanation) ShowExplanation(explanation);
         else
         {
             PanelUi.Callout(_body, Severity.Info, "You have launched your first map! Keep testing both teams and improving the layout.");
@@ -90,7 +109,12 @@ public partial class FirstMapPanel : EditorPanel
         PanelUi.Header(_body, Titles[step]);
         _body.AddChild(new FirstMapIllustration(step));
         PanelUi.Caption(_body, Hints[step]);
-        string[] buttons = ["Name and save", "Show starter room", "Connect a room", "Select team starts", "Choose objective computer", "Check map", "Build and play"];
+        if (step == 2)
+        {
+            ShowConstructionLesson();
+            return;
+        }
+        string[] buttons = ["Name and save", "Show starter room", "Start building lesson", "Select team starts", "Choose objective computer", "Check map", "Build and play"];
         PanelUi.Primary(_body, buttons[step], Hints[step], () => Act(step));
         if (step == 1) PanelUi.Button(_body, "I've explored the room", "Mark the navigation lesson complete", () => Context.UpdateGuide(g => g.Explored = true));
         if (step >= 5) PanelUi.Button(_body, "Show check results", "See any errors and jump to the affected objects", () => DockTabs.ShowPanel("Map Check"));
@@ -103,14 +127,44 @@ public partial class FirstMapPanel : EditorPanel
 
     private void ShowStep(int step)
     {
-        // Keep the checklist in place and replace only its explanation.
+        _shownStep = step;
         Redraw();
-        while (_body.GetChildCount() > Titles.Length + 3)
+    }
+
+    private void ShowConstructionLesson()
+    {
+        if (!_constructionActive)
         {
-            Node last = _body.GetChild(_body.GetChildCount() - 1); _body.RemoveChild(last); last.QueueFree();
+            PanelUi.Primary(_body, "Show me where to start", "Highlight the Surface tool without placing any geometry", () =>
+            {
+                _constructionActive = true;
+                if (Context.Project.Workspace.FirstMap.ConstructionBaseline is null)
+                    Context.UpdateGuide(g => g.ConstructionBaseline = Context.Project.Brushes.Select(b => b.Id).ToArray());
+                Context.Run("view.layout.perspective");
+                _refresh.Queue();
+            });
+            return;
         }
-        ShowExplanation(step);
-        PanelUi.Button(_body, "Hide guide", "Reopen from Help > Your First Map", () => Context.UpdateGuide(g => g.Hidden = true));
+        bool faceTool = ToolManager.Instance?.Active.Id == "face";
+        bool doorway = FirstMapGuide.HasLessonPiece(Context.Project, "doorway");
+        bool corridor = FirstMapGuide.HasLessonPiece(Context.Project, "corridor");
+        bool room = FirstMapGuide.HasLessonPiece(Context.Project, "room");
+        PanelUi.Caption(_body, $"{(faceTool ? "✓" : "1")} Surface tool  →  {(doorway ? "✓" : "2")} Doorway  →  {(corridor ? "✓" : "3")} Corridor  →  {(room ? "✓" : "4")} Room");
+        if (!faceTool)
+        {
+            string shortcut = Context.FindAction("tools.face") is { } action ? ShortcutBindings.Text(action) ?? "toolbar" : "toolbar";
+            PanelUi.Callout(_body, Severity.Info, $"Click the highlighted Surface tool in the top toolbar ({shortcut}). It selects wall faces rather than whole objects.");
+            GuideSpotlight.PointAtAction("tools.face");
+            return;
+        }
+        bool selectedWall = GeometrySelection.Instance.PrimaryFace is { } picked && WallPieces.Anchor(Context.Project, picked) is not null;
+        string piece = !doorway ? "Doorway" : !corridor ? "Corridor" : "Room";
+        string wall = !doorway ? "a wall in the starter room" : !corridor ? "the far end wall inside the doorway" : "the far end wall of the corridor";
+        PanelUi.Callout(_body, Severity.Info, selectedWall
+            ? $"Hover near the floor on {wall}. Click the blue + on the wall and choose Add {piece}."
+            : $"Click {wall} to select its surface. Stay in the Surface tool.");
+        PanelUi.Caption(_body, "Use the same wall opening for each part so the doorway, corridor and room connect. You can undo a misplaced part and try again. Map Check will check the finished layout.");
+        if (MainWindow.Instance is { } window) GuideSpotlight.PointAt(window.ViewportArea);
     }
 
     private void Act(int step)
@@ -138,7 +192,7 @@ public partial class FirstMapPanel : EditorPanel
                 var room = Context.Project.Brushes.FirstOrDefault(b => b.Oper == CsgOper.Subtract);
                 if (room is not null) Context.Focus([new ObjectRef(ObjectKind.Brush, room.Id)]);
                 break;
-            case 2: ConnectRoom(); break;
+            case 2: _shownStep = 2; _constructionActive = true; _refresh.Queue(); break;
             case 3:
                 Context.Selection.Set(Context.Project.Actors.Where(FirstMapGuide.IsStart).Select(a => new ObjectRef(ObjectKind.Actor, a.Id)));
                 Context.Focus(Context.Selection.Items); Context.Run("tools.move"); DockTabs.ShowPanel("Inspector");
@@ -153,7 +207,7 @@ public partial class FirstMapPanel : EditorPanel
 
     private void ConnectRoom()
     {
-        Brush? selected = Context.Selection.Items.Where(r => r.Kind == ObjectKind.Brush).Select(r => Context.Project.FindBrush(r.Id)).FirstOrDefault(b => b?.Oper == CsgOper.Subtract);
+        Brush? selected = Context.Selection.Items.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)).Select(r => Context.Project.FindBrush(r.Id)).FirstOrDefault(b => b?.Oper == CsgOper.Subtract);
         Brush? room = selected ?? Context.Project.Brushes.FirstOrDefault(b => b.Oper == CsgOper.Subtract);
         if (room is null) { Context.SetStatus("Add a room from Building first."); return; }
         var bounds = BrushGeometry.Of(room);

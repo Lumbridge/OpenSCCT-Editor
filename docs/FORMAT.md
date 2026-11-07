@@ -41,7 +41,8 @@ ShipD.osmap/
 ```
 
 `workspace.json` also stores optional `firstMap` guide state (`hidden`, `explored`, `checkedRevision`,
-`playedRevision`). Older workspaces default to a visible, uncompleted guide. Check and play revisions refer to map
+`playedRevision`, and an optional `constructionBaseline` array of brush IDs present before starting the building
+lesson). Existing pieces do not count as new work in that lesson. Older workspaces default to a visible, uncompleted guide. Check and play revisions refer to map
 content and play settings, excluding camera and guide state, so edits invalidate those steps. These fields never
 enter the game format. Workspace mode and the completion preference are local editor settings.
 
@@ -266,6 +267,10 @@ What `ose new` writes:
 
 **Tag rule:** when `Tag` is not stored, the effective Tag is the short class name (UE2 rule). The compiler writes the
 effective Tag of every actor, as SVMap requires.
+
+Particle emitters keep their systems in the JSON inside `src`, under `particleSystems`. Each system has a `class`,
+an `object` name and typed `props`. A converted sprite can also name its `texture` path and `textureOrigin` map so
+the compiler can copy the right texture. The systems travel with the actor when it is copied or saved as a preset.
 
 ### Player-count settings (`match`)
 
@@ -1323,3 +1328,14 @@ View > UI Scale: 0 follows the display, otherwise 100 to 250.
 - `map.json` `version` and each section's `/1` change only when an old reader would misread the new file.
 - New optional keys do not change the version. Readers ignore keys they do not know, but an older editor drops
   them when it saves.
+
+
+## Native staircase objects (project format 2)
+
+Projects containing editable stairs use `format: "osmap/2"` and `version: 2`; ordinary
+projects keep `osmap` version 1. `world/stairs.json` contains a `stairs` array. Each entry
+has an `order` (its CSG index among all authored CSG objects), an `object` (identity,
+transform and editor metadata), and a `design` (dimensions, profile, materials and
+clearance/smoothing settings). The object's generated faces are rebuilt when read.
+Stair owners are omitted from `world/brushes.json`, and expose `ObjectKind.Stair`.
+See [Editable staircases](STAIRS.md) for the authoring and scripting workflow.

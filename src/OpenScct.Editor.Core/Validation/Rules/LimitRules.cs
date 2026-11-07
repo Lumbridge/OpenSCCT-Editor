@@ -99,7 +99,7 @@ internal sealed class LimitRules : MapRule
         {
             if (b.Shape.Faces.Select(f => f.Material).FirstOrDefault(m => m is not null && !IsAscii(m)) is { } m)
             {
-                c.Report(Severity.Error, Ascii, $"{b.Id} uses material '{m}' with a non-ASCII name", null, ObjectRef.Brush(b.Id));
+                c.Report(Severity.Error, Ascii, $"{b.Id} uses material '{m}' with a non-ASCII name", null, ObjectRef.ForBrush(b));
             }
         }
     }

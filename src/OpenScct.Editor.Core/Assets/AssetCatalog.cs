@@ -95,6 +95,8 @@ public sealed class AssetCatalog
     /// <summary>Forgets the cached content catalogue (after the content folder changed under a running editor).</summary>
     public static void Reset() => s_content.Clear();
 
+    internal static void Invalidate(string contentRoot) => s_content.TryRemove(Path.GetFullPath(contentRoot), out _);
+
     public AssetEntry? Find(AssetKind kind, string path) =>
         _byPath.GetValueOrDefault((kind, path)) ?? _byShort.GetValueOrDefault((kind, AssetPaths.Short(path)));
 

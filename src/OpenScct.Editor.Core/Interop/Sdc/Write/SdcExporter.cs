@@ -39,7 +39,7 @@ public sealed class SdcExporter : IMapExporter
     {
         try
         {
-            project = OpenScct.Editor.Core.Gameplay.GeGeometry.Expand(project);
+            project = Stairs.StairGeometry.Lower(OpenScct.Editor.Core.Gameplay.GeGeometry.Expand(project));
         }
         catch (ArgumentException ex)
         {
@@ -168,7 +168,7 @@ public sealed class SdcExporter : IMapExporter
             findings.Add(Finding.Warning("sdc.worldNotRebuilt",
                 $"{changed.Length} brushes were added or edited since the import: the world (BSP, collision, lightmaps) is written back as it was, "
                 + "so they show in the game only after a rebuild in the stock editor",
-                changed.Take(50).Select(b => ObjectRef.Brush(b.Id)).ToArray()));
+                changed.Take(50).Select(b => ObjectRef.ForBrush(b)).ToArray()));
         }
     }
 

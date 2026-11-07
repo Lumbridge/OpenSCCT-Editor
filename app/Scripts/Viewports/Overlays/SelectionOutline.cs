@@ -39,8 +39,15 @@ public static class SelectionOutline
         foreach (ObjectRef r in ctx.Selection.Items)
         {
             Color fill = r == primary ? primaryFill : otherFill;
-            if (r.Kind == ObjectKind.Brush && p.FindBrush(r.Id) is { } b && ObjectFilter.IsVisible(p, b.Editor))
+            if (r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && p.FindBrush(r.Id) is { } b && ObjectFilter.IsVisible(p, b.Editor))
             {
+                if (b.Stair is not null)
+                {
+                    var bounds = b.Shape.Bounds(); var corners = ObjectGeometry.Corners(bounds.Min, bounds.Max).Select(b.LocalToWorld).ToArray();
+                    for (int i = 0; i < 8; i++) for (int axis = 0; axis < 3; axis++)
+                        if ((i & (1 << axis)) == 0) batch.Line(corners[i], corners[i | (1 << axis)], line, SceneStyle.SelectionWidth);
+                    continue;
+                }
                 foreach (WorldFace f in BrushGeometry.Of(b).Faces)
                 {
                     Face(batch, f.Vertices, f.Normal, line, fill);

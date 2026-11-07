@@ -67,7 +67,7 @@ public sealed partial class ViewportLayout : Node, IShellPart
         // What View > Show hides is not picked either.
         Picking.IsShown = kind => kind switch
         {
-            ObjectKind.Brush => _scene.ShowBrushes,
+            ObjectKind.Brush or ObjectKind.Stair => _scene.ShowBrushes,
             ObjectKind.Actor => _scene.ShowActors,
             _ => _scene.ShowGes,
         };
@@ -601,7 +601,12 @@ public sealed partial class ViewportLayout : Node, IShellPart
             Item("edit.cut");
             Item("edit.delete");
             Item("edit.selectSameClass");
-            if (_ctx.Selection.Items.Any(r => r.Kind == ObjectKind.Brush))
+            if (_ctx.FindAction("emitter.saveSelection")?.IsEnabled() == true)
+            {
+                Item("emitter.saveSelection", "Save to Emitter Library…");
+            }
+
+            if (_ctx.Selection.Items.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)))
             {
                 Separator();
                 Item("brush.toBuilder");

@@ -41,7 +41,7 @@ public sealed class PlacementActions : IShellPart
         Add("place.replaceClass", "Replace Class with Place Class", 500, ReplaceClass, HasActors, null,
             "Change the selected actors to the class the place tool uses (pick it in the Classes panel); properties the new class lacks are dropped");
         Add("place.selectSameMaterial", "Select Same Material", 600, SelectSameMaterial,
-            () => GeometrySelection.Instance.Faces.Count > 0 || context.Selection.Items.Any(r => r.Kind == ObjectKind.Brush), null,
+            () => GeometrySelection.Instance.Faces.Count > 0 || context.Selection.Items.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)), null,
             "Brushes using the picked face's (or first selected brush's) material");
         Add("place.selectSameTag", "Select Same Tag", 610, SelectSameTag, HasActors, null, "Actors with the primary actor's Tag");
     }
@@ -147,11 +147,11 @@ public sealed class PlacementActions : IShellPart
         MapProject p = _ctx.Project;
         string? material = GeometrySelection.Instance.PrimaryFace is { } f && FaceEdit.Find(p, f) is { } face
             ? face.Material
-            : _ctx.Selection.Items.Where(r => r.Kind == ObjectKind.Brush).Select(r => p.FindBrush(r.Id)).OfType<Brush>()
+            : _ctx.Selection.Items.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)).Select(r => p.FindBrush(r.Id)).OfType<Brush>()
                 .SelectMany(b => b.Shape.Faces).Select(x => x.Material).FirstOrDefault();
         _ctx.Selection.Set(p.Brushes
             .Where(b => ObjectFilter.IsPickable(p, b.Editor) && b.Shape.Faces.Any(x => string.Equals(x.Material, material, StringComparison.OrdinalIgnoreCase)))
-            .Select(b => ObjectRef.Brush(b.Id)));
+            .Select(b => ObjectRef.ForBrush(b)));
         _ctx.SetStatus($"{_ctx.Selection.Count} brushes use {material ?? "the default material"}");
     }
 

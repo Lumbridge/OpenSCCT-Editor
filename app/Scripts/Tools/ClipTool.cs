@@ -226,7 +226,7 @@ public sealed class ClipTool : IViewportTool
     }
 
     private List<Brush> Targets() =>
-        Ctx.Selection.Items.Where(r => r.Kind == ObjectKind.Brush).Select(r => Ctx.Project.FindBrush(r.Id)).OfType<Brush>().ToList();
+        Ctx.Selection.Items.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)).Select(r => Ctx.Project.FindBrush(r.Id)).OfType<Brush>().ToList();
 
     private void AddPoint(EditorViewport view, Vector2 mouse)
     {
@@ -283,7 +283,7 @@ public sealed class ClipActions : IShellPart
             int a = axis;
             string n = "XYZ"[axis].ToString();
             Add("clip.centre" + n, $"Plane Across {n} Through Centre", 200 + axis, () => clip.CentrePlane(a),
-                () => context.Selection.Items.Any(r => r.Kind == ObjectKind.Brush));
+                () => context.Selection.Items.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)));
         }
     }
 }

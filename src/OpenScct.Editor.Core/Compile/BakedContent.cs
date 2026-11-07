@@ -56,11 +56,11 @@ public static class BakedContent
     {
         if (kept)
         {
-            return new BrushLayer(p.Brushes.Where(b => !IsBaked(b)).ToList(), WorldSolid: false);
+            return new BrushLayer(Stairs.StairGeometry.Expand(p.Brushes.Where(b => !IsBaked(b))).ToList(), WorldSolid: false);
         }
 
         bool rebuilt = !BakedWorldKept(p) || p.Brushes.Any(IsBaked);
-        return new BrushLayer(p.Brushes, WorldSolid: rebuilt);
+        return new BrushLayer(Stairs.StairGeometry.Expand(p.Brushes).ToList(), WorldSolid: rebuilt);
     }
 
     /// <summary>True when the two layers are built from different brushes (one baked layer kept, the other rebuilt).</summary>

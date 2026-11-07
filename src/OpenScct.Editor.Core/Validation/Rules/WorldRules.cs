@@ -40,7 +40,7 @@ internal sealed class WorldRules : MapRule
             (Vec3 min, Vec3 max) = BrushOps.WorldBounds(b);
             if (IsOutside(min) || IsOutside(max))
             {
-                c.Report(Severity.Error, Outside, $"{b.Id} reaches outside the world ({min} to {max})", CheckContext.Centre(b), ObjectRef.Brush(b.Id));
+                c.Report(Severity.Error, Outside, $"{b.Id} reaches outside the world ({min} to {max})", CheckContext.Centre(b), ObjectRef.ForBrush(b));
             }
         }
 

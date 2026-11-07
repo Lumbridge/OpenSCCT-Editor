@@ -81,6 +81,7 @@ public static class ModelJson
     {
         var o = new SvJsonObject();
         o.Add("id", SvJsonNode.String(b.Id));
+        if (b.Stair is not null) o.Add("stair", Scripting.ApiJson.Parse(b.Stair.ToJson(), "stair"));
         o.Add("csg", SvJsonNode.String(b.Oper == CsgOper.Add ? "add" : "subtract"));
         if (b.PolyFlags != 0)
         {
@@ -192,6 +193,7 @@ public static class ModelJson
             o.Add("lmScalePsx2", SvJsonNode.Float((float)psx2));
         }
 
+        if (f.StairRole is not null) o.Add("stairRole", SvJsonNode.String(f.StairRole));
         if (f.ItemName is not null)
         {
             o.Add("item", SvJsonNode.String(f.ItemName));
@@ -352,6 +354,7 @@ public static class ModelJson
 
     public static Brush BrushFromJson(SvJsonObject o) => new(Str(o, "id") ?? "")
     {
+        Stair = o["stair"] is SvJsonObject stair ? Stairs.StairDesign.FromJson(Scripting.ApiJson.Write(stair)) : null,
         Oper = string.Equals(Str(o, "csg"), "add", StringComparison.OrdinalIgnoreCase) ? CsgOper.Add : CsgOper.Subtract,
         PolyFlags = (int)Num(o["flags"]),
         Location = ReadVec(o["loc"]),
@@ -417,6 +420,7 @@ public static class ModelJson
             LightMapScale = o["lmScale"] is null ? 32 : Num(o["lmScale"]),
             LightMapScalePsx2 = o["lmScalePsx2"] is null ? null : Num(o["lmScalePsx2"]),
             ItemName = Str(o, "item"),
+            StairRole = Str(o, "stairRole"),
             Link = o["link"] is null ? -1 : (int)Num(o["link"]),
         };
         if (o["verts"] is SvJsonArray verts)

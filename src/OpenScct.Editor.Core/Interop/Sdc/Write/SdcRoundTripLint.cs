@@ -48,7 +48,7 @@ public static class SdcRoundTripLint
         var missing = new List<ObjectRef>();
         if (layout == SdcLayout.Editor)
         {
-            missing.AddRange(p.Brushes.Where(b => !names.Contains(b.Id)).Select(b => ObjectRef.Brush(b.Id)));
+            missing.AddRange(p.Brushes.Where(b => !names.Contains(b.Id)).Select(b => ObjectRef.ForBrush(b)));
         }
 
         missing.AddRange(p.Actors.Where(a => !names.Contains(a.Id) && !written.HandedOff.Contains(a.Id) && (layout == SdcLayout.Editor || !SdcPackagePlan.CookedOut(a, schema)))

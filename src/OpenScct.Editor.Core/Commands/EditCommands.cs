@@ -21,7 +21,7 @@ public sealed class AddObjectsCommand : IEditCommand
     public string Name { get; }
 
     public IEnumerable<ObjectRef> Added =>
-        _brushes.Select(b => ObjectRef.Brush(b.Id)).Concat(_actors.Select(a => ObjectRef.Actor(a.Id))).Concat(_ges.Select(g => ObjectRef.Ge(g.Id)));
+        _brushes.Select(b => ObjectRef.ForBrush(b)).Concat(_actors.Select(a => ObjectRef.Actor(a.Id))).Concat(_ges.Select(g => ObjectRef.Ge(g.Id)));
 
     public void Do(MapProject project)
     {
@@ -55,7 +55,7 @@ public sealed class DeleteObjectsCommand : IEditCommand
 
     public DeleteObjectsCommand(IEnumerable<ObjectRef> refs)
     {
-        _refs = refs.Distinct().ToList();
+        _refs = refs.Select(r => r.Kind == ObjectKind.Stair ? ObjectRef.Brush(r.Id) : r).Distinct().ToList();
         Name = _refs.Count == 1 ? $"Delete {_refs[0].Id}" : $"Delete {_refs.Count} objects";
     }
 
@@ -130,13 +130,16 @@ public sealed class ReplaceObjectsCommand : IEditCommand
 
     /// <summary>The objects the command changes.</summary>
     public IEnumerable<ObjectRef> Changed =>
-        _brushes.Select(x => ObjectRef.Brush(x.Before.Id))
+        _brushes.Select(x => ObjectRef.ForBrush(x.Before))
             .Concat(_actors.Select(x => ObjectRef.Actor(x.Before.Id)))
             .Concat(_ges.Select(x => ObjectRef.Ge(x.Before.Id)));
 
     /// <summary>Records the change of a brush. <paramref name="after"/> must not be the live object.</summary>
     public ReplaceObjectsCommand Brush(Brush before, Brush after)
     {
+        if (before.Stair is not null && after.Stair is not null && before.Stair.ToJson() == after.Stair.ToJson()
+            && Compile.CsgBrush.FingerprintOf(new Brush("shape") { Shape = before.Shape }) != Compile.CsgBrush.FingerprintOf(new Brush("shape") { Shape = after.Shape }))
+            throw new ArgumentException("Edit the staircase properties or use Break Apart before changing individual generated faces");
         _brushes.Add((before, after));
         return this;
     }
@@ -165,9 +168,13 @@ public sealed class ReplaceObjectsCommand : IEditCommand
         {
             switch (r.Kind)
             {
-                case ObjectKind.Brush when brush is not null && project.FindBrush(r.Id) is { } b:
+                case ObjectKind.Brush or ObjectKind.Stair when brush is not null && project.FindBrush(r.Id) is { } b:
                     Brush nb = b.Clone();
                     brush(nb);
+                    if (b.Stair is not null && nb.MainScale != b.MainScale)
+                    {
+                        Stairs.StairTransforms.Resize(b, nb);
+                    }
                     cmd.Brush(b.Clone(), nb);
                     break;
                 case ObjectKind.Actor when actor is not null && project.FindActor(r.Id) is { } a:

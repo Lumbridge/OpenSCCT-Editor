@@ -23,6 +23,51 @@ public sealed class BuilderBrush
         Spec = DefaultSpec("cube");
     }
 
+    /// <summary>A complete, independent gesture checkpoint, including non-parametric geometry.</summary>
+    public sealed record State(BuilderSpec Spec, Vec3 Location, Rot Rotation, IReadOnlyList<BrushShape>? Custom);
+
+    public bool GestureActive { get; set; }
+
+    public State Capture() => new(Spec.Clone(), Location, Rotation, _custom?.Select(s => s.Clone()).ToList());
+
+    public void Restore(State state, bool refreshFields = true)
+    {
+        Spec = state.Spec.Clone();
+        Location = state.Location;
+        Rotation = state.Rotation;
+        _custom = state.Custom?.Select(s => s.Clone()).ToList();
+        Changed?.Invoke();
+        if (refreshFields) Reshaped?.Invoke();
+    }
+
+    /// <summary>Validate a candidate without exposing invalid geometry or discarding custom data.</summary>
+    public bool TryApply(BuilderSpec spec, Vec3 location, Rot rotation, out string? error)
+    {
+        var candidate = new BuilderBrush { Spec = spec.Clone(), Location = location, Rotation = rotation };
+        foreach (var value in spec.Numbers.Values)
+        {
+            if (!double.IsFinite(value))
+            {
+                error = "Dimensions must be finite";
+                return false;
+            }
+        }
+        if (candidate.Pieces().Count == 0)
+        {
+            error = candidate.Problem ?? "These dimensions make no geometry";
+            return false;
+        }
+        Spec = candidate.Spec;
+        Location = location;
+        Rotation = rotation;
+        _custom = null;
+        error = null;
+        Changed?.Invoke();
+        return true;
+    }
+
+    public void RefreshFields() => Reshaped?.Invoke();
+
     public BuilderSpec Spec { get; private set; }
 
     /// <summary>The open map's body numbers: a new vent, doorway or stair takes its body-following sizes from them.</summary>
@@ -68,6 +113,14 @@ public sealed class BuilderBrush
     public void SetKind(string kind)
     {
         Spec = DefaultSpec(kind, Body?.Invoke());
+        _custom = null;
+        Changed?.Invoke();
+        Reshaped?.Invoke();
+    }
+
+    public void SetText(string key, string value)
+    {
+        Spec.Strings[key] = value;
         _custom = null;
         Changed?.Invoke();
         Reshaped?.Invoke();

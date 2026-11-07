@@ -78,8 +78,7 @@ manifest; validation with OpenSCCT's strict loader; `ose build` and `ose play`.
 **Status:** done.
 
 **Left:** build options (BSP balance, portals), incremental build, named build configurations, the BSP cuts and
-collision view modes, and writing emitters, projectors, rain, soft bodies and fog volumes (`render/fx.json` is empty
-for brush maps).
+collision view modes, and writing projectors, rain, soft bodies and fog volumes to `render/fx.json` for brush maps.
 
 ## M3 Editor shell
 
@@ -242,7 +241,8 @@ selection as a prefab), and map outfits (SVMap 1.2: team textures, a replacement
 cosmetics policy; Map panel, `ose outfit`), and brushes from `.sdc` editor copies (the native reader,
 SDC-FORMAT.md) and brushes recovered from a cooked copy's BSP (SDC-FORMAT.md section 8), with an import report (Import Report panel,
 `ose import`), one baked layer kept while the other is built from the brushes, and the original editor's zone
-numbering, so a rebuilt original gets close to its own zone count.
+numbering, so a rebuilt original gets close to its own zone count. The Emitter Library browses, previews and places
+stock, saved and pack effects, with particle editing and loop waits. Placed effects compile to `render/fx.json`.
 
 Also done: the export for the original editor (a folder with the T3D, the map's own classes, its textures, meshes
 and sounds for RE+ to import, its `.int` texts, a README with the steps, and a handoff file the T3D import reads back).
@@ -252,7 +252,7 @@ gets new `SCharacterOutfits0` / `SMatchSizeRules0` actors in the classes file; t
 existing map?" (the T3D brings its LevelInfo and builder brush), with Yes as the fallback if the MyLevel assets do not
 survive it.
 
-**Left:** prefab overrides and nesting, auto-split of big meshes, texture and sound import, the emitter library, an
+**Left:** prefab overrides and nesting, auto-split of big meshes, texture and sound import, an
 outfit preview and skin presets, PSK export of outfit models for `.sdc` maps, player-count rules and outfits in the
 `.sdc` export, reading outfits changed in RE+ back from a T3D, scatter, compare with backup (`ose diff`), brush
 recovery from cooked copies, `ose pack` and `ose publish`, the stock editor and the game loading a written `.sdc`,

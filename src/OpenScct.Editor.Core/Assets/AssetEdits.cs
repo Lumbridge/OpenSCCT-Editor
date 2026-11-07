@@ -18,7 +18,7 @@ public static class AssetEdits
     /// brush is among <paramref name="refs"/>.</summary>
     public static ReplaceObjectsCommand? ApplyMaterial(MapProject project, IEnumerable<ObjectRef> refs, string material)
     {
-        List<ObjectRef> brushes = refs.Where(r => r.Kind == ObjectKind.Brush && project.FindBrush(r.Id) is not null).Distinct().ToList();
+        List<ObjectRef> brushes = refs.Where(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && project.FindBrush(r.Id) is not null).Distinct().ToList();
         if (brushes.Count == 0)
         {
             return null;
@@ -62,7 +62,7 @@ public static class AssetEdits
             int faces = b.Shape.Faces.Count(f => f.Material is { } m && Same(m, path));
             if (faces > 0)
             {
-                uses.Add(new AssetUse(ObjectRef.Brush(b.Id), faces == 1 ? "1 face" : $"{faces} faces"));
+                uses.Add(new AssetUse(ObjectRef.ForBrush(b), faces == 1 ? "1 face" : $"{faces} faces"));
             }
         }
 

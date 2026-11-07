@@ -314,7 +314,7 @@ public sealed partial class ShotRunner : Node, IShellPart
         {
             "none" => [],
             "all" => Viewports.ObjectFilter.Pickable(p),
-            "brush" => p.Brushes.Skip(p.Brushes.Count > 1 ? 1 : 0).Take(1).Select(b => ObjectRef.Brush(b.Id)),
+            "brush" => p.Brushes.Skip(p.Brushes.Count > 1 ? 1 : 0).Take(1).Select(b => ObjectRef.ForBrush(b)),
             "ge" => p.Ges.Take(1).Select(g => ObjectRef.Ge(g.Id)),
             _ when ApiJson.GetString(step, "class") is { } cls =>
                 p.Actors.Where(a => string.Equals(a.Class, cls, StringComparison.OrdinalIgnoreCase)).Take(1).Select(a => ObjectRef.Actor(a.Id)),
