@@ -1,6 +1,8 @@
 using Godot;
+using OpenScct.Editor.Core.Compile;
 using OpenScct.Editor.Core.Geometry.Edit;
 using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Services;
 using OpenScctEditor.Shell;
 using OpenScctEditor.Viewports;
 
@@ -10,9 +12,9 @@ namespace OpenScctEditor.Tools;
 public readonly record struct FaceHit(FaceRef Face, double Distance, Vec3 Point, Vec3 Normal);
 
 /// <summary>
-/// Picking brush faces and drawing them over a view. Faces are found by casting the cursor ray against every visible,
-/// unlocked brush face from the side it is seen (2D views cast along their depth axis, so the top view picks floors
-/// and the tops of blocks).
+/// Picking brush faces and drawing them over a view. Perspective views pick the displayed CSG polygons, so cuts
+/// remain open and doorway reveals retain their own editable source faces. Orthographic views pick original brush
+/// faces along their depth axis, so the top view picks floors and the tops of blocks.
 /// </summary>
 public static class FacePicking
 {
@@ -28,9 +30,17 @@ public static class FacePicking
     public static FaceHit? Pick(ViewCamera cam, MapProject p, Vector2 mouse, Func<Brush, bool>? only = null)
     {
         (Vec3 o, Vec3 d) = cam.Ray(mouse);
-        FaceHit? best = null;
+        IReadOnlyList<PreviewPolygon>? surfaces = cam.IsOrtho ? null : SurfacePolygons(p);
+        FaceHit? best = surfaces is null ? null : PickSurfaces(p, surfaces, o, d, only);
         foreach (Brush b in p.Brushes)
         {
+            // In 3D the CSG result is the target: an uncut room face still spans a doorway's empty opening.
+            // Kept baked brushes have no preview polygons; their original faces remain read-only pick targets.
+            if (surfaces is not null && !BakedContent.SurfacesLocked(p, b) && b.Stair is null)
+            {
+                continue;
+            }
+
             if (!ObjectFilter.IsPickable(p, b.Editor) || (only is not null && !only(b)))
             {
                 continue;
@@ -58,6 +68,36 @@ public static class FacePicking
                 {
                     best = new FaceHit(new FaceRef(b.Id, i), t, o + d * t, f.Normal);
                 }
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>The displayed CSG polygons, shared by picking, hover outlines and selected-face fills.</summary>
+    public static IReadOnlyList<PreviewPolygon>? SurfacePolygons(MapProject p) =>
+        ViewportLayout.Instance?.Scene.SurfacePolygons(p);
+
+    /// <summary>Picks the visible cut surface, retaining its source face and original outward normal for edits.</summary>
+    public static FaceHit? PickSurfaces(MapProject p, IReadOnlyList<PreviewPolygon> surfaces, Vec3 o, Vec3 d,
+        Func<Brush, bool>? only = null)
+    {
+        Dictionary<string, Brush> brushes = FaceEdit.BrushIndex(p);
+        FaceHit? best = null;
+        foreach (PreviewPolygon poly in surfaces)
+        {
+            if (!brushes.TryGetValue(poly.BrushId, out Brush? b) || poly.FaceIndex < 0 || poly.FaceIndex >= b.Shape.Faces.Count
+                || !ObjectFilter.IsPickable(p, b.Editor) || (only is not null && !only(b))
+                || (poly.Flags & (PolyFlags.Invisible | PolyFlags.Portal)) != 0
+                || ((poly.Flags & PolyFlags.TwoSided) == 0 && Vec3.Dot(d, poly.Normal) >= 0))
+            {
+                continue;
+            }
+
+            if (Picking.RayPolygon(o, d, poly.Vertices, poly.Normal, out double t) && (best is null || t < best.Value.Distance))
+            {
+                Vec3 outward = b.Oper == CsgOper.Subtract ? -poly.Normal : poly.Normal;
+                best = new FaceHit(new FaceRef(b.Id, poly.FaceIndex), t, o + d * t, outward);
             }
         }
 
@@ -107,7 +147,15 @@ public static class FacePicking
     /// the perspective view tints picked faces in the scene, <see cref="PickedFacesNode"/>).</summary>
     public static void DrawFaces(ViewCamera cam, Control canvas, MapProject p, IReadOnlyCollection<FaceRef> faces, FaceRef? hover)
     {
-        if (hover is { } h && World(p, h) is { } hw)
+        if (hover is { } h && !cam.IsOrtho && SurfacePolygons(p) is { } surfaces
+            && p.FindBrush(h.Brush) is { Stair: null } brush && !BakedContent.SurfacesLocked(p, brush))
+        {
+            foreach (PreviewPolygon poly in surfaces.Where(poly => poly.BrushId == h.Brush && poly.FaceIndex == h.Face))
+            {
+                DrawPolygon(cam, canvas, poly.Vertices, null, SceneStyle.Hover);
+            }
+        }
+        else if (hover is { } raw && World(p, raw) is { } hw)
         {
             DrawPolygon(cam, canvas, hw.Vertices, null, SceneStyle.Hover);
         }

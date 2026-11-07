@@ -1,6 +1,8 @@
 using Godot;
+using OpenScct.Editor.Core.Compile;
 using OpenScct.Editor.Core.Geometry.Edit;
 using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Services;
 using OpenScctEditor.Core;
 using OpenScctEditor.Tools;
 
@@ -20,6 +22,7 @@ public sealed partial class PickedFacesNode : Node3D
     private static StandardMaterial3D? s_fill;
     private static StandardMaterial3D? s_line;
     private bool _dirty = true;
+    private IReadOnlyList<PreviewPolygon>? _surfaces;
 
     private static StandardMaterial3D Fill => s_fill ??= new StandardMaterial3D
     {
@@ -67,6 +70,13 @@ public sealed partial class PickedFacesNode : Node3D
 
     public override void _Process(double delta)
     {
+        IReadOnlyList<PreviewPolygon>? surfaces = FacePicking.SurfacePolygons(EditorContext.Instance.Project);
+        if (!ReferenceEquals(_surfaces, surfaces))
+        {
+            _surfaces = surfaces;
+            _dirty = true;
+        }
+
         if (!_dirty)
         {
             return;
@@ -107,10 +117,32 @@ public sealed partial class PickedFacesNode : Node3D
         if (geo.Faces.Count > 0)
         {
             Dictionary<string, Brush> brushes = FaceEdit.BrushIndex(p);
+            if (_surfaces is not null)
+            {
+                var selected = geo.Faces.ToHashSet();
+                foreach (PreviewPolygon poly in _surfaces)
+                {
+                    if (!selected.Contains(new FaceRef(poly.BrushId, poly.FaceIndex))
+                        || !brushes.TryGetValue(poly.BrushId, out Brush? source) || !ObjectFilter.IsVisible(p, source.Editor))
+                    {
+                        continue;
+                    }
+
+                    Vector3[] pts = poly.Vertices.Select(v => Space.ToGodot(v + poly.Normal * Lift)).ToArray();
+                    fill.Polygon(pts, Space.DirToGodot(poly.Normal), tint);
+                    lines.Polyline(pts, edge, closed: true);
+                }
+            }
+
             foreach (FaceRef f in geo.Faces)
             {
                 if (!brushes.TryGetValue(f.Brush, out Brush? b) || !ObjectFilter.IsVisible(p, b.Editor)
                     || BrushGeometry.Of(b) is not { } w || f.Face >= w.Faces.Count)
+                {
+                    continue;
+                }
+
+                if (_surfaces is not null && !BakedContent.SurfacesLocked(p, b) && b.Stair is null)
                 {
                     continue;
                 }
