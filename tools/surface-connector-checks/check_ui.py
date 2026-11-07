@@ -64,5 +64,9 @@ for sign in (-1,1):
     call('undo'); assert call('summary')['counts']['brushes']==before
     call('redo'); assert call('summary')['counts']['brushes']==before+1
     call('undo')
+    step('hover',at=xy); step('hover',at=badge); step('click',at=badge)
+    step('click',at='item:Connect Stairs…')
+    assert any('other floor above or below' in c.get('text','') for c in tree()['controls']), 'Stair connection must start with the clicked floor'
+    step('escape'); step('click',at='action:tools.face')
     print('PASS floor/ceiling connector menu, stable badge, hatch placement and undo/redo',sign)
 shot('connectors-ready')
