@@ -318,7 +318,7 @@ public partial class EmitterLibraryPanel : EditorPanel
     private static LineEdit TextField(Control parent, string label, string value)
     {
         var edit = new LineEdit { Text = value, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        PanelUi.Row(parent, label).AddChild(edit);
+        PanelUi.Row(parent, label, labelWidth: 78).AddChild(edit);
         return edit;
     }
 

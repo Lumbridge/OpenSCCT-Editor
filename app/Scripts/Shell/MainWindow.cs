@@ -60,10 +60,9 @@ public partial class MainWindow : Control
     public HBoxContainer MenuRow { get; private set; } = null!;
 
     /// <summary>The toolbar under the menus.</summary>
-    public HBoxContainer ToolRow { get; private set; } = null!;
+    public HFlowContainer ToolRow { get; private set; } = null!;
 
-    /// <summary>The active tool's options and the typed transform values: beside the toolbar when the window is wide
-    /// enough, else on a line of their own under it.</summary>
+    /// <summary>The active tool's options and typed transform values, below the wrapping toolbar.</summary>
     public HBoxContainer OptionsRow { get; private set; } = null!;
 
     public override void _Ready()
@@ -98,11 +97,11 @@ public partial class MainWindow : Control
         MenuRow = Row(root, "MenuRow", "TopBar");
         var toolBar = new PanelContainer { Name = "ToolRowBar", ThemeTypeVariation = "Bar" };
         root.AddChild(toolBar);
-        var toolFlow = new HFlowContainer { Name = "ToolFlow" };
+        var toolFlow = new VBoxContainer { Name = "ToolFlow" };
         toolFlow.AddThemeConstantOverride("h_separation", EditorTheme.SpaceXl);
         toolFlow.AddThemeConstantOverride("v_separation", EditorTheme.SpaceXxs);
         toolBar.AddChild(toolFlow);
-        ToolRow = new HBoxContainer { Name = "ToolRow" };
+        ToolRow = new HFlowContainer { Name = "ToolRow" };
         toolFlow.AddChild(ToolRow);
         OptionsRow = new HBoxContainer { Name = "OptionsRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         toolFlow.AddChild(OptionsRow);

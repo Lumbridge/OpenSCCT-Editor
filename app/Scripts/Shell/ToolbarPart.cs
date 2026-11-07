@@ -25,7 +25,10 @@ public sealed class ToolbarPart : IShellPart
 
     public void Attach(MainWindow window, EditorContext context)
     {
-        HBoxContainer row = window.ToolRow;
+        var row = new HBoxContainer();
+        window.ToolRow.AddChild(row);
+        window.ToolRow.AddThemeConstantOverride("h_separation", EditorTheme.SpaceXxs);
+        window.ToolRow.AddThemeConstantOverride("v_separation", EditorTheme.SpaceXxs);
         row.AddThemeConstantOverride("separation", EditorTheme.SpaceXxs);
 
         ActionButton Button(string id, string? label = null, string variation = "ToolButton", Texture2D? icon = null, Container? into = null)
@@ -67,7 +70,13 @@ public sealed class ToolbarPart : IShellPart
             Menu(sizes, prefix, SnapMenuStyle, strip, labelGroup, fallback);
         }
 
-        void Gap() => row.AddChild(new VSeparator());
+        void Gap()
+        {
+            row = new HBoxContainer();
+            row.AddThemeConstantOverride("separation", EditorTheme.SpaceXxs);
+            row.AddChild(new VSeparator());
+            window.ToolRow.AddChild(row);
+        }
 
         Button("file.new");
         Button("file.open");

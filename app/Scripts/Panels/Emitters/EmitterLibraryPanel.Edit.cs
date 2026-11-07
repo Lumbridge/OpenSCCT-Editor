@@ -131,7 +131,7 @@ public partial class EmitterLibraryPanel
                 (float)Num(Member(Member(tint, "Z"), "Min"), 1)),
             EditAlpha = false, SizeFlagsHorizontal = SizeFlags.ExpandFill,
         };
-        PanelUi.Row(form, "Tint").AddChild(pick);
+        PanelUi.Row(form, "Tint", labelWidth: 78).AddChild(pick);
         pick.ColorChanged += color => Set("ColorMultiplierRange", Object(("X", Range(color.R, color.R)),
             ("Y", Range(color.G, color.G)), ("Z", Range(color.B, color.B))));
 
@@ -207,7 +207,7 @@ public partial class EmitterLibraryPanel
 
     private static SpinBox NumberField(Control form, string label, double value, double min, double max, double step, Action<double> edit)
     {
-        SpinBox field = PanelUi.Spin(PanelUi.Row(form, label), min, max, step, value);
+        SpinBox field = PanelUi.Spin(PanelUi.Row(form, label, labelWidth: 78), min, max, step, value);
         field.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         field.ValueChanged += v => edit(v);
         return field;
