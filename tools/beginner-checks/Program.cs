@@ -52,7 +52,7 @@ ProjectStore.Save(project, Path.Combine(root, "First.osmap"));
 var reopened = ProjectStore.Load(Path.Combine(root, "First.osmap"));
 Check(reopened.Workspace.FirstMap.Hidden && reopened.Workspace.FirstMap.Explored && reopened.Workspace.FirstMap.CheckedRevision == original && reopened.Workspace.FirstMap.PlayedRevision == original, "Guide state survives save/reopen");
 Check(!ApiJson.Write(ProjectStore.MapToJson(project)).Contains("firstMap", StringComparison.Ordinal), "Guide state stays out of game map metadata");
-Check(!ProjectStore.WorkspaceFromJson(new SvJsonObject()).FirstMap.Hidden, "Old workspaces get safe defaults");
+Check(ProjectStore.WorkspaceFromJson(new SvJsonObject()).FirstMap.Hidden, "Old workspaces start with the optional guide closed");
 
 Apply(session, Place("objective_computer", 128));
 string withObjective = FirstMapGuide.Revision(project);

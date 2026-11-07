@@ -11,7 +11,7 @@ app would make.
 undo step unless they take `--dry-run` and it is given; many print JSON with `--json`. A failed command exits with
 code 1. Commands that need OpenSCCT's content (class data, converted maps) find it as the app does: `OSE_CONTENT`,
 the OpenSCCT clone next to the editor, or an OpenSCCT installed with its launcher; `--content` overrides it where
-offered. Commands that start the game (`play`, `mapshot`) need OpenSCCT 0.8.93 or newer (`--exe`, `OSE_GAME_EXE`, or the
+offered. Commands that start the game (`play`, `mapshot`) need OpenSCCT 0.8.112 or newer (`--exe`, `OSE_GAME_EXE`, or the
 launcher's install).
 
 The scripting API (`apply`, `query`, `summary`, `serve`, `live`) is described in full in [SCRIPTING.md](SCRIPTING.md).

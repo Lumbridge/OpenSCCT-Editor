@@ -24,7 +24,7 @@ editor is optional for players. This requires launcher and editor releases that 
 
 For a standalone installation:
 
-1. Install [OpenSCCT](https://github.com/Lumbridge/OpenSCCT#play) with its launcher (version 0.8.111 or newer). The
+1. Install [OpenSCCT](https://github.com/Lumbridge/OpenSCCT#play) with its launcher (version 0.8.112 or newer). The
    editor uses the content the launcher installs (class data, the converted maps, their materials and meshes) and
    starts the game for Play and test rounds.
 2. Download `OpenSCCT-Editor-<version>-win-x64.zip` from the
