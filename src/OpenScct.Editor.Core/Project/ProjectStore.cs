@@ -567,6 +567,7 @@ public static class ProjectStore
         po.Add("rules", SvJsonNode.String(w.Play.Rules));
         po.Add("players", SvJsonNode.Integer(w.Play.Players));
         po.Add("difficulty", SvJsonNode.String(w.Play.Difficulty));
+        po.Add("smoke", SvJsonNode.String(w.Play.Smoke));
         o.Add("play", po);
         return o;
     }
@@ -652,6 +653,8 @@ public static class ProjectStore
             w.Play.Rules = ModelJson.Str(p, "rules") ?? w.Play.Rules;
             w.Play.Players = (int)Or(p["players"], w.Play.Players);
             w.Play.Difficulty = ModelJson.Str(p, "difficulty") ?? w.Play.Difficulty;
+            string? smoke = ModelJson.Str(p, "smoke");
+            w.Play.Smoke = smoke is not null && PlayOptions.SmokeModes.Contains(smoke) ? smoke : "original";
         }
 
         return w;

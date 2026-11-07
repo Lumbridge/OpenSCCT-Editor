@@ -153,6 +153,11 @@ public sealed class MovementLimits
 /// <summary>The default Play options (side, mode, bots).</summary>
 public sealed class PlayOptions
 {
+    public static readonly IReadOnlyList<string> SmokeModes = ["original", "volumetric-fast", "volumetric-full"];
+
+    /// <summary>Smoke rendering for the playtest: original, volumetric-fast, or volumetric-full (scene light shadows).</summary>
+    public string Smoke { get; set; } = "original";
+
     public string Side { get; set; } = "spy";
 
     public string Mode { get; set; } = "Story";

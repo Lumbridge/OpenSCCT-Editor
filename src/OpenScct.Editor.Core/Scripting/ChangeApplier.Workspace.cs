@@ -7,7 +7,7 @@ namespace OpenScct.Editor.Core.Scripting;
 
 public static partial class ChangeApplier
 {
-    private static readonly string[] s_playKeys = ["side", "mode", "bots", "rules", "players", "difficulty"];
+    private static readonly string[] s_playKeys = ["side", "mode", "bots", "rules", "players", "difficulty", "smoke"];
 
     private static readonly (string Key, Func<MovementLimits, double> Get, Action<MovementLimits, double> Set, double Min, double Max)[] s_movement =
     [
@@ -92,6 +92,10 @@ public static partial class ChangeApplier
                 throw new ApiException($"play.difficulty is {string.Join(", ", s_difficulties)}", "play.difficulty");
             }
 
+            string? smoke = ApiJson.GetString(o, "smoke")?.ToLowerInvariant();
+            if (smoke is not null && !PlayOptions.SmokeModes.Contains(smoke))
+                throw new ApiException($"play.smoke is {string.Join(", ", PlayOptions.SmokeModes)}", "play.smoke");
+
             int? bots = o["bots"] is { } b ? (int)ApiJson.RequireNumber(b, "play.bots") : null;
             int? players = o["players"] is { } pl ? (int)ApiJson.RequireNumber(pl, "play.players") : null;
             if (bots is < 0 or > 15 || players is < 0 or > MatchRuleSet.MostPlayers)
@@ -108,6 +112,7 @@ public static partial class ChangeApplier
                 w.Play.Bots = bots ?? w.Play.Bots;
                 w.Play.Players = players ?? w.Play.Players;
                 w.Play.Difficulty = difficulty ?? w.Play.Difficulty;
+                w.Play.Smoke = smoke ?? w.Play.Smoke;
             });
         }
 

@@ -44,12 +44,6 @@ public sealed class BuildActions : IShellPart
         {
             Shortcut = "Ctrl+P", Order = 110, IsEnabled = CanBuild, Description = "Build, then play it in OpenSCCT with the play options",
         });
-        context.AddAction(new EditorAction("build.playVolumetricSmoke", "Build and Play with Volumetric Smoke", "Build",
-            () => Build(play: true, volumetricSmoke: true))
-        {
-            Order = 111, IsEnabled = CanBuild,
-            Description = "Build, then play it in OpenSCCT with responsive volumetric smoke grenades and the current play options",
-        });
         context.AddAction(new EditorAction("build.playFromCamera", "Build and Play From Camera", "Build", () => PlayFrom(CameraStart()))
         {
             Shortcut = "Alt+P", Order = 115, IsEnabled = CanBuild,
@@ -109,6 +103,22 @@ public sealed class BuildActions : IShellPart
                 Order = rules == "map" ? 310 : 300,
                 RadioGroup = "play.rules",
                 IsChecked = () => string.Equals(_ctx.Project.Workspace.Play.Rules, rules, StringComparison.OrdinalIgnoreCase),
+            });
+        }
+
+        int smokeOrder = 600;
+        foreach ((string mode, string title, string help) in new[]
+        {
+            ("original", "Original", "Use the original smoke grenades"),
+            ("volumetric-fast", "Volumetric Fast", "Use volumetric smoke with cheaper rendering"),
+            ("volumetric-full", "Volumetric Full", "Use detailed volumetric smoke that also attenuates scene lighting"),
+        })
+        {
+            context.AddAction(new EditorAction("build.smoke." + mode, "Smoke: " + title, "Build/Play Options",
+                () => _ctx.Execute(WorkspaceEdits.Play("Smoke: " + title, p => p.Smoke = mode)))
+            {
+                Order = smokeOrder++, RadioGroup = "play.smoke", Description = help,
+                IsChecked = () => _ctx.Project.Workspace.Play.Smoke == mode,
             });
         }
 
@@ -203,7 +213,7 @@ public sealed class BuildActions : IShellPart
         Build(play: true, grounded);
     }
 
-    private void Build(bool play, PlayStart? startAt = null, bool volumetricSmoke = false)
+    private void Build(bool play, PlayStart? startAt = null)
     {
         if (EditorServices.Compiler is not { } compiler)
         {
@@ -236,14 +246,14 @@ public sealed class BuildActions : IShellPart
             _ctx.SetStatus(result.Ok ? $"Built {snapshot.Id}" : "Build failed");
             if (play && result.Ok && ReferenceEquals(session, _ctx.Session) && FirstMapGuide.Revision(snapshot) == FirstMapGuide.Revision(_ctx.Project))
             {
-                Launch(snapshot.Id, startAt, FirstMapGuide.Revision(snapshot), volumetricSmoke);
+                Launch(snapshot.Id, startAt, FirstMapGuide.Revision(snapshot));
             }
         });
     }
 
     private void PlayLast() => Launch(_ctx.Project.Id);
 
-    private void Launch(string mapId, PlayStart? startAt = null, string? verifiedRevision = null, bool volumetricSmoke = false)
+    private void Launch(string mapId, PlayStart? startAt = null, string? verifiedRevision = null)
     {
         string? exe = GameLauncher.FindGame();
         if (exe is null)
@@ -258,7 +268,7 @@ public sealed class BuildActions : IShellPart
             return;
         }
 
-        IReadOnlyList<string> args = GameLauncher.PlayArguments(BuildsFolder, mapId, _ctx.Project.Workspace.Play, startAt, volumetricSmoke);
+        IReadOnlyList<string> args = GameLauncher.PlayArguments(BuildsFolder, mapId, _ctx.Project.Workspace.Play, startAt);
         try
         {
             int pid = GameLauncher.Play(exe, args);

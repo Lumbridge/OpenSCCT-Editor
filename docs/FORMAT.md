@@ -610,6 +610,9 @@ to be 4: a workspace without `format` whose `players` is 4 opens with 0, and the
 build` say so; saving writes the new form. Any other stored count is kept. `difficulty` is how well the bots play (`easy`, `normal`, `hard`,
 `expert`: OpenSCCT's bot skill presets, passed to the game as `--difficulty=`).
 
+`smoke` is `original` (the default), `volumetric-fast`, or `volumetric-full`. Fast selects cheaper volumetric rendering;
+Full adds higher detail and smoke attenuation of scene lighting. This is a saved playtest preference, not map gameplay data.
+
 `references`: `path` is absolute or relative to the project folder; the image is centred on `origin` (the world point
 under its centre) and drawn behind the map in its view. In the Top view, `origin`'s height says which storey the image
 belongs to: with the storey filter on, only the images whose height lies in the storey shown are drawn.
