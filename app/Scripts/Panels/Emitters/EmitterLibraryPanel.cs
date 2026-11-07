@@ -66,6 +66,7 @@ public partial class EmitterLibraryPanel : EditorPanel
 
         VBoxContainer details = PanelUi.Scroll(detailPane);
         PanelUi.ScrollOf(details).CustomMinimumSize = new Vector2(0, 65);
+        PanelUi.ScrollOf(details).HorizontalScrollMode = ScrollContainer.ScrollMode.Auto;
         _loop = new CheckBox { Text = "Loop", TooltipText = "Each particle system waits after its particles finish, then starts again" };
         details.AddChild(_loop);
         _wait = PanelUi.Toolbar(details);
@@ -98,6 +99,7 @@ public partial class EmitterLibraryPanel : EditorPanel
             Description = "Capture the selected particle effects in the emitter library",
         });
         ShowEffect();
+
     }
 
     public override void Refresh()

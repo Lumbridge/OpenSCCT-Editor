@@ -80,7 +80,7 @@ public partial class EmitterLibraryPanel
             v => Set("ParticlesPerSecond", SvJsonNode.Float((float)v)));
         var auto = new CheckBox
         {
-            Text = "Automatic Initial Spawn",
+            Text = "Auto initial spawn",
             ButtonPressed = Effective("AutomaticInitialSpawning")?.Kind != SvJsonKind.False,
             TooltipText = "Fill the system over its first particle lifetime. Turn this off to set the initial rate.",
         };
