@@ -39,12 +39,12 @@ internal static class Program
             string packs = Path.Combine(root, "packs");
             Directory.CreateDirectory(Path.Combine(packs, "shared"));
             File.WriteAllText(Path.Combine(packs, "shared", "classes.json"), "{}");
-            string v1 = Game(root, "0.8.93"), v2 = Game(root, "0.8.94");
-            File.WriteAllText(Path.Combine(root, "install.json"), "{\"Current\":\"0.8.93\"}");
+            string v1 = Game(root, "0.8.111"), v2 = Game(root, "0.8.112");
+            File.WriteAllText(Path.Combine(root, "install.json"), "{\"Current\":\"0.8.111\"}");
             Check(GameExe.Find() == v1, "managed root beats an inherited stale executable");
             Check(ContentLocator.FindContentRoot() == packs, "managed content uses packs");
             Check(GameExe.LauncherContent(v1) == packs, "headless content uses packs");
-            File.WriteAllText(Path.Combine(root, "install.json"), "{\"Current\":\"0.8.94\"}");
+            File.WriteAllText(Path.Combine(root, "install.json"), "{\"Current\":\"0.8.112\"}");
             Check(GameExe.Find() == v2, "game is resolved again after version switch");
             Check(SvmbuildRunner.InstalledBuild() == Path.GetDirectoryName(v2), "builder follows the same root/version");
             Directory.Delete(Path.GetDirectoryName(v1)!, true);
@@ -173,7 +173,7 @@ internal static class Program
         File.WriteAllText(Path.Combine(root, EditorRelease.ExeName), "deliberately not an executable " + version);
         File.WriteAllText(Path.Combine(root, "ose", EditorRelease.CliExeName), "fixture cli");
         var info = new InstallInfo { Version = version, Platform = EditorRelease.Platform, LauncherProtocol = protocol,
-            MinimumGameVersion = "0.8.93", Entries = [EditorRelease.ExeName, "ose", InstallInfo.FileName] };
+            MinimumGameVersion = "0.8.111", Entries = [EditorRelease.ExeName, "ose", InstallInfo.FileName] };
         info.Files = Directory.GetFiles(root, "*", SearchOption.AllDirectories).Select(path => new InstallFile {
             Path = Path.GetRelativePath(root, path).Replace('\\', '/'), Size = new FileInfo(path).Length,
             Sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))) }).ToList();
@@ -190,7 +190,7 @@ internal static class Program
         }
         File.Copy(Path.Combine(root, "LauncherIntegrationChecks.exe"), Path.Combine(root, EditorRelease.ExeName));
         var info = new InstallInfo { Version = version, Platform = EditorRelease.Platform, LauncherProtocol = 1,
-            MinimumGameVersion = "0.8.93", Entries = Directory.GetFileSystemEntries(root).Select(Path.GetFileName).OfType<string>().Append(InstallInfo.FileName).ToList() };
+            MinimumGameVersion = "0.8.111", Entries = Directory.GetFileSystemEntries(root).Select(Path.GetFileName).OfType<string>().Append(InstallInfo.FileName).ToList() };
         info.Files = Directory.GetFiles(root, "*", SearchOption.AllDirectories).Select(path => new InstallFile {
             Path = Path.GetRelativePath(root, path).Replace('\\', '/'), Size = new FileInfo(path).Length,
             Sha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))) }).ToList();
@@ -241,7 +241,7 @@ internal static class Program
             string name = EditorRelease.AssetName(version);
             ReleaseAsset archive = Asset(name, bytes);
             ReleaseAsset checksum = Asset(name + ".sha256", Encoding.UTF8.GetBytes(Convert.ToHexString(SHA256.HashData(bytes)) + "  " + name));
-            ReleaseAsset metadata = Asset(LauncherIntegration.AssetName(version), Encoding.UTF8.GetBytes("{\"launcherProtocol\":1,\"minimumGameVersion\":\"0.8.93\"}"));
+            ReleaseAsset metadata = Asset(LauncherIntegration.AssetName(version), Encoding.UTF8.GetBytes("{\"launcherProtocol\":1,\"minimumGameVersion\":\"0.8.111\"}"));
             Offer = new UpdateOffer(new VersionedRelease(version, new ReleaseInfo { TagName = "v" + version, Assets = [archive, checksum, metadata] }), archive, checksum);
         }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancel)

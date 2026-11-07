@@ -49,7 +49,7 @@ Settings, autosaves: %APPDATA%\OpenSCCT Editor
 Editor data:         %LOCALAPPDATA%\OpenSCCT-Editor (imports, caches, downloaded updates)
 
 The editor needs OpenSCCT installed with its launcher (https://github.com/Lumbridge/OpenSCCT),
-version 0.8.93 or newer. It uses the content the launcher installs (class data, converted maps,
+version 0.8.111 or newer. It uses the content the launcher installs (class data, converted maps,
 materials and meshes) and the game itself (for Play and test rounds). Importing a map from, or
 exporting one for, the original game reads your own copy of SCCT Versus.
 
