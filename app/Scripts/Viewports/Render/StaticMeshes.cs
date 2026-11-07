@@ -171,13 +171,13 @@ public static class StaticMeshes
                 indices[i + 2] = s.Indices[i + 1];
             }
 
-            var arrays = new Godot.Collections.Array();
+            using var arrays = new Godot.Collections.Array();
             arrays.Resize((int)Mesh.ArrayType.Max);
             arrays[(int)Mesh.ArrayType.Vertex] = points;
             arrays[(int)Mesh.ArrayType.Normal] = normals;
             arrays[(int)Mesh.ArrayType.TexUV] = uvs;
             arrays[(int)Mesh.ArrayType.Index] = indices;
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays);
             // The glb material's name, so a conveyor that scrolls one material of a mesh can find its surfaces.
             mesh.SurfaceSetName(mesh.GetSurfaceCount() - 1, s.Material ?? "");
             materials.Add(ViewMaterials.Section(s));

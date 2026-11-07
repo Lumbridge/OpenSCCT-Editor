@@ -152,7 +152,7 @@ public static class StrategicMapBuild
             return;
         }
 
-        (List<StrategicMap.Tri> walkable, List<StrategicMap.Tri> walls) = Triangles(CollisionReader.Read(bytes, strict: false));
+        (List<StrategicMap.Tri> walkable, List<StrategicMap.Tri> walls) = Triangles(ctx, CollisionReader.Read(bytes, strict: false));
         if (chosen is null && ctx.Project.LevelInfo["MapFloors"] is SvJsonArray kept)
         {
             List<double> floors = kept.OfType<SvJsonObject>().Select(f => PropValues.Num(f["FloorZ"])).ToList();
@@ -276,7 +276,7 @@ public static class StrategicMapBuild
 
     /// <summary>Walkable and wall triangles in world space from the colliders that block players and stay put (the world,
     /// brushes and static meshes; movers, glass and gameplay objects move or break).</summary>
-    private static (List<StrategicMap.Tri> Walkable, List<StrategicMap.Tri> Walls) Triangles(CollisionData data)
+    private static (List<StrategicMap.Tri> Walkable, List<StrategicMap.Tri> Walls) Triangles(CompileContext ctx, CollisionData data)
     {
         var walkable = new List<StrategicMap.Tri>();
         var walls = new List<StrategicMap.Tri>();
@@ -293,6 +293,13 @@ public static class StrategicMapBuild
             {
                 Vec3 a = ToWorld(c, verts[(int)t.I0]), b = ToWorld(c, verts[(int)t.I1]), d = ToWorld(c, verts[(int)t.I2]);
                 Vec3 n = Vec3.Cross(b - a, d - a).Normalized();
+                // Sky rooms are scenery, even when directly above the playable area. The XY flood below cannot
+                // distinguish them. Sample just in front of the surface, on the empty side of a BSP boundary.
+                if (ctx.InSkyZone(((a + b + d) / 3) + (n * 2)))
+                {
+                    continue;
+                }
+
                 if (n.Z >= WalkableNormalZ)
                 {
                     walkable.Add(new StrategicMap.Tri(a, b, d));

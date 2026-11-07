@@ -1,5 +1,6 @@
 using System.Globalization;
 using Godot;
+using OpenScct.Editor.Core.Commands;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Session;
 using OpenScctEditor.Core;
@@ -53,6 +54,9 @@ public sealed partial class ViewportLayout : Node, IShellPart
     public bool ShowBuilder { get; set; }
 
     public WorldScene Scene => _scene;
+
+    /// <summary>An edit has landed but has not yet been synchronized into the drawn scene.</summary>
+    public bool SceneSyncPending => _dirty;
 
     public void Attach(MainWindow window, EditorContext context)
     {
@@ -110,15 +114,24 @@ public sealed partial class ViewportLayout : Node, IShellPart
 
         RegisterActions();
         context.SessionReplaced += OnSessionReplaced;
-        context.ProjectChanged += _ =>
+        context.ProjectChanged += command =>
         {
             _dirty = true;
             _geometry = null;
             StoreyFilter.ObjectsChanged();
-            // Undo and redo of workspace commands restore the whole workspace, camera included: keep the view's.
+            // Explicit workspace camera edits (including undo/redo) move the view. Other workspace
+            // commands restore an incidental camera snapshot: preserve the user's current view instead.
             if (ReferenceEquals(_cameraSession, _ctx.Session))
             {
-                StoreCamera();
+                if (ChangesCamera(command))
+                {
+                    Workspace w = _ctx.Project.Workspace;
+                    ViewFrom(w.CameraLocation, w.CameraRotation);
+                }
+                else
+                {
+                    StoreCamera();
+                }
             }
         };
         context.SelectionChanged += () => _selectionDirty = true;
@@ -299,6 +312,13 @@ public sealed partial class ViewportLayout : Node, IShellPart
         _ctx.Project.Workspace.CameraLocation = cam.Location;
         _ctx.Project.Workspace.CameraRotation = cam.Rotation;
     }
+
+    private static bool ChangesCamera(IEditCommand command) => command switch
+    {
+        WorkspaceCommand workspace => workspace.ChangesCamera,
+        CompositeCommand composite => composite.Parts.Any(ChangesCamera),
+        _ => false,
+    };
 
     /// <summary>Keeps the workspace camera (bookmarks, placement fallbacks, the saved view) on the perspective view.
     /// Until the open map's own camera has been applied, the old camera must not overwrite it.</summary>

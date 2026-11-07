@@ -25,7 +25,8 @@ internal static class AssetCommands
         new("asset-import", "asset-import <project> <mesh.obj|.gltf|.glb> [--name N] [--group Meshes] [--scale 1] [--zup]\n" +
             "      [--collision parts|hull|box|mesh] [--overwrite] [--place x,y,z] [--json]",
             "Imports a mesh into the project's assets as MyLevel.<group>.<name>, with a generated collision hull. OBJ is read in\n" +
-            "Unreal units (Y up unless --zup), glTF in metres. --place also adds a StaticMeshActor standing on that point.", ImportAsync),
+            "Unreal units (Y up unless --zup), glTF in metres. PNG, JPEG, BMP and WebP base-colour textures are imported.\n" +
+            "--place also adds a StaticMeshActor standing on that point.", ImportAsync),
         new("asset-place", "asset-place <project> <mesh path> --at x,y,z [--rot p,y,r] [--json]",
             "Adds a StaticMeshActor showing the mesh, its bottom on the point (one undo step), and saves the project.", PlaceAsync),
         new("asset-apply", "asset-apply <project> <material path> (--brushes id,id | --all) [--json]",

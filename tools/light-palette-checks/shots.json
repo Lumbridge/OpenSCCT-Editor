@@ -1,0 +1,18 @@
+[
+ {"op":"size","w":1600,"h":900},
+ {"op":"tab","panel":"Lights"},
+ {"op":"wait","idle":true,"frames":600},
+ {"op":"shot","name":"fixtures","crop":"dock:Lights"},
+ {"op":"drag","at":"text:Ceiling Spotlight","to":"view:Top","toOffset":[0.6,0.6],"steps":16},
+ {"op":"wait","frames":6},
+ {"op":"shot","name":"fixture-placed","views":true},
+ {"op":"key","key":"Ctrl+Z"},
+ {"op":"shot","name":"fixture-undone"},
+ {"op":"key","key":"Ctrl+Shift+Z"},
+ {"op":"shot","name":"fixture-redone"},
+ {"op":"click","at":"tab:Raw Lights"},
+ {"op":"shot","name":"raw-lights","crop":"dock:Lights"},
+ {"op":"drag","at":"text:Warm Point","to":"view:Top","toOffset":[0.7,0.7],"steps":16},
+ {"op":"shot","name":"raw-placed"},
+ {"op":"quit"}
+]

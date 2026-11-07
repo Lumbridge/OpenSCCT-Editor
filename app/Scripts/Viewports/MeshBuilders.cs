@@ -48,12 +48,12 @@ public sealed class LineBuilder
             return null;
         }
 
-        var arrays = new Godot.Collections.Array();
+        using var arrays = new Godot.Collections.Array();
         arrays.Resize((int)Mesh.ArrayType.Max);
         arrays[(int)Mesh.ArrayType.Vertex] = _points.ToArray();
         arrays[(int)Mesh.ArrayType.Color] = _colors.ToArray();
         var mesh = new ArrayMesh();
-        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Lines, arrays);
+        MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Lines, arrays);
         return mesh;
     }
 }
@@ -96,13 +96,13 @@ public sealed class SurfaceBuilder
             return null;
         }
 
-        var arrays = new Godot.Collections.Array();
+        using var arrays = new Godot.Collections.Array();
         arrays.Resize((int)Mesh.ArrayType.Max);
         arrays[(int)Mesh.ArrayType.Vertex] = _points.ToArray();
         arrays[(int)Mesh.ArrayType.Normal] = _normals.ToArray();
         arrays[(int)Mesh.ArrayType.Color] = _colors.ToArray();
         var mesh = new ArrayMesh();
-        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+        MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays);
         return mesh;
     }
 }

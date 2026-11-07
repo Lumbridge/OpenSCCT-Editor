@@ -86,9 +86,10 @@ public static class MapShots
 
     private static string ShownDigest(string path, byte[] data)
     {
-        // A warm lightmap cache changes the bake's ray count without changing the rendered lightmaps.
-        if (path == "render/lighting.json" && JsonNode.Parse(data) is JsonObject lighting && lighting.Remove("bake"))
+        // Bake diagnostics depend on cache warmth, but the game only reads the resulting lightmaps and lights.
+        if (path == "render/lighting.json" && JsonNode.Parse(data) is JsonObject lighting)
         {
+            lighting.Remove("bake");
             return SvMapHash.FileDigest(path, JsonSerializer.SerializeToUtf8Bytes(lighting));
         }
 

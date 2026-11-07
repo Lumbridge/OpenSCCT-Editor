@@ -103,7 +103,8 @@ public static class StaticMeshDrawing
     /// gives the Lit Preview's light for the actor once the mesh is there (<see cref="ShowBakedLight"/>).
     /// <paramref name="missing"/> runs (main thread, while this build is current) when nothing ships the actor's static or
     /// skeletal mesh, so the caller can show the actor as one drawn without a mesh.</summary>
-    public static void Attach(Node3D root, Actor a, MeshInstance3D wire, Color color, Func<LitPreviewMesh?> bakedLight, Action? missing = null)
+    public static void Attach(Node3D root, Actor a, MeshInstance3D wire, Color color, Func<LitPreviewMesh?> bakedLight, Action? missing = null,
+        Func<bool>? inSky = null)
     {
         bool Built() => GodotObject.IsInstanceValid(root) && !root.IsQueuedForDeletion() && GodotObject.IsInstanceValid(wire) &&
             !wire.IsQueuedForDeletion() && wire.GetParent() == root;
@@ -127,6 +128,7 @@ public static class StaticMeshDrawing
 
                 root.AddChild(Holder(mesh, HolderName, Local(a)));
                 ShowBakedLight(root, a, bakedLight());
+                SetSky(root, inSky?.Invoke() == true);
                 var lines = new LineBuilder();
                 lines.Box(ObjectGeometry.Corners(mesh.Min, mesh.Max).Select(c => Space.ToGodot(MeshToWorld(a, c) - a.Location)).ToList(), color);
                 wire.Mesh = lines.Build();
@@ -139,6 +141,7 @@ public static class StaticMeshDrawing
                 if (Current(SkeletalName) && SkeletalLocal(a, skeletal) is { } local)
                 {
                     root.AddChild(Holder(mesh, SkeletalName, local));
+                    SetSky(root, inSky?.Invoke() == true);
                 }
             }, gone);
         }
@@ -150,8 +153,24 @@ public static class StaticMeshDrawing
                 if (Current(MountName))
                 {
                     root.AddChild(Holder(mesh, MountName, new Transform3D(Space.RotationToGodot(mount.Rotation), Space.ToGodot(mount.Location - a.Location))));
+                    SetSky(root, inSky?.Invoke() == true);
                 }
             });
+        }
+    }
+
+    /// <summary>Moves only the mesh surfaces between world and sky layers; authoring outlines stay in the world.</summary>
+    public static void SetSky(Node3D root, bool sky)
+    {
+        foreach (string name in new[] { HolderName, SkeletalName, MountName })
+        {
+            if (root.GetNodeOrNull<Node3D>(name) is not { } holder) continue;
+            foreach (MeshInstance3D mesh in holder.GetChildren().OfType<MeshInstance3D>())
+            {
+                bool lit = mesh.Name == LitName;
+                mesh.Layers = sky ? (lit ? VisualLayers.SkyLit : VisualLayers.SkyUnlit)
+                    : (lit ? VisualLayers.Lit : VisualLayers.Unlit);
+            }
         }
     }
 
@@ -199,7 +218,8 @@ public static class StaticMeshDrawing
         for (int i = 0; i < mesh.Materials.Count; i++)
         {
             ViewMaterial m = mesh.Materials[i];
-            mi.SetSurfaceOverrideMaterial(i, baked is null ? StoreyClip.Of(m.Lit, m.TextureFile) : VertexLit(m));
+            mi.SetSurfaceOverrideMaterial(i, Rules.Flag(a, "bUnlit") ? StoreyClip.Of(m.Unlit, m.TextureFile)
+                : baked is null ? StoreyClip.Of(m.Lit, m.TextureFile) : VertexLit(m));
         }
     }
 
@@ -229,7 +249,7 @@ public static class StaticMeshDrawing
         var copy = new ArrayMesh();
         for (int i = 0; i < mesh.Mesh.GetSurfaceCount(); i++)
         {
-            Godot.Collections.Array arrays = mesh.Mesh.SurfaceGetArrays(i);
+            using Godot.Collections.Array arrays = mesh.Mesh.SurfaceGetArrays(i);
             int count = ((Vector3[])arrays[(int)Mesh.ArrayType.Vertex]).Length;
             if (!light.Colours.TryGetValue(mesh.Primitives[i], out byte[]? rgba) || rgba.Length != count * 4)
             {
@@ -243,7 +263,7 @@ public static class StaticMeshDrawing
             }
 
             arrays[(int)Mesh.ArrayType.Color] = colours;
-            copy.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            MeshUpload.AddSurface(copy, Mesh.PrimitiveType.Triangles, arrays);
             copy.SurfaceSetName(i, mesh.Mesh.SurfaceGetName(i));
         }
 

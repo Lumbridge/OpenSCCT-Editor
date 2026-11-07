@@ -83,6 +83,14 @@ A Godot 4.7.2 .NET project (`Godot.NET.Sdk/4.7.2`, net10.0, Forward+). It refere
 Rules:
 
 - Core never references Godot. Anything that can run headless lives in Core.
+- `Compile/SkyPreview` classifies the editor's sky with the compiler's BSP zones. `WorldScene` separates authored sky
+  surfaces and placed meshes onto sky layers; `SkyPreviewView` draws them from the SkyZoneInfo behind textured
+  perspective views. Inside the sky room, and in orthographic views, those layers remain directly editable. The
+  backdrop is disabled while a storey cut is shown. Imported baked BSP still follows `BakedWorldNode`'s existing
+  handling; this preview does not reconstruct the source map's omitted sky BSP.
+- App meshes upload through `Viewports/MeshUpload`: Godot 4.7.2's generated `AddSurfaceFromArrays` binding passes
+  native collection handles without keeping their managed owners alive. The helper explicitly supplies the optional
+  collections and keeps the owners alive through the call; callers dispose their temporary surface arrays afterward.
 - The app never edits the model directly. It builds a command and runs it through `EditorContext.Execute`.
 - Panels never talk to each other. They listen to `EditorContext` events (`ProjectChanged`, `SelectionChanged`,
   `SessionReplaced`, `FindingsChanged`, `FocusRequested`, `JumpRequested`).
@@ -260,11 +268,17 @@ snapshot camera), traversal, render, the side files (mapinfo legends from the id
 then the identity and its pictures. The build never starts the game: camera pictures come from `ose mapshot`, which
 runs OpenSCCT in a window started off-screen (`--svm-background`, never `--headless`, which has no renderer) and fills
 a cache keyed by the recipe and bookmark; each render records the map it was made from, so a build can say which
-pictures are out of date.
+pictures are out of date. The map key excludes lighting bake diagnostics (including cache-dependent ray counts),
+while retaining the lightmaps, lights, geometry and class table that affect the image.
+
+`Assets > Refresh Assets` (`assets.reindex`) resets the resolver and all viewport mesh, material, texture and
+thumbnail caches before redrawing and rebuilding the index. Reopening even the same project also resets these
+caches before its scene rebuild, so assets imported by a separate CLI appear without restarting the editor.
 
 `ose play --headless` (and the `playtest` API method) runs the game itself with no window: `OpenSCCT.console.exe
 --headless -- --svm-maps <build> --svm-play <map> --svm-host=inline --svm-test-round` with the side, mode, rules and
 bots (the last keeps the round on default settings, signed out, writing nothing of the player's). It reads the game's `SVM_PLAY` lines (render warnings, then one status line per bot after 10 s of play) and its `ERROR:` lines, and
-stops once every bot has reported or the time is up.
+stops once every bot has reported or the time is up. These background tests set `SVM_AUDIO_MUTE=1`: the game's
+native OpenAL backend otherwise plays sound even with Godot's headless or Dummy audio driver.
 
 Never start the app or the game windowed on someone else's screen for a test.

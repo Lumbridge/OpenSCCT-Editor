@@ -44,7 +44,7 @@ public static class LitPreviewSurfaces
                 continue;
             }
 
-            var arrays = new Godot.Collections.Array();
+            using var arrays = new Godot.Collections.Array();
             arrays.Resize((int)Mesh.ArrayType.Max);
             arrays[(int)Mesh.ArrayType.Vertex] = s.Points.ToArray();
             arrays[(int)Mesh.ArrayType.Normal] = s.Normals.ToArray();
@@ -54,7 +54,7 @@ public static class LitPreviewSurfaces
                 arrays[(int)Mesh.ArrayType.TexUV2] = s.Uv2s.ToArray();
             }
 
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays);
             materials.Add(atlas >= 0 ? Lightmapped(m, atlases[atlas]) : StoreyClip.Of(m.Unlit, m.TextureFile));
         }
 

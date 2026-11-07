@@ -106,6 +106,7 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
     {
         EditorSession s = _ctx.Session;
         Workspace w = s.Project.Workspace;
+        ViewportLayout? layout = ViewportLayout.Instance;
         Vec3? placement = null;
         try
         {
@@ -127,6 +128,16 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
             ("viewCenter", placement is { } p ? ApiJson.Vec(p) : null),
             ("cursor", ViewportLayout.Instance?.CursorWorld is { } c ? ApiJson.Vec(c) : null),
             ("clients", ApiJson.Strings(_server?.Clients ?? [])),
+            ("preview", layout is null ? null : ApiJson.Obj(
+                ("sceneSyncPending", ApiJson.Bool(layout.SceneSyncPending)),
+                ("geometry", ApiJson.Str(layout.Scene.GeometryPreviewState)),
+                ("lighting", ApiJson.Str(layout.Scene.LightingPreviewState)),
+                ("sky", ApiJson.Str(layout.Scene.SkyPreviewState)),
+                ("litReady", ApiJson.Bool(!layout.SceneSyncPending && layout.Scene.GeometryPreviewState == "ready" &&
+                    layout.Scene.LightingPreviewState == "ready" && layout.Scene.SkyPreviewState == "ready")),
+                ("lightingVersion", SvJsonNode.Integer(layout.Scene.LightingVersion)),
+                ("completedLightingVersion", layout.Scene.CompletedLightingVersion is { } version ? SvJsonNode.Integer(version) : null),
+                ("error", layout.Scene.PreviewError is { } previewError ? ApiJson.Str(previewError) : null))),
             ("matchGrey", MatchGreying.On
                 ? ApiJson.Obj(("players", SvJsonNode.Integer(MatchGreying.Players)),
                     ("mode", MatchGreying.Mode is { } mode ? ApiJson.Str(mode) : null),
@@ -140,7 +151,7 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
         if (reply.IsError)
         {
             string message = reply.Body is SvJsonObject e ? ApiJson.GetString(e, "message") ?? ApiJson.Write(e) : ApiJson.Write(reply.Body);
-            _ctx.Log($"Script {method} failed: {message}", Severity.Warning);
+            _ctx.Log($"Live {method} failed: {message}", Severity.Warning);
             return;
         }
 
@@ -155,29 +166,29 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
                 LogApplied(body, args);
                 break;
             case "open" or "new":
-                _ctx.Log($"Script opened {_ctx.Project.Id} ({_ctx.Session.Folder ?? "unsaved"}).");
+                _ctx.Log($"Live client opened {_ctx.Project.Id} ({_ctx.Session.Folder ?? "unsaved"}).");
                 break;
             case "save":
-                _ctx.Log($"Script saved {ApiJson.GetString(body, "saved")}.");
+                _ctx.Log($"Live client saved {ApiJson.GetString(body, "saved")}.");
                 break;
             case "ui.input":
-                _ctx.Log($"Script sent input: {ApiJson.Number(body, "done", 0)} steps.");
+                _ctx.Log($"Background editor input: {ApiJson.Number(body, "done", 0)} steps.");
                 break;
             case "undo" or "redo":
-                _ctx.Log($"Script {method}: {string.Join(", ", ApiJson.StringList(body[method == "undo" ? "undone" : "redone"], method) ?? [])}");
+                _ctx.Log($"Live {method}: {string.Join(", ", ApiJson.StringList(body[method == "undo" ? "undone" : "redone"], method) ?? [])}");
                 break;
         }
     }
 
-    /// <summary>ui.* calls drive the editor's own window with synthetic input, so they are for an editor started in the
-    /// background only: in the user's editor they would click and type while the user works, outside the
-    /// proposal model, and they need background mode's embedded popups, synthetic pointer and steady redraws.</summary>
+    /// <summary>The live editor allows read-only viewport captures. UI inspection and synthetic input still require
+    /// an isolated background editor, where embedded popups, a synthetic pointer and steady redraws are available.</summary>
     public Task<ApiReply> Ui(string method, SvJsonObject args) =>
-        UiDriver.Instance is { } driver && DisplayServer.GetName() != "headless" && BackgroundMode.Active
+        UiDriver.Instance is { } driver && DisplayServer.GetName() != "headless" &&
+            (BackgroundMode.Active || method == "ui.shot" && ApiJson.GetBool(args, "views", false))
             ? driver.Call(method, args)
             : Task.FromResult(ApiReply.Error(new ApiException(
-                "ui.* calls work only in an editor started in the background (tools/Start-BackgroundEditor.ps1); " +
-                "in the user's editor, propose changes instead")));
+                "In the live editor, use ui.shot with views:true to capture only the map viewports. " +
+                "UI inspection and input require an isolated background editor (tools/Start-BackgroundEditor.ps1).")));
 
     // ---- proposals ------------------------------------------------------------------------------------------------
 
@@ -318,7 +329,7 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
         int updated = (result["updated"] as SvJsonObject)?.Count ?? 0;
         int deleted = (result["deleted"] as SvJsonArray)?.Count ?? 0;
         SvJsonObject? doc = args["changes"] as SvJsonObject ?? args;
-        string author = ApiJson.GetString(doc, "author") ?? "script";
+        string author = ApiJson.GetString(doc, "author") ?? "Live edit";
         string label = ApiJson.GetString(result, "undo") ?? ApiJson.GetString(doc, "label") ?? "changes";
         _ctx.Log($"{author}: {label} ({ChangePreview.CountsText(created.Count, updated, deleted)})");
         bool selects = doc["ops"] is SvJsonArray ops && ops.OfType<SvJsonObject>().Any(o => ApiJson.GetString(o, "op") == "select");
@@ -355,7 +366,7 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
 
         _server = server;
         _ctx.Log(string.Create(CultureInfo.InvariantCulture,
-            $"Live editing on 127.0.0.1:{server.Port} (connect with: ose serve --live). Discovery: {LiveDiscovery.FileFor(System.Environment.ProcessId)}"));
+            $"Live editing on 127.0.0.1:{server.Port} (MCP: ose mcp --live, scripting: ose serve --live). Discovery: {LiveDiscovery.FileFor(System.Environment.ProcessId)}"));
         UpdateStatus();
     }
 
@@ -382,7 +393,7 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
         }
 
         IReadOnlyList<string> clients = _server?.Clients ?? [];
-        _ctx.Log(clients.Count == 0 ? "No script is connected." : $"Script connected: {string.Join(", ", clients)}");
+        _ctx.Log(clients.Count == 0 ? "No live clients connected." : $"Live clients connected: {string.Join(", ", clients)}");
         UpdateStatus();
     }
 
@@ -398,10 +409,12 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
         // The dot says the state (listening, a client connected); the text stays quiet until a client is there.
         _statusField.Visible = true;
         _statusDot.Texture = Icons.Get("dot", EditorTheme.Ok);
-        _status.Text = clients.Count == 0 ? "Live" : $"Script: {string.Join(", ", clients.Distinct())}";
+        _status.Text = clients.Count == 0 ? "Live editing" : $"Live: {string.Join(", ", clients.Distinct())}";
         _status.AddThemeColorOverride("font_color", clients.Count == 0 ? EditorTheme.TextDim : EditorTheme.Ok);
         _statusField.TooltipText = string.Create(CultureInfo.InvariantCulture,
-            $"Scripts can edit this map live on 127.0.0.1:{_server.Port} (ose serve --live). {clients.Count} connected.");
+            $"AI agents can edit this map through MCP (ose mcp --live).\n" +
+            $"Scripts can connect with ose serve --live.\n" +
+            $"Local server: 127.0.0.1:{_server.Port}\nConnected clients: {clients.Count}");
     }
 
     private void OnSessionReplaced()
@@ -472,11 +485,12 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
 
     private void RegisterActions()
     {
-        _ctx.AddAction(new EditorAction("live.copyMcp", "Copy MCP Configuration", "Tools/Scripting", CopyMcpConfiguration)
+        const string menu = "Tools/Agents and Scripting";
+        _ctx.AddAction(new EditorAction("live.copyMcp", "Copy MCP Configuration", menu, CopyMcpConfiguration)
         {
-            Order = 110, Description = "Copies stdio MCP server configuration for this editor installation",
+            Order = 110, Description = "Copies the connection configuration for AI agents using MCP",
         });
-        _ctx.AddAction(new EditorAction("live.allow", "Allow Live Script Connections", "Tools/Scripting", () =>
+        _ctx.AddAction(new EditorAction("live.allow", "Allow Live Agent and Script Connections", menu, () =>
         {
             bool on = _server is null;
             AppSettings.Set("scripting", "live", on);
@@ -492,26 +506,26 @@ public sealed partial class LiveEditing : Node, IShellPart, ILiveEditor
         })
         {
             Order = 100, IsChecked = () => _server is not null,
-            Description = "Let scripts edit the open map through ose serve --live (localhost only, token protected)",
+            Description = "Allow local, token-protected editing by AI agents through MCP and scripts through the scripting API",
         });
-        _ctx.AddAction(new EditorAction("live.accept", "Accept Proposal", "Tools/Scripting", Accept)
+        _ctx.AddAction(new EditorAction("live.accept", "Accept Proposal", menu, Accept)
         {
             Order = 200, IsEnabled = () => Proposals.Pending is { Problem: null }, Description = "Apply the ghost preview as one undo step",
         });
-        _ctx.AddAction(new EditorAction("live.reject", "Reject Proposal", "Tools/Scripting", Reject)
+        _ctx.AddAction(new EditorAction("live.reject", "Reject Proposal", menu, Reject)
         {
             Order = 210, IsEnabled = () => Proposals.Pending is not null,
         });
-        _ctx.AddAction(new EditorAction("live.frameProposal", "Frame Proposal", "Tools/Scripting", FrameProposal)
+        _ctx.AddAction(new EditorAction("live.frameProposal", "Frame Proposal", menu, FrameProposal)
         {
             Order = 220, IsEnabled = () => Proposals.Pending is not null,
         });
-        _ctx.AddAction(new EditorAction("live.previewClipboard", "Preview Change Document from Clipboard", "Tools/Scripting",
+        _ctx.AddAction(new EditorAction("live.previewClipboard", "Preview Change Document from Clipboard", menu,
             () => RunChangeDocument(EditorClipboard.Get(), apply: false))
         {
             Order = 300, Description = "Shows an osmap.changes/1 document from the clipboard as a ghost to accept or reject",
         });
-        _ctx.AddAction(new EditorAction("live.applyClipboard", "Apply Change Document from Clipboard", "Tools/Scripting",
+        _ctx.AddAction(new EditorAction("live.applyClipboard", "Apply Change Document from Clipboard", menu,
             () => RunChangeDocument(EditorClipboard.Get(), apply: true))
         {
             Order = 310,

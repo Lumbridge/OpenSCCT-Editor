@@ -94,6 +94,12 @@ public static class VisualLayers
     /// <summary>The grid of one view (each view's grid differs, so each has its own layer).</summary>
     public static uint Grid(ViewKind view) => 1u << (10 + (int)view);
 
+    public const uint SkyUnlit = 1u << 14;
+    public const uint SkyLit = 1u << 15;
+    public const uint SkyBackdrop = 1u << 16;
+
+    public static uint SkyForMode(RenderMode mode) => mode == RenderMode.Unlit ? SkyUnlit : mode == RenderMode.Lit ? SkyLit : 0;
+
     public static uint ForMode(RenderMode mode) => Common | Selected | mode switch
     {
         RenderMode.Wireframe => BrushWire,

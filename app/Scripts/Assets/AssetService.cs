@@ -149,11 +149,16 @@ public sealed class AssetService
         });
     }
 
-    /// <summary>After an import into the project's assets: resolve again, redraw, re-index.</summary>
-    public void ProjectAssetsChanged()
+    /// <summary>After an import or external asset refresh: resolve again, redraw and re-index. A session replacement
+    /// passes false because the viewport is about to rebuild the scene itself.</summary>
+    public void ProjectAssetsChanged(bool redraw = true)
     {
         _resolver = null;
-        AssetsChanged?.Invoke();
+        if (redraw)
+        {
+            AssetsChanged?.Invoke();
+        }
+
         Reload();
     }
 

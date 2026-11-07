@@ -45,12 +45,12 @@ public sealed class TexturedSurfaces
                 continue;
             }
 
-            var arrays = new Godot.Collections.Array();
+            using var arrays = new Godot.Collections.Array();
             arrays.Resize((int)Mesh.ArrayType.Max);
             arrays[(int)Mesh.ArrayType.Vertex] = s.Points.ToArray();
             arrays[(int)Mesh.ArrayType.Normal] = s.Normals.ToArray();
             arrays[(int)Mesh.ArrayType.TexUV] = s.Uvs.ToArray();
-            mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+            MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays);
             materials.Add(m);
         }
 

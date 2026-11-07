@@ -62,12 +62,12 @@ public partial class AssetBrowserPanel
         {
             Order = 200, Description = "Import a glTF or OBJ mesh into this map's assets, with a collision hull",
         });
-        Context.AddAction(new EditorAction("assets.reindex", "Reindex Assets", "Assets", () =>
+        Context.AddAction(new EditorAction("assets.reindex", "Refresh Assets", "Assets", () =>
         {
             AssetCatalog.Reset();
-            AssetService.Instance.Reload();
-            Context.SetStatus("Reindexing assets…");
-        }) { Order = 300 });
+            AssetService.Instance.ProjectAssetsChanged();
+            Context.SetStatus("Refreshing assets…");
+        }) { Order = 300, Description = "Reload the asset index and viewport meshes and textures, including external imports" });
     }
 
     /// <summary>Assets > Search Assets: brings the browser to the front of its dock (it may be behind another tab)
@@ -158,8 +158,8 @@ public partial class AssetBrowserPanel
         menu.AddSubmenuNodeItem("Imported mesh collision", collision);
         menu.SetItemTooltip(menu.ItemCount - 1, "Collision an imported mesh gets: hulls of its parts (UCX_ parts kept), one hull, its box, or its own triangles");
         menu.AddSeparator();
-        menu.AddIconItem(Icons.Get("refresh", EditorTheme.Text)!, "Reindex", reindex);
-        menu.SetItemTooltip(menu.ItemCount - 1, "Index the content again (after converting maps)");
+        menu.AddIconItem(Icons.Get("refresh", EditorTheme.Text)!, "Refresh assets", reindex);
+        menu.SetItemTooltip(menu.ItemCount - 1, "Reload the asset index and viewport meshes and textures, including external imports");
         menu.AboutToPopup += SyncCollision;
         menu.IdPressed += id => Context.Run(id == import ? "assets.importMesh" : "assets.reindex");
         parent.AddChild(more);
