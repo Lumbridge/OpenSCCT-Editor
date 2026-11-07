@@ -750,19 +750,20 @@ public sealed class LightmapBaker
                     continue;
                 }
 
+                Vec3 transmitted = colour.Scale(q.Shadows ? scene.Transmission?.Invoke(l, world[i]) ?? Vec3.One : Vec3.One);
                 if (q.Faithful)
                 {
                     // One byte of term per light, through the light's colour, added with saturation.
                     double term = Math.Floor(Math.Min(255, 255 * f));
-                    rgb[3 * i] = (float)Math.Min(1, rgb[3 * i] + (Math.Floor(Math.Min(255, term * colour.X)) / 255));
-                    rgb[(3 * i) + 1] = (float)Math.Min(1, rgb[(3 * i) + 1] + (Math.Floor(Math.Min(255, term * colour.Y)) / 255));
-                    rgb[(3 * i) + 2] = (float)Math.Min(1, rgb[(3 * i) + 2] + (Math.Floor(Math.Min(255, term * colour.Z)) / 255));
+                    rgb[3 * i] = (float)Math.Min(1, rgb[3 * i] + (Math.Floor(Math.Min(255, term * transmitted.X)) / 255));
+                    rgb[(3 * i) + 1] = (float)Math.Min(1, rgb[(3 * i) + 1] + (Math.Floor(Math.Min(255, term * transmitted.Y)) / 255));
+                    rgb[(3 * i) + 2] = (float)Math.Min(1, rgb[(3 * i) + 2] + (Math.Floor(Math.Min(255, term * transmitted.Z)) / 255));
                 }
                 else
                 {
-                    rgb[3 * i] += (float)(f * colour.X);
-                    rgb[(3 * i) + 1] += (float)(f * colour.Y);
-                    rgb[(3 * i) + 2] += (float)(f * colour.Z);
+                    rgb[3 * i] += (float)(f * transmitted.X);
+                    rgb[(3 * i) + 1] += (float)(f * transmitted.Y);
+                    rgb[(3 * i) + 2] += (float)(f * transmitted.Z);
                 }
             }
         }

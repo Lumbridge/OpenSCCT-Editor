@@ -139,10 +139,12 @@ public sealed class WorldLighting
     private readonly LightmapBaker _baker = new();
     private bool _cacheRead;
     private TriangleBvh? _bvh;
+    private readonly WindowLightTransmission _windowLight;
 
     public WorldLighting(CompileContext ctx)
     {
         _ctx = ctx;
+        _windowLight = new WindowLightTransmission(ctx.Project.Actors.Where(a => a.Window is not null && !ctx.Rules.Flag(a, "bHidden")));
         Settings = ctx.Options.FastLighting ? Fast(ctx.Project.Lighting) : ctx.Project.Lighting;
         Quality = ctx.Options.FastLighting ? new BakeQuality { Shadows = false } : BakeQuality.From(Settings);
         double levelBrightness = LevelBrightness(ctx.Project, ctx.Classes, ctx.LevelInfoClass);
@@ -574,6 +576,7 @@ public sealed class WorldLighting
             Charts = charts,
             Lights = Lights,
             Occluders = Occluders,
+            Transmission = _windowLight.IsEmpty ? null : _windowLight.Filter,
             Ambient = LightmapAmbient,
             Albedo = (_, piece) => piece.Source is Poly poly ? Albedo(poly.Surface) : Grey,
             ChartAt = ChartAt,
@@ -670,7 +673,7 @@ public sealed class WorldLighting
                         continue;
                     }
 
-                    sum += l.Colour * f;
+                    sum += l.Colour.Scale(shadows ? _windowLight.Filter(l, w[i]) : Vec3.One) * f;
                 }
 
                 sum *= glow;
@@ -711,7 +714,7 @@ public sealed class WorldLighting
                 continue;
             }
 
-            sum += l.Colour * f;
+            sum += l.Colour.Scale(Quality.Shadows ? _windowLight.Filter(l, p) : Vec3.One) * f;
         }
 
         return sum;

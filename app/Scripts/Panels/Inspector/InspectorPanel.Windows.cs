@@ -1,3 +1,4 @@
+using Godot;
 using OpenScct.Editor.Core.Commands;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Windows;
@@ -7,12 +8,39 @@ namespace OpenScctEditor.Panels;
 
 public partial class InspectorPanel
 {
+    private ColourSwatch? _windowTint;
+    private string _windowTintSignature = "";
+
     private void WindowSection(Actor owner)
     {
         PanelUi.Header(_sections, "Window");
-        WindowFields.Build(_sections, owner.Window!, edit => {
+        Color start = default;
+        int pickedFrom = 0;
+        var tint = WindowFields.Build(_sections, owner.Window!, edit => {
             if (ReferenceEquals(_builtFor, Context.Project)) Context.Execute(WindowCommands.Edit(Context.Project, owner.Id, edit));
-        }, Context.SetStatus);
+        }, Context.SetStatus, tintEdit: (colour, final) =>
+        {
+            if (!ReferenceEquals(_builtFor, Context.Project) || Context.Project.FindActor(owner.Id)?.Window is not { } design) return;
+            if (colour == start)
+            {
+                while (Context.Session.Commands.Position > pickedFrom && Context.Session.Commands.Undo()) { }
+            }
+            else if (!final && new Color((float)design.Tint[0], (float)design.Tint[1], (float)design.Tint[2]) != colour)
+            {
+                Context.Execute(WindowCommands.Edit(Context.Project, owner.Id, d => d.Tint = [colour.R, colour.G, colour.B], "window.tint:" + owner.Id));
+            }
+            if (final) Context.Session.Commands.EndMerge();
+        });
+        _windowTint = tint;
+        tint.Opening += () =>
+        {
+            _live.Flush();
+            Context.Session.Commands.EndMerge();
+            pickedFrom = Context.Session.Commands.Position;
+            start = tint.Color;
+            _windowTintSignature = Context.Project.FindActor(owner.Id)!.Window!.ToJson();
+        };
+        tint.Ended += () => { Context.Session.Commands.EndMerge(); _sync.Queue(); };
         if (owner.Window!.Binding is { } binding)
         {
             PanelUi.Button(_sections, "Detach", "Keep the current pane and stop following the frame", () => Context.Execute(WindowCommands.Edit(Context.Project, owner.Id, d => d.Binding = null)));

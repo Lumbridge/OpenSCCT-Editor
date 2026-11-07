@@ -16,6 +16,9 @@ public sealed class BakeScene
 
     public required TriangleBvh Occluders { get; init; }
 
+    /// <summary>RGB light transmitted through glass, after opaque shadow visibility; null leaves it unchanged.</summary>
+    public Func<BakeLight, Vec3, Vec3>? Transmission { get; init; }
+
     /// <summary>The lightmap ambient fill of a zone in stored units (<see cref="LightColour.LightmapAmbient"/>).</summary>
     public required Func<int, Vec3> Ambient { get; init; }
 

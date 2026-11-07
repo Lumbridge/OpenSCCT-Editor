@@ -14,6 +14,17 @@ Select a window to edit its shape, width, height, glass thickness, clearance, de
 Inspector. Circles keep one diameter. **Scale** (Shift+S by default) also shows orange dimension handles. Existing
 stock glass actors keep their original mesh and gameplay properties and still use ordinary scaling.
 
+The tint picker stays open while you adjust or drag the colour. The pane updates live; each pick or drag is one
+undo step. Click outside to keep the colour, or press Escape to cancel the current picker session.
+
+Coloured panes filter baked light onto world surfaces and static meshes, using the pane's actual outline. Their
+tint multiplies the light's colour; clear glass passes the most light, tinted glass less, and frosted glass less
+again. Rebuild lighting, or wait for Lit Preview's final pass, to see the coloured shadow. Fast builds skip shadows.
+Imported maps retaining their original lightmaps need **Relight imported** enabled to update those surfaces.
+
+This is baked lighting: the coloured contribution stays static during play, including after glass breaks. Dynamic
+and switchable lights do not project coloured glass shadows in this version.
+
 ## Fill an existing frame
 
 Right-click **inside the empty opening**, then choose **Add Window** at the top of the menu. This works even when the

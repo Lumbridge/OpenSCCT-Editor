@@ -1,0 +1,12 @@
+[
+  {"op":"size","w":1600,"h":900},
+  {"op":"wait","idle":true},
+  {"op":"render","mode":"lit"},
+  {"op":"wait","idle":true},
+  {"op":"wait","seconds":3},
+  {"op":"tab","panel":"Windows"},
+  {"op":"shot","name":"coloured-light-preview","caption":"White lights project the coloured panes' actual outlines","views":true},
+  {"op":"scale","factor":1.5},
+  {"op":"shot","name":"coloured-light-150","caption":"Coloured glass Lit Preview at 150% UI scale"},
+  {"op":"quit"}
+]

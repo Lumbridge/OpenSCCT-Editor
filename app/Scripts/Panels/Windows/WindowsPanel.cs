@@ -69,7 +69,8 @@ public partial class WindowsPanel : EditorPanel
 
 public static class WindowFields
 {
-    public static void Build(Control parent, WindowDesign d, Action<Action<WindowDesign>> edit, Action<string> error, Action? rebuild = null)
+    public static ColourSwatch Build(Control parent, WindowDesign d, Action<Action<WindowDesign>> edit, Action<string> error,
+        Action? rebuild = null, Action<Color, bool>? tintEdit = null)
     {
         bool Apply(Action<WindowDesign> action) { try { edit(action); return true; } catch (ArgumentException ex) { error(ex.Message); return false; } }
         bool linked = d.Binding is not null;
@@ -94,10 +95,20 @@ public static class WindowFields
         if (d.Shape == "polygon") Number("Polygon sides", d.Sides, 3, 32, (x, v) => x.Sides = (int)v, linked, step: 1);
         if (d.Framed) { Number("Frame width", d.FrameWidth, .125, 1024, (x, v) => x.FrameWidth = v); Number("Frame depth", d.FrameDepth, .125, 262144, (x, v) => x.FrameDepth = v); }
         var finishes = PanelUi.Row(parent, "Glass finish", "Clear, tinted or cloudy frosted glass", 110); var finish = new OptionButton(); foreach (string f in WindowDesign.Finishes) finish.AddItem(f); finish.Select(Array.IndexOf(WindowDesign.Finishes, d.Finish)); finishes.AddChild(finish); finish.ItemSelected += i => Apply(x => x.Finish = WindowDesign.Finishes[(int)i]);
-        var tintRow = PanelUi.Row(parent, "Glass tint", "Tint of the generated glass material", 110); var tint = new ColorPickerButton { Color = new Color((float)d.Tint[0], (float)d.Tint[1], (float)d.Tint[2]), EditAlpha = false, CustomMinimumSize = new Vector2(80, 26) }; tintRow.AddChild(tint); tint.ColorChanged += c => Apply(x => x.Tint = [c.R, c.G, c.B]);
+        var tintRow = PanelUi.Row(parent, "Glass tint", "Colour of the glass and the baked light passing through it. Rebuild lighting to update coloured shadows.", 110);
+        var tint = ColourSwatch.Create("Colour of the glass and its baked transmitted light", "the picked colour applies to this window");
+        tint.ShowColour(new Color((float)d.Tint[0], (float)d.Tint[1], (float)d.Tint[2]), false);
+        tintRow.AddChild(tint);
+        tint.Picked += (c, final) =>
+        {
+            if (tintEdit is not null) tintEdit(c, final);
+            else if (!final) Apply(x => x.Tint = [c.R, c.G, c.B]);
+            tint.ShowColour(c, false);
+        };
         void Material(string title, string value, Action<WindowDesign, string> set)
         { var row = PanelUi.Row(parent, title, "Material asset path; leave glass empty to use the chosen finish", 110); var field = new LineEdit { Text = value, PlaceholderText = "Automatic", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; row.AddChild(field); string accepted = value; void Submit() { string text = field.Text.Trim(); if (text != accepted && Apply(x => set(x, text))) accepted = text; } field.TextSubmitted += _ => Submit(); field.FocusExited += Submit; }
         Material("Glass material", d.GlassMaterial, (x, v) => x.GlassMaterial = v);
         if (d.Framed) Material("Frame material", d.FrameMaterial, (x, v) => x.FrameMaterial = string.IsNullOrEmpty(v) ? "Editor.WindowFrame" : v);
+        return tint;
     }
 }

@@ -140,6 +140,7 @@ public partial class InspectorPanel : EditorPanel
 
     private void Rebuild()
     {
+        _windowTint = null;
         _index = null;
         _live.Flush();
         _grid.Flush();
@@ -274,7 +275,8 @@ public partial class InspectorPanel : EditorPanel
         {
             parts.Add(r.ToString());
             if (Index.Brush(r)?.Stair is { } stair) parts.Add(stair.ToJson());
-            if (Context.Project.FindActor(r.Id)?.Window is { } window) parts.Add(window.ToJson());
+            // Tint drags update the map live; keep the rows (and their popup) until the picker closes.
+            if (Context.Project.FindActor(r.Id)?.Window is { } window) parts.Add(_windowTint?.Picking == true ? _windowTintSignature : window.ToJson());
             parts.Add(r.Kind switch
             {
                 ObjectKind.Actor => Index.Actor(r)?.Class ?? "",
