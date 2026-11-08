@@ -134,7 +134,7 @@ The Windows launcher installs an optional editor copy under `<launcher-root>/edi
 outside the package's owned entries. Standalone installs keep their existing behavior. The launcher and the editor
 both use the editor's updater; neither replaces a running editor or command-line tool.
 
-Every new package includes `launcherProtocol: 1` and `minimumGameVersion: "0.8.116"` in format-1 `version.json`.
+Every new package includes `launcherProtocol: 1` and `minimumGameVersion: "0.8.117"` in format-1 `version.json`.
 Packaging also emits `OpenSCCT-Editor-<version>-win-x64.launcher.json` with those two fields and includes it in the
 generated draft-release upload command. Publish this sidecar with the ZIP and checksum: a managed editor only offers
 releases carrying it and validates both the sidecar and downloaded manifest before staging. The marker survives
