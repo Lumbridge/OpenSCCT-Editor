@@ -42,6 +42,9 @@ public sealed partial class ShortcutRouter : Node, IShellPart
 
         if (Animation.AnimationWorkspacePart.Active)
         {
+            foreach (EditorAction global in _ctx.Actions.Where(a => a.Id is "view.commandPalette" or "help.shortcuts"))
+                if (Chord(global) is { } chord && chord.Matches(key) && global.IsEnabled())
+                { global.Run(); GetViewport().SetInputAsHandled(); return; }
             Animation.AnimationWorkspacePart.Studio!.HandleShortcut(key);
             GetViewport().SetInputAsHandled();
             return;

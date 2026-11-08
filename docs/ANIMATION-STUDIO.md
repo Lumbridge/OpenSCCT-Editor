@@ -123,9 +123,9 @@ and collision poses through the existing providers. It does not add arbitrary ga
 
 ## Development and checks
 
-From this feature checkout, build with `-p:OpenScctRoot=<animation-runtime-checkout>` until the runtime commit is
-available through the pinned dependency workflow. `tools/Start-AnimationStudio.ps1` starts the source editor with
-that dependency and an optional content root/project. No public release or deployment is part of this feature.
+Source builds use `tools/Sync-OpenScct.ps1` to get the pinned runtime. An explicit
+`-p:OpenScctRoot=<animation-runtime-checkout>` also works. `tools/Start-AnimationStudio.ps1` starts the source editor
+with an optional runtime/content root and project. Released Animation Studio builds require OpenSCCT 0.8.116 or newer.
 
 `tools/animation-checks/AnimationChecks.csproj` exercises native contracts, history/recovery, every importer,
 export/bake, first-person actions, cross-rig constraints, events, content digests and map compilation. Pass Godot,

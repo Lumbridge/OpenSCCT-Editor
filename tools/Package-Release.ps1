@@ -256,7 +256,7 @@ $files = @(Get-ChildItem -LiteralPath $folder -Recurse -File -Force | Where-Obje
     })
 $info = [ordered]@{
     launcherProtocol = 1
-    minimumGameVersion = '0.8.115'
+    minimumGameVersion = '0.8.116'
     format   = 1
     product  = 'OpenSCCT Editor'
     version  = $Version
@@ -316,7 +316,7 @@ $line = "$hash  $zipName`n"
 [IO.File]::WriteAllText((Join-Path $Out 'SHA256SUMS'), $line, $utf8)
 
 $launcherName = "OpenSCCT-Editor-$Version-win-x64.launcher.json"
-[IO.File]::WriteAllText((Join-Path $Out $launcherName), (@{ launcherProtocol = 1; minimumGameVersion = '0.8.115' } | ConvertTo-Json) + "`n", $utf8)
+[IO.File]::WriteAllText((Join-Path $Out $launcherName), (@{ launcherProtocol = 1; minimumGameVersion = '0.8.116' } | ConvertTo-Json) + "`n", $utf8)
 
 # --- Notes and the publish command ---------------------------------------------------------------------------------
 $previous = git -C $repo describe --tags --abbrev=0 --match 'v*' HEAD 2>$null
