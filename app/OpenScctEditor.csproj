@@ -20,6 +20,9 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Use the same simulation and particle geometry as the game, without its full scene or render pipeline. -->
+    <Compile Include="$(OpenScctDir)game\Scripts\Render\Characters\StudioPoseBridge.cs" Link="Shared\Animation\StudioPoseBridge.cs" />
+    <Compile Include="$(OpenScctDir)game\Scripts\Views\SpyFirstPersonRig.cs" Link="Shared\Animation\SpyFirstPersonRig.cs" />
+    <Compile Include="$(OpenScctDir)game\Scripts\Render\Characters\FirstPersonFraming.cs" Link="Shared\Animation\FirstPersonFraming.cs" />
     <Compile Include="$(OpenScctDir)game\Scripts\Render\Particles\ParticleParams.cs;$(OpenScctDir)game\Scripts\Render\Particles\ParticleEmitterSim.cs;$(OpenScctDir)game\Scripts\Render\Particles\ParticleSystemSim.cs;$(OpenScctDir)game\Scripts\Render\Particles\ParticleGeometry.cs" Link="Shared\Particles\%(Filename)%(Extension)" />
     <Compile Include="$(OpenScctDir)game\Scripts\Space\UeSpace.cs" Link="Shared\UeSpace.cs" />
     <Compile Include="$(OpenScctDir)game\Scripts\Render\WindowLightFilter.cs" Link="Shared\WindowLightFilter.cs" />

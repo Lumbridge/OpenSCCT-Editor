@@ -2,7 +2,7 @@
 
 # OpenSCCT Editor<br clear="right">
 
-**A modern map editor for Splinter Cell: Chaos Theory Versus.** OpenSCCT Editor makes and edits spies-vs-mercs maps
+**A map and animation editor for Splinter Cell: Chaos Theory Versus.** OpenSCCT Editor makes and edits spies-vs-mercs maps
 for [OpenSCCT](https://github.com/Lumbridge/OpenSCCT), the community rewrite of the game, and for the original game.
 
 [![Latest release](https://img.shields.io/github/v/release/Lumbridge/OpenSCCT-Editor)](https://github.com/Lumbridge/OpenSCCT-Editor/releases/latest)
@@ -12,6 +12,7 @@ for [OpenSCCT](https://github.com/Lumbridge/OpenSCCT), the community rewrite of 
 [Features](docs/PARITY.md) ·
 [Command line](docs/CLI.md) ·
 [Scripting](docs/SCRIPTING.md) ·
+[Animation Studio](docs/ANIMATION-STUDIO.md) ·
 [OpenSCCT](https://github.com/Lumbridge/OpenSCCT) ·
 [Report a bug](https://github.com/Lumbridge/OpenSCCT-Editor/issues)
 

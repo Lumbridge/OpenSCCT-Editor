@@ -93,6 +93,7 @@ public sealed class MapCompiler : IMapCompiler
         StrategicMapBuild.WritePictures(ctx);
         MatchBuild.Write(ctx);
         MoverLegsBuild.Write(ctx);
+        AnimationBuild.Write(ctx);
         // Picture stamps cover every sim/render file, including match rules, outfits and mover legs.
         IdentityBuild.Write(ctx);
         if (ctx.HasErrors)

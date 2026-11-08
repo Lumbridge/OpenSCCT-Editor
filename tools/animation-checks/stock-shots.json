@@ -1,0 +1,8 @@
+[
+  { "op": "size", "w": 1600, "h": 900 },
+  { "op": "run", "action": "animation.workspace" },
+  { "op": "run", "action": "animation.spy" },
+  { "op": "wait", "seconds": 1 },
+  { "op": "shot", "name": "animation-spy", "caption": "Stock Spy loaded in the animation studio" },
+  { "op": "quit" }
+]

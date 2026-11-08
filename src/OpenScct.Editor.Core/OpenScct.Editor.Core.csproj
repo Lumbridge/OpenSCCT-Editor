@@ -4,6 +4,7 @@
     <AssemblyName>OpenScct.Editor.Core</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="$(OpenScctDir)src\OpenScct.Animation\OpenScct.Animation.csproj" />
     <ProjectReference Include="$(OpenScctDir)src\OpenScct.Core\OpenScct.Core.csproj" />
     <ProjectReference Include="$(OpenScctDir)src\OpenScct.Content\OpenScct.Content.csproj" />
     <ProjectReference Include="$(OpenScctDir)src\OpenScct.Physics\OpenScct.Physics.csproj" />

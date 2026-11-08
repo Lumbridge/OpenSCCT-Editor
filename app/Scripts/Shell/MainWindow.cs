@@ -43,6 +43,9 @@ public partial class MainWindow : Control
     /// <summary>The middle area; the viewport layout fills it.</summary>
     public Control ViewportArea { get; private set; } = null!;
 
+    public Control WorkspaceArea { get; private set; } = null!;
+    public Control MapWorkspace => _outer;
+
     public TabContainer LeftDock { get; private set; } = null!;
 
     /// <summary>The Inspector column (Inspector, Map, Identity, Surface, Bookmarks).</summary>
@@ -64,6 +67,7 @@ public partial class MainWindow : Control
 
     public override void _Ready()
     {
+        if (Animation.FbxImportHelper.AnswerProbe(GetTree())) return;
         // The updater starting a new build once to see that it runs: answer and quit before anything else.
         if (Updates.UpdatePart.AnswerProbe(GetTree()))
         {
@@ -98,6 +102,7 @@ public partial class MainWindow : Control
         toolBar.AddChild(ToolRow);
 
         var docks = new MarginContainer { Name = "Docks", SizeFlagsVertical = SizeFlags.ExpandFill };
+        WorkspaceArea = docks;
         foreach (string side in new[] { "left", "top", "right", "bottom" })
         {
             docks.AddThemeConstantOverride("margin_" + side, EditorTheme.SpaceXs);

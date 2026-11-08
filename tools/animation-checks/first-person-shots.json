@@ -1,0 +1,17 @@
+[
+  { "op": "size", "w": 1600, "h": 900 },
+  { "op": "run", "action": "animation.firstPerson.spy" },
+  { "op": "wait", "seconds": 1 },
+  { "op": "shot", "name": "spy-first-person", "caption": "Dedicated Spy first-person animation setup" },
+  { "op": "run", "action": "animation.firstPerson.merc" },
+  { "op": "wait", "seconds": 1 },
+  { "op": "shot", "name": "merc-first-person", "caption": "Dedicated Merc first-person animation setup" },
+  { "op": "size", "w": 1366, "h": 768 },
+  { "op": "wait", "seconds": 0.5 },
+  { "op": "shot", "name": "merc-laptop", "caption": "First-person authoring at laptop size" },
+  { "op": "size", "w": 1920, "h": 1080 },
+  { "op": "scale", "factor": 1.5 },
+  { "op": "wait", "seconds": 0.5 },
+  { "op": "shot", "name": "first-person-scaled", "caption": "First-person authoring at 150 percent UI scale" },
+  { "op": "quit" }
+]

@@ -16,6 +16,15 @@ launcher's install).
 
 The scripting API (`apply`, `query`, `summary`, `serve`, `live`) is described in full in [SCRIPTING.md](SCRIPTING.md).
 
+## Animation Studio
+
+`ose animation new <folder.osanim>` creates a standalone animation document. `info` and `check` inspect/validate it;
+`import <project> <asset>` reads GLB/glTF, FBX, BVH, PSK or PSA. FBX also takes `--godot <exe>` and
+`--editor-project <app-folder>`. `export <project> <output.glb|output.gltf|output.osanimpack>` accepts `--skeleton <id>`
+and `--rate <samples-per-second>` (default 60). `install <pack> <library-folder>` validates and installs a pack into
+a digest-named subfolder; `recover <recovery.json> <folder.osanim>` restores a document. See the
+[studio guide](ANIMATION-STUDIO.md) for editing, first-person setups, map bindings and testing.
+
 This page is generated from `ose help`.
 
 ## Projects

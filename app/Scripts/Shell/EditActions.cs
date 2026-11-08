@@ -26,23 +26,25 @@ public sealed class EditActions : IShellPart
     public void Attach(MainWindow window, EditorContext context)
     {
         _ctx = context;
-        bool HasSelection() => context.Selection.Count > 0;
-        Add("edit.undo", "Undo", "Ctrl+Z", -110, Undo, () => context.Session.Commands.CanUndo);
-        Add("edit.redo", "Redo", "Ctrl+Y", -102, Redo, () => context.Session.Commands.CanRedo);
-        Add("edit.redoAlt", "Redo", "Ctrl+Shift+Z", -101, Redo, () => context.Session.Commands.CanRedo, hidden: true);
+        bool HasSelection() => Animation.AnimationWorkspacePart.Active ? Animation.AnimationWorkspacePart.Studio!.HasSelectedKeys : context.Selection.Count > 0;
+        bool CanUndo() => Animation.AnimationWorkspacePart.Active ? Animation.AnimationWorkspacePart.Studio!.State.Session.CanUndo : context.Session.Commands.CanUndo;
+        bool CanRedo() => Animation.AnimationWorkspacePart.Active ? Animation.AnimationWorkspacePart.Studio!.State.Session.CanRedo : context.Session.Commands.CanRedo;
+        Add("edit.undo", "Undo", "Ctrl+Z", -110, Undo, CanUndo);
+        Add("edit.redo", "Redo", "Ctrl+Y", -102, Redo, CanRedo);
+        Add("edit.redoAlt", "Redo", "Ctrl+Shift+Z", -101, Redo, CanRedo, hidden: true);
         Add("edit.cut", "Cut", "Ctrl+X", 100, Cut, HasSelection);
         Add("edit.copy", "Copy", "Ctrl+C", 110, Copy, HasSelection);
         Add("edit.paste", "Paste", "Ctrl+V", 120, () => Paste(null));
         Add("edit.pasteHere", "Paste Here", "Ctrl+Shift+V", 130, () => Paste(ViewportLayout.Instance?.CursorWorld));
-        Add("edit.duplicate", "Duplicate", "Ctrl+D", 140, Duplicate, HasSelection);
+        Add("edit.duplicate", "Duplicate", "Ctrl+D", 140, () => { if (Animation.AnimationWorkspacePart.Active) Animation.AnimationWorkspacePart.Studio!.DuplicateSelectedClip(); else Duplicate(); }, () => Animation.AnimationWorkspacePart.Active || HasSelection());
         Add("edit.delete", "Delete", "Delete", 150, Delete, HasSelection);
-        Add("edit.selectAll", "Select All", "Ctrl+A", 200, () => context.Selection.Set(ObjectFilter.Pickable(context.Project)));
-        Add("edit.selectNone", "Select None", "Escape", 210, context.Selection.Clear, HasSelection);
+        Add("edit.selectAll", "Select All", "Ctrl+A", 200, () => { if (Animation.AnimationWorkspacePart.Active) Animation.AnimationWorkspacePart.Studio!.SelectKeys(true); else context.Selection.Set(ObjectFilter.Pickable(context.Project)); });
+        Add("edit.selectNone", "Select None", "Escape", 210, () => { if (Animation.AnimationWorkspacePart.Active) Animation.AnimationWorkspacePart.Studio!.SelectKeys(false); else context.Selection.Clear(); }, HasSelection);
         Add("edit.selectInvert", "Invert Selection", "Ctrl+Shift+I", 220, () =>
-            context.Selection.Set(ObjectFilter.Pickable(context.Project).Where(r => !context.Selection.Contains(r)).ToList()));
+            context.Selection.Set(ObjectFilter.Pickable(context.Project).Where(r => !context.Selection.Contains(r)).ToList()), () => !Animation.AnimationWorkspacePart.Active);
         Add("edit.selectSameClass", "Select All of Same Class", "Ctrl+Shift+A", 230, SelectSameClass,
-            () => context.Selection.Primary is { Kind: ObjectKind.Actor });
-        Add("edit.selectSameType", "Select All of Same Kind", "", 240, SelectSameKind, HasSelection);
+            () => !Animation.AnimationWorkspacePart.Active && context.Selection.Primary is { Kind: ObjectKind.Actor });
+        Add("edit.selectSameType", "Select All of Same Kind", "", 240, SelectSameKind, () => !Animation.AnimationWorkspacePart.Active && HasSelection());
     }
 
     private void Add(string id, string title, string shortcut, int order, Action run, Func<bool>? enabled = null, bool hidden = false) =>
@@ -55,6 +57,7 @@ public sealed class EditActions : IShellPart
 
     private void Undo()
     {
+        if (Animation.AnimationWorkspacePart.Active) { Animation.AnimationWorkspacePart.Studio!.State.Session.Undo(); return; }
         string? name = _ctx.Session.Commands.UndoName;
         if (_ctx.Session.Commands.Undo())
         {
@@ -64,6 +67,7 @@ public sealed class EditActions : IShellPart
 
     private void Redo()
     {
+        if (Animation.AnimationWorkspacePart.Active) { Animation.AnimationWorkspacePart.Studio!.State.Session.Redo(); return; }
         string? name = _ctx.Session.Commands.RedoName;
         if (_ctx.Session.Commands.Redo())
         {
@@ -73,6 +77,7 @@ public sealed class EditActions : IShellPart
 
     private void Copy()
     {
+        if (Animation.AnimationWorkspacePart.Active) { Animation.AnimationWorkspacePart.Studio!.CopyKeys(); return; }
         string json = ToClipboardJson(_ctx.Project, _ctx.Selection.Items);
         _localClipboard = json;
         EditorClipboard.Set(json);
@@ -88,6 +93,7 @@ public sealed class EditActions : IShellPart
 
     private void Delete()
     {
+        if (Animation.AnimationWorkspacePart.Active) { Animation.AnimationWorkspacePart.Studio!.DeleteKeys(); return; }
         List<ObjectRef> refs = _ctx.Selection.Items.ToList();
         if (refs.Count > 0)
         {
@@ -99,6 +105,7 @@ public sealed class EditActions : IShellPart
     /// where the objects were copied from.</summary>
     private void Paste(Vec3? at)
     {
+        if (Animation.AnimationWorkspacePart.Active) { Animation.AnimationWorkspacePart.Studio!.PasteKeys(); return; }
         string text = EditorClipboard.Get();
         if (!text.Contains(ClipboardFormat, StringComparison.Ordinal))
         {

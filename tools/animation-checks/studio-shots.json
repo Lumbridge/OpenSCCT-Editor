@@ -1,0 +1,11 @@
+[
+  { "op": "size", "w": 1600, "h": 900 },
+  { "op": "run", "action": "animation.workspace" },
+  { "op": "run", "action": "animation.example" },
+  { "op": "wait", "seconds": 1 },
+  { "op": "shot", "name": "animation-studio", "caption": "Animation Studio with the synthetic example" },
+  { "op": "size", "w": 1366, "h": 768 },
+  { "op": "wait", "seconds": 0.5 },
+  { "op": "shot", "name": "animation-laptop", "caption": "Animation Studio at laptop size" },
+  { "op": "quit" }
+]

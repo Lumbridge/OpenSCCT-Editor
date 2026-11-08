@@ -1,5 +1,12 @@
 # Architecture
 
+Animation Studio uses the Godot-free `OpenScct.Animation` library from the pinned OpenSCCT dependency. It owns
+skeleton/clip contracts and curve, layer, rig, graph and sequence evaluation. `Core/Animation` owns imports, commands,
+project history/recovery, exports and pack construction; `Compile/AnimationBuild` adds map-local manifests.
+`app/Scripts/Animation` owns the independent stage, timeline, inspector and dedicated first-person workspace. Pose
+upload, Spy grip solving and first-person FOV conversion are source-linked from the game so preview shares those
+operations. See [Animation Studio](ANIMATION-STUDIO.md) for workflows and runtime boundaries.
+
 ## In one paragraph
 
 All editor logic lives in a plain .NET library, `OpenScct.Editor.Core`, with no Godot in it. Two front ends sit on

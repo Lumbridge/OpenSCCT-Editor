@@ -267,6 +267,11 @@ public sealed class Documents : IShellPart
     /// still running (quitting stops it) and when there are unsaved changes.</summary>
     private void Quit()
     {
+        if (Animation.AnimationWorkspacePart.Studio is { HasUnsavedChanges: true } studio)
+        {
+            studio.GuardUnsaved(Quit);
+            return;
+        }
         if (EditorLifetime.IsQuitting)
         {
             return;
@@ -383,15 +388,15 @@ public sealed class Documents : IShellPart
 
     private void RegisterActions()
     {
-        _ctx.AddAction(new EditorAction("file.new", "New Map", "File", New) { Shortcut = "Ctrl+N", Order = 100 });
-        _ctx.AddAction(new EditorAction("file.open", "Open…", "File", Open) { Shortcut = "Ctrl+O", Order = 110 });
+        _ctx.AddAction(new EditorAction("file.new", "New", "File", () => { if (Animation.AnimationWorkspacePart.Active) Animation.AnimationWorkspacePart.Studio!.NewDocument(); else New(); }) { Shortcut = "Ctrl+N", Order = 100 });
+        _ctx.AddAction(new EditorAction("file.open", "Open…", "File", () => { if (Animation.AnimationWorkspacePart.Active) Animation.AnimationWorkspacePart.Studio!.OpenDocument(); else Open(); }) { Shortcut = "Ctrl+O", Order = 110 });
         _ctx.AddAction(new EditorAction("file.recent.clear", "Clear Recent", "File/Open Recent", () =>
         {
             AppSettings.ClearRecent();
             RefreshRecent();
         }) { Order = 900, IsEnabled = () => AppSettings.Recent.Count > 0 });
-        _ctx.AddAction(new EditorAction("file.save", "Save", "File", () => Save()) { Shortcut = "Ctrl+S", Order = 200 });
-        _ctx.AddAction(new EditorAction("file.saveAs", "Save As…", "File", () => SaveAs()) { Shortcut = "Ctrl+Shift+S", Order = 210 });
+        _ctx.AddAction(new EditorAction("file.save", "Save", "File", () => { if (Animation.AnimationWorkspacePart.Active) Animation.AnimationWorkspacePart.Studio!.SaveDocument(); else Save(); }) { Shortcut = "Ctrl+S", Order = 200 });
+        _ctx.AddAction(new EditorAction("file.saveAs", "Save As…", "File", () => { if (Animation.AnimationWorkspacePart.Active) Animation.AnimationWorkspacePart.Studio!.SaveDocument(true); else SaveAs(); }) { Shortcut = "Ctrl+Shift+S", Order = 210 });
         _ctx.AddAction(new EditorAction("file.autosaveNow", "Autosave Now", "File", AutosaveNow) { Order = 220 });
         _ctx.AddAction(new EditorAction("file.openAutosaves", "Show Autosave Folder", "File", () => ExternalPrograms.OpenFolder(AutosaveFolder))
         {

@@ -40,6 +40,13 @@ public sealed partial class ShortcutRouter : Node, IShellPart
             return;
         }
 
+        if (Animation.AnimationWorkspacePart.Active)
+        {
+            Animation.AnimationWorkspacePart.Studio!.HandleShortcut(key);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+
         foreach (EditorAction action in _ctx.Actions.OrderBy(a => a.Id, StringComparer.Ordinal))
         {
             if (Chord(action) is not { } chord || !chord.Matches(key))

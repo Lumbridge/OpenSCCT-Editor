@@ -12,6 +12,10 @@ This page describes what the code writes today: `src/OpenScct.Editor.Core/Projec
 `Project/ModelJson.cs`, `Model/*.cs`, `Prefabs/` and `Assets/ProjectAssets.cs`. Parts that are planned are marked with
 their milestone.
 
+Standalone animations use versioned `.osanim` project folders (`osanim/1`), documented in the
+[Animation Studio guide](ANIMATION-STUDIO.md). Map-local projects under `assets/animations/*.osanim` compile to
+`sim/animations.json` plus required visual/audio assets. Their digests participate in the simulation content contract.
+
 ## Folder layout
 
 ```
