@@ -20,6 +20,7 @@ namespace OpenScctEditor.Panels;
 [Panel("Classes", DockSide.Left, Order = 2)]
 public partial class ClassBrowserPanel : EditorPanel
 {
+    public static ClassBrowserPanel? Instance { get; private set; }
     private const double FallbackDistance = 512;
 
     private Tree _tree = null!;
@@ -32,6 +33,7 @@ public partial class ClassBrowserPanel : EditorPanel
 
     protected override void Build()
     {
+        Instance = this;
         _rebuild = new DeferredAction(Rebuild);
         HFlowContainer bar = PanelUi.Toolbar(this);
         _search = PanelUi.Search(bar, "Search classes…", _ => _rebuild.Queue(), "Search the class names; several words narrow it down");
@@ -42,7 +44,7 @@ public partial class ClassBrowserPanel : EditorPanel
         _tree.ItemSelected += () =>
         {
             _selected = _tree.GetSelected()?.GetMetadata(0).AsString();
-            _place.Disabled = _selected is null;
+            _place.Disabled = !CanPlaceSelected;
             ShowInfo();
         };
         _tree.ItemActivated += Place;
@@ -59,7 +61,7 @@ public partial class ClassBrowserPanel : EditorPanel
         };
         Context.AddAction(new EditorAction("classes.place", "Place Selected Class", "Edit", Place)
         {
-            Order = 900, Description = "Place the class chosen in the Classes panel at the view centre", IsEnabled = () => _selected is not null,
+            Order = 900, Description = "Place the class chosen in the Classes panel at the view centre", IsEnabled = () => CanPlaceSelected,
         });
         Context.AddAction(new EditorAction("classes.search", "Search Classes", "View", () => _search.GrabFocus())
         {
@@ -68,6 +70,30 @@ public partial class ClassBrowserPanel : EditorPanel
     }
 
     public override void Refresh() => _rebuild.Queue();
+
+    private bool CanPlaceSelected => _selected is not null && EditorServices.Classes?.Find(_selected) is not ({ Placeable: false } or { Abstract: true });
+
+    public void RevealClass(string name, bool lesson = false)
+    {
+        int revision = DiscoveryNavigation.Revision;
+        DockTabs.ShowPanel("Classes");
+        _search.Text = name;
+        _rebuild.Queue();
+        EditorLifetime.Defer(() =>
+        {
+            if (revision != DiscoveryNavigation.Revision) return;
+            if (_tree.GetRoot() is not { } root) return;
+            for (TreeItem? item = root.GetFirstChild(); item is not null; item = item.GetNext())
+            {
+                if (item.GetMetadata(0).AsString() != name) continue;
+                TreeItem chosen = item;
+                chosen.Select(0);
+                _tree.ScrollToItem(chosen);
+                NavigationHighlight.Instance?.PointAt(_tree, !lesson, () => IsInstanceValid(chosen) ? _tree.GetItemAreaRect(chosen) : new Rect2());
+                break;
+            }
+        });
+    }
 
     private void Rebuild()
     {
@@ -87,14 +113,14 @@ public partial class ClassBrowserPanel : EditorPanel
         _source.TooltipText = catalog.SourceDescription;
         if (query.Length > 0)
         {
-            foreach ((ClassInfo c, int _) in placeable
+            foreach ((ClassInfo c, int _) in catalog.All
                          .Select(c => (Class: c, Score: TextMatch.FuzzyWords(query, ClassNames.SearchText(c.Name))))
                          .Where(x => x.Score is not null)
                          .Select(x => (x.Class, x.Score!.Value))
                          .OrderByDescending(x => x.Value).ThenBy(x => x.Class.Name, StringComparer.OrdinalIgnoreCase)
                          .Take(300))
             {
-                AddClass(root, c, placeable: true);
+                AddClass(root, c, c.Placeable && !c.Abstract);
             }
 
             SelectFirst(root);

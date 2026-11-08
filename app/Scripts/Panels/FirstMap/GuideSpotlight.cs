@@ -38,6 +38,7 @@ public partial class GuideSpotlight : Control, IShellPart
     public override void _Process(double delta) { _time += delta; QueueRedraw(); }
     public override void _Draw()
     {
+        if (TutorialRunner.Instance?.LessonId is not null) return;
         if (FirstMapPanel.Instance is not { } guide || !guide.IsVisibleInTree() || s_target?.Invoke() is not { } target || !target.IsVisibleInTree()) return;
         Rect2 rect = GetGlobalTransform().AffineInverse() * target.GetGlobalRect();
         float pulse = .65f + .35f * (float)Math.Sin(_time * Math.PI * 2);

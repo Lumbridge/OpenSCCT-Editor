@@ -62,6 +62,7 @@ public partial class PlaceablesPanel : EditorPanel
         bar.AddChild(_tabs);
         _search = PanelUi.Search(bar, "Search placeables", _ => _rebuild.Queue(),
             "Search names, classes and what they do: every word must match. Escape clears.");
+        _search.CustomMinimumSize = new Vector2(160, 0);
         _search.GuiInput += e =>
         {
             if (e is InputEventKey { Pressed: true, Keycode: Key.Escape } && _search.Text.Length > 0)
@@ -72,6 +73,7 @@ public partial class PlaceablesPanel : EditorPanel
             }
         };
         _count = PanelUi.Caption(bar, "", wrap: false);
+        _count.CustomMinimumSize = new Vector2(70, 0);
         _count.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 
         var holder = new Control { SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
@@ -171,6 +173,23 @@ public partial class PlaceablesPanel : EditorPanel
     {
         _search.GrabFocus();
         _search.SelectAll();
+    }
+
+    /// <summary>Reveal a tile in its group and remove filters that could hide it.</summary>
+    public void RevealClass(string className, bool lesson = false)
+    {
+        int revision = DiscoveryNavigation.Revision;
+        if (Placeables.Find(className, EditorServices.Classes) is not { } entry) return;
+        DockTabs.ShowPanel("Placeables");
+        _search.Text = "";
+        _tabs.CurrentTab = (int)entry.Group + 1;
+        _rebuild.Queue();
+        EditorLifetime.Defer(() =>
+        {
+            if (revision != DiscoveryNavigation.Revision) return;
+            if (_tiles.FirstOrDefault(t => t.Entry.Class == entry.Class) is { } tile)
+                DiscoveryNavigation.Reveal(tile, lesson);
+        });
     }
 
     private void Rebuild()

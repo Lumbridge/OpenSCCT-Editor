@@ -8,8 +8,8 @@ using OpenScctEditor.Panels;
 namespace OpenScctEditor.Shell;
 
 /// <summary>
-/// The command palette (Ctrl+Shift+P, as in RE+): a box over the views listing every editor action with its menu path
-/// and shortcut, fuzzy search, recently run actions first. Type "@" to find objects by id, class or tag (Enter selects
+/// The command palette (Ctrl+Shift+P): actions, guided tutorials, controls, panels, classes, placeables and assets,
+/// with favourites, recent results and navigation to the real UI. Type "@" to find objects by id, class or tag (Enter selects
 /// and frames). Paste a change document (text starting with "{" or "[") to preview it as a ghost (Enter) or apply it
 /// (Ctrl+Enter). F1 lists every shortcut. Up/Down move, Enter runs, Escape or clicking elsewhere closes; it never
 /// blocks the window.
@@ -17,6 +17,7 @@ namespace OpenScctEditor.Shell;
 [ShellPart(Order = 90)]
 public sealed partial class CommandPalette : PanelContainer, IShellPart
 {
+    public static CommandPalette? Instance { get; private set; }
     private const int MaxRecent = 12;
     private const int MaxObjects = 150;
     private const string PreviewKey = "c:preview";
@@ -30,14 +31,16 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
 
     public void Attach(MainWindow window, EditorContext context)
     {
+        Instance = this;
         _ctx = context;
         Name = "CommandPalette";
+        ZIndex = 1100;
         Build();
         window.AddChild(this);
 
         context.AddAction(new EditorAction("view.commandPalette", "Command Palette", "View", () => Toggle(shortcutsOnly: false))
         {
-            Shortcut = "Ctrl+Shift+P", Order = 920, Description = "Search every command; @ finds objects; paste a change document to preview it",
+            Shortcut = "Ctrl+Shift+P", Order = 920, Description = "Find commands, tutorials, controls, placeables, classes and assets; @ finds map objects",
         });
         context.AddAction(new EditorAction("help.shortcuts", "Keyboard Shortcuts", "Help", () => Toggle(shortcutsOnly: true))
         {
@@ -54,9 +57,9 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
         Visible = false;
         MouseFilter = MouseFilterEnum.Stop;
         SetAnchorsPreset(LayoutPreset.CenterTop);
-        CustomMinimumSize = new Vector2(640, 420);
-        OffsetLeft = -320;
-        OffsetRight = 320;
+        CustomMinimumSize = new Vector2(720, 500);
+        OffsetLeft = -360;
+        OffsetRight = 360;
         OffsetTop = 56;
         GrowHorizontal = GrowDirection.Both;
         ThemeTypeVariation = "Palette";
@@ -64,11 +67,13 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
         var box = new VBoxContainer();
         box.AddThemeConstantOverride("separation", EditorTheme.SpaceS);
         AddChild(box);
-        _query = new LineEdit { PlaceholderText = "Type a command, @ to find an object, or paste a change document", ClearButtonEnabled = true };
+        _query = new LineEdit { PlaceholderText = "Search anything… try laptop, tutorial, resize, or how do I add glass", ClearButtonEnabled = true, KeepEditingOnTextSubmit = true };
+        _query.FocusEntered += () => _query.Edit();
         _query.TextChanged += _ => Populate();
         _query.GuiInput += OnQueryKey;
         _query.FocusExited += () => EditorLifetime.Defer(CloseIfFocusLeft);
         box.AddChild(_query);
+        BuildDiscoveryUi(box);
 
         _list = new Tree
         {
@@ -79,11 +84,25 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
             FocusMode = FocusModeEnum.None,
         };
         _list.SetColumnExpand(1, false);
-        _list.SetColumnCustomMinimumWidth(1, 150);
+        _list.SetColumnCustomMinimumWidth(1, 90);
         _list.SetColumnClipContent(0, true);
         _list.ItemActivated += () => RunSelected(apply: false);
         box.AddChild(_list);
+        BuildDiscoveryFooter(box);
         _hint = PanelUi.Caption(box, "", wrap: false);
+        _hint.ClipText = true;
+        _hint.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!Visible || MainWindow.Instance is not { } window) return;
+        float width = Math.Min(720, window.Size.X - 24);
+        float height = Math.Min(500, window.Size.Y - 80);
+        CustomMinimumSize = new Vector2(width, height);
+        OffsetLeft = -width / 2;
+        OffsetRight = width / 2;
+        Size = new Vector2(width, height);
     }
 
     /// <summary>Opens the palette, or closes it when it is open in the same mode.</summary>
@@ -96,6 +115,10 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
         }
 
         _shortcutsOnly = shortcutsOnly;
+        DiscoveryNavigation.Invalidate();
+        _favouritesOnly = false;
+        _results.Clear();
+        Reindex();
         // Last child draws on top and gets the clicks first, whatever the shell added after the palette.
         GetParent()?.MoveChild(this, -1);
         Visible = true;
@@ -108,6 +131,16 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
     {
         Visible = false;
         _query.ReleaseFocus();
+    }
+
+    public void OpenSearch(string query)
+    {
+        if (!Visible) Toggle(shortcutsOnly: false);
+        else { _shortcutsOnly = false; _favouritesOnly = false; Reindex(); }
+        _query.Text = query;
+        Populate();
+        _query.GrabFocus();
+        _query.CaretColumn = query.Length;
     }
 
     private void CloseIfFocusLeft()
@@ -128,11 +161,15 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
 
         switch (key.Keycode)
         {
+            case Key.D when key.IsCommandOrControlPressed():
+                ToggleFavourite();
+                break;
             case Key.Escape:
                 Close();
                 break;
             case Key.Enter or Key.KpEnter:
-                RunSelected(apply: key.IsCommandOrControlPressed());
+                if (key.AltPressed) LocateSelected();
+                else RunSelected(apply: key.IsCommandOrControlPressed());
                 break;
             case Key.Down:
                 Move(1);
@@ -209,10 +246,12 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
         }
         else
         {
-            PopulateActions(root, q);
+            if (_shortcutsOnly) PopulateActions(root, q);
+            else PopulateDiscovery(root, q);
         }
 
         FirstSelectable(root)?.Select(0);
+        UpdateDetails();
     }
 
     private static TreeItem? FirstSelectable(TreeItem root)
@@ -245,7 +284,7 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
             {
                 rows.Add((a, recency));
             }
-            else if (TextMatch.FuzzyWords(q, $"{a.Title} {a.Menu} {a.Id} {ShortcutBindings.Of(a)}") is { } score)
+            else if (TextMatch.FuzzyWords(q, $"{a.Title} {a.Menu} {a.Id} {a.Description} {ShortcutBindings.Of(a)}") is { } score)
             {
                 rows.Add((a, score + recency));
             }
@@ -384,8 +423,8 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
         string text = _query.Text.Trim();
         if (text.StartsWith('{') || text.StartsWith('['))
         {
-            Close();
             bool applyNow = apply || _list.GetSelected()?.GetMetadata(0).AsString() == ApplyKey;
+            Close();
             LiveEditing.Instance?.RunChangeDocument(text, applyNow);
             return;
         }
@@ -394,6 +433,8 @@ public sealed partial class CommandPalette : PanelContainer, IShellPart
         {
             return;
         }
+
+        if (!_shortcutsOnly && !text.StartsWith('@') && RunDiscovery(key)) return;
 
         Close();
         if (key.StartsWith("o:", StringComparison.Ordinal))

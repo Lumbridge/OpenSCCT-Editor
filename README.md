@@ -112,6 +112,10 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   shared data and map asset libraries from [OpenSCCT-Content](https://github.com/Lumbridge/OpenSCCT-Content). The editor
   indexes the new assets as soon as installation finishes. Open **Tools > Emitter Library** to browse,
   preview and place the 37 RE+ stock effects from installed OpenSCCT maps, save your own effects or import RE+ effect packs.
+- **Find anything and guided lessons.** Ctrl+Shift+P searches commands, controls, placeables, classes, installed
+  assets, prefabs and presets. Search **Laptop** to reveal its tile, or **tutorial** for 35 cancellable lessons with
+  highlighted controls. Favourites, saved lesson progress and **Show me** help you find the next step.
+  See [the command-palette guide](docs/COMMAND-PALETTE.md).
 - **Command line, scripting and MCP.** Everything the app does is also an `ose` command
   ([docs/CLI.md](docs/CLI.md)). Scripts edit maps through change documents and queries, one shot or over a JSON-lines
   server, and can edit the map open in the editor as ghost proposals to accept or reject

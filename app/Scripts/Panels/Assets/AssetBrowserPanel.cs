@@ -18,6 +18,7 @@ namespace OpenScctEditor.Panels;
 [Panel("Assets", DockSide.Bottom, Order = 3)]
 public partial class AssetBrowserPanel : EditorPanel
 {
+    public static AssetBrowserPanel? Instance { get; private set; }
     private const int MaxShown = 600;
     private const int FavouritesTab = 4;
 
@@ -95,6 +96,7 @@ public partial class AssetBrowserPanel : EditorPanel
 
     protected override void Build()
     {
+        Instance = this;
         _rebuild = new DeferredAction(RebuildList);
         _rebuildTree = new DeferredAction(RebuildTree);
         _refreshDetails = new DeferredAction(ShowDetails);
@@ -222,6 +224,44 @@ public partial class AssetBrowserPanel : EditorPanel
         PreselectFromArgs();
         FillOrigins();
         KindChanged();
+    }
+
+    /// <summary>Reveal one exact asset, ignoring stale browser filters, without placing or applying it.</summary>
+    public void RevealAsset(AssetEntry entry, bool lesson = false)
+    {
+        int revision = DiscoveryNavigation.Revision;
+        DockTabs.ShowPanel("Assets");
+        _tabs.CurrentTab = Array.IndexOf(s_tabKinds, entry.Kind);
+        _origin.Select(0);
+        _inMap.SetPressedNoSignal(false);
+        _treeFilter = null;
+        _search.Text = entry.Path;
+        KindChanged();
+        EditorLifetime.Defer(() =>
+        {
+            if (revision != DiscoveryNavigation.Revision) return;
+            int index = _shown.FindIndex(e => e.Kind == entry.Kind && e.Path == entry.Path);
+            if (index < 0) return;
+            _list.Select(index);
+            _list.EnsureCurrentIsVisible();
+            // Assign directly: browsing a search result must not change the current painting material.
+            _selectedAsset = (entry.Kind, entry.Path);
+            ShowDetails();
+            NavigationHighlight.Instance?.PointAt(_list, !lesson,
+                () => index < _shown.Count && _shown[index].Path == entry.Path ? _list.GetItemRect(index) : new Rect2());
+        });
+    }
+
+    public void RevealKind(AssetKind kind, bool lesson = false)
+    {
+        DockTabs.ShowPanel("Assets");
+        _tabs.CurrentTab = Array.IndexOf(s_tabKinds, kind);
+        _origin.Select(0);
+        _inMap.SetPressedNoSignal(false);
+        _treeFilter = null;
+        _search.Text = "";
+        KindChanged();
+        DiscoveryNavigation.Reveal(_search, lesson);
     }
 
     private AssetKind? TabKind => _tabs.CurrentTab < s_tabKinds.Length ? s_tabKinds[_tabs.CurrentTab] : null;

@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../app/Scripts/Shell/Discovery/DiscoveryEntry.cs" Link="DiscoveryEntry.cs" />
+    <Compile Include="../../app/Scripts/Shell/Discovery/TutorialCatalog.cs" Link="TutorialCatalog.cs" />
+    <Compile Include="../../app/Scripts/Panels/Common/TextMatch.cs" Link="TextMatch.cs" />
+  </ItemGroup>
+</Project>

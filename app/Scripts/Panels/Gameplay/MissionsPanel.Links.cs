@@ -108,6 +108,13 @@ public partial class MissionsPanel
         s_instance?.FollowSelection(inferDevices: true);
     }
 
+    internal void RevealCompletionControls(Control target)
+    {
+        if (target != _completionBar && target != _completionDraft && !_completionBar.IsAncestorOf(target) && !_completionDraft.IsAncestorOf(target)) return;
+        _completionBar.Visible = _completionDraft.Visible = true;
+        if (DiscoveryNavigation.FindControl(this, "Completion actions") is Button toggle) toggle.SetPressedNoSignal(true);
+    }
+
     private static Button Picker(Control row, string text, Action picked)
     {
         Button button = PanelUi.Button(row, text, "Choose by name; this target stays chosen while you select actors in the map", picked);

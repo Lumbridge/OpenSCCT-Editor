@@ -1,5 +1,6 @@
 using Godot;
 using OpenScctEditor.Core;
+using OpenScctEditor.Panels;
 
 namespace OpenScctEditor.Shell;
 
@@ -12,6 +13,7 @@ namespace OpenScctEditor.Shell;
 [ShellPart(Order = 60)]
 public sealed class MenuBarPart : IShellPart
 {
+    public static MenuBarPart? Instance { get; private set; }
     /// <summary>Top menus in this order; any other top menu follows, alphabetically, before Help.</summary>
     private static readonly string[] s_known = ["File", "Edit", "View", "Select", "Brush", "Actor", "Build", "Tools", "Window"];
 
@@ -21,6 +23,7 @@ public sealed class MenuBarPart : IShellPart
 
     public void Attach(MainWindow window, EditorContext context)
     {
+        Instance = this;
         _ctx = context;
         _bar = new MenuBar { Name = "MenuBar", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, PreferGlobalMenu = false };
         window.MenuRow.AddChild(_bar);
@@ -41,6 +44,36 @@ public sealed class MenuBarPart : IShellPart
         }
         WorkspaceMode.Changed += WorkspaceMenus;
         WorkspaceMenus();
+    }
+
+    /// <summary>Open the actual owning menu and focus a command without invoking it.</summary>
+    public bool RevealAction(EditorAction action)
+    {
+        string[] path = action.Menu.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (path.Length == 0) return false;
+        if (WorkspaceMode.Simple && path[0] is "Brush" or "Tools" or "Gameplay" or "Placement" or "Surface") WorkspaceMode.Set(false);
+        int top = Enumerable.Range(0, _bar.GetMenuCount()).FirstOrDefault(i => _bar.GetMenuTitle(i) == path[0], -1);
+        if (top < 0) return false;
+        PopupMenu popup = _bar.GetMenuPopup(top);
+        Fill(popup, path[0]);
+        // Show the leaf menu beside its menu-bar title. Opening it runs no map operation.
+        for (int i = 1; i < path.Length; i++)
+        {
+            PopupMenu? child = popup.GetChildren().OfType<PopupMenu>().FirstOrDefault(p => p.Name == path[i]);
+            if (child is null) return false;
+            popup = child;
+        }
+        if (!_ids.TryGetValue(popup, out List<string>? ids) || ids.IndexOf(action.Id) is not (>= 0 and var index)) return false;
+        Font font = _bar.GetThemeFont("font");
+        int fontSize = _bar.GetThemeFontSize("font_size");
+        float x = _bar.GlobalPosition.X;
+        for (int i = 0; i < top; i++)
+            if (!_bar.IsMenuHidden(i)) x += font.GetStringSize(_bar.GetMenuTitle(i), fontSize: fontSize).X
+                + _bar.GetThemeStylebox("normal").GetMinimumSize().X + _bar.GetThemeConstant("h_separation");
+        popup.Position = PanelUi.ScreenPoint(_bar, new Vector2(x - _bar.GlobalPosition.X, _bar.Size.Y));
+        popup.Popup();
+        popup.SetFocusedItem(index);
+        return true;
     }
 
     private IEnumerable<string> TopMenus()
