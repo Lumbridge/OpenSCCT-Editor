@@ -27,6 +27,11 @@ def shot(name): return call('ui.shot', dict(name=name, dir=str(run/'shots')))
 def doors(): return call('query',dict(q='find', **{'class':'Engine.Mover'}, fields=['id','door','loc','bounds']))['items']
 def number(label, value, scope):
     controls = tree(); caption = next(c for c in controls if c.get('text')==label and scope in c['path'])
+    for _ in range(20):
+        scroll=next(c for c in controls if c['type']=='ScrollContainer' and scope in c['path'])
+        if caption['rect'][1] < scroll['rect'][1]+scroll['rect'][3]-30: break
+        step('scroll',at=scroll['path'],clicks=-3)
+        controls=tree(); caption=next(c for c in controls if c.get('text')==label and scope in c['path'])
     parent = caption['path'].rsplit('/',1)[0]
     spin = next(c for c in controls if c['type']=='SpinBox' and c['path'].startswith(parent+'/'))
     step('click', at=spin['path'], offset=[.35,.5]); step('key',key='Ctrl+A'); step('type',text=str(value)); step('key',key='Enter')
@@ -38,9 +43,10 @@ for _ in range(100):
 call('open',dict(path=call('editor')['folder']))
 navigate('commands: Full Workspace')
 navigate('panels: Doors')
+step('scroll',at=next(c['path'] for c in tree() if c['type']=='ScrollContainer' and '/Doors/Doors/' in c['path']),clicks=30)
 assert not shot('doors-palette')['lint'], 'Door palette must fit the default dock'
-number('Width',160,'/Doors/Doors/')
 step('click',at='text:Industrial')
+number('Width',160,'/Doors/Doors/')
 before = len(doors())
 step('click',at='text:Place Door'); step('move',at='view:Perspective',offset=[.55,.62]); shot('door-preview')
 step('click',at='view:Perspective',offset=[.55,.62])
@@ -59,6 +65,7 @@ call('undo'); assert next(d for d in doors() if d['id']==new['id'])['door']['wid
 call('redo'); shot('door-edited')
 
 navigate('panels: Doors')
+step('scroll',at=next(c['path'] for c in tree() if c['type']=='ScrollContainer' and '/Doors/Doors/' in c['path']),clicks=30)
 before = len(doors())
 step('drag',at='text:Glazed',to='view:Perspective',toOffset=[.7,.65])
 assert len(doors())==before+1, 'Drag placement creates exactly one door'
@@ -76,7 +83,7 @@ assert any(c.get('text')=='Shipping crate' for c in tree()),'Search selects the 
 star = next(c for c in tree() if 'Add favourite' in c.get('text',''))
 step('click',at=star['path']); assert any('Remove favourite' in c.get('text','') for c in tree())
 step('click',at='text:Favourites')
-assert any('1 of 38 prefabs' in c.get('text','') for c in tree()),'Favourites filter retains the starred piece'
+assert any(re.search(r'1 of \d+ prefabs',c.get('text','')) for c in tree()),'Favourites filter retains the starred piece'
 step('click',at=searchbox['path']);step('key',key='Ctrl+A');step('type',text='zzzznothing')
 assert any('No prefabs match' in c.get('text','') for c in tree()),'Empty search explains recovery'
 step('key',key='Ctrl+A');step('key',key='Backspace');step('click',at='text:Favourites')
@@ -84,7 +91,7 @@ shot('prefab-favourites')
 print('PASS prefab search, favourite toggle, filtering and no-result guidance',flush=True)
 
 before=call('summary')['counts']; destinations=0
-for title, lesson in [('Create and edit doors','doors'),('Place a door with a switch','door-switch'),('Browse and customise prefabs','prefabs'),('Set up moving doors and platforms','movers')]:
+for title, lesson in [('Create and edit doors','doors'),('Place a door with a switch','door-switch'),('Browse and customise prefabs','prefabs'),('Set up moving doors and platforms','movers'),('Configure door hacking and team access','door-access')]:
     navigate('tutorial: '+title)
     n=int(next(re.search(r'Step 1 of (\d+)',c.get('text','')) for c in tree() if re.search(r'Step 1 of (\d+)',c.get('text',''))).group(1))
     for index in range(n):

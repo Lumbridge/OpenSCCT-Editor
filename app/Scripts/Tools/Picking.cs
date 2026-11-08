@@ -486,8 +486,12 @@ public static class Picking
     }
 
     public static bool RayDoor(Vec3 o, Vec3 d, Actor a, double minT, out double t)
+        => RayDoorSurface(o, d, a, minT, out t, out _);
+
+    public static bool RayDoorSurface(Vec3 o, Vec3 d, Actor a, double minT, out double t, out bool frame)
     {
         t = double.MaxValue;
+        frame = false;
         if (a.Door is not { } design) return false;
         foreach (var part in OpenScct.Editor.Core.Doors.DoorGeometry.Leaf(design)) foreach (var face in part.Shape.Faces)
         {
@@ -495,7 +499,7 @@ public static class Picking
             if (RayPolygon(o, d, vertices, Poly.Normal(vertices), out double hit) && hit > minT && hit < t) t = hit;
         }
         foreach (var part in OpenScct.Editor.Core.Doors.DoorGeometry.Parts(a).Where(b => b.Oper == CsgOper.Add)) foreach (var face in part.WorldFaces())
-            if (RayPolygon(o, d, face.Vertices, face.Normal(), out double hit) && hit > minT && hit < t) t = hit;
+            if (RayPolygon(o, d, face.Vertices, face.Normal(), out double hit) && hit > minT && hit < t) { t = hit; frame = true; }
         return t < double.MaxValue;
     }
 

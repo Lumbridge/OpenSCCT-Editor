@@ -167,6 +167,7 @@ public sealed class PrefabThumbnails
                 foreach (var b in WindowGeometry.Parts(a).Where(b => b.Oper == CsgOper.Add)) foreach (var f in b.WorldFaces()) FaceOf(f.Vertices, Finish(f.Material), true);
                 continue;
             }
+            if (EditorServices.Classes?.IsA(a.Class, "Engine.Triggers") == true) continue;
             if (a.Shape is { } shape)
             { foreach (var f in shape.Faces) FaceOf(f.Vertices.Select(a.LocalToWorld), Finish(f.Material), true); continue; }
             string? asset = PropValues.AssetPath(a.Props["StaticMesh"] ?? EditorServices.Classes?.Default(a.Class, "StaticMesh"));

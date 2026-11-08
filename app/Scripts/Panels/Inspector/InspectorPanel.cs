@@ -194,6 +194,7 @@ public partial class InspectorPanel : EditorPanel
         }
         if (Compact && _refs.Count == 1 && Index.Brush(_refs[0])?.Shape.Builder is { } builder) BuilderRows(_refs[0], builder);
         if (_refs.Count == 1 && Context.Project.FindActor(_refs[0].Id) is { Door: not null } door) DoorSection(door);
+        if (_refs.Count == 1 && Context.Project.FindActor(_refs[0].Id) is { } hackPanel && OpenScct.Editor.Core.Doors.DoorAccess.IsHackPanel(Context.Project, hackPanel)) DoorHackSection(hackPanel);
         if (_refs.Count == 1 && Context.Project.FindActor(_refs[0].Id) is { Window: not null } window) WindowSection(window);
 
         if (!Compact && _refs.Any(r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair)))

@@ -115,14 +115,14 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 - **Analysis.** Map Check with stable rule codes and fixes, a deep check of the compiled map (leaks, void, floating
   meshes, collision caps), the stealth light map, reachability and routes for each side, and the bots' nav graph.
 - **Assets and prefabs.** An asset catalogue of the materials, meshes, textures and sounds a map can use, glTF and OBJ
-  mesh import with generated collision, and 38 built-in prefabs with shaded previews, category/library filters,
+  mesh import with generated collision, and 42 built-in prefabs with shaded previews, category/library filters,
   favourites and remembered settings. The common furniture, storage and industrial kit includes its own finishes.
   Use **Get Packs…** in Assets to download
   shared data and map asset libraries from [OpenSCCT-Content](https://github.com/Lumbridge/OpenSCCT-Content). The editor
   indexes the new assets as soon as installation finishes. Open **Tools > Emitter Library** to browse,
   preview and place the 37 RE+ stock effects from installed OpenSCCT maps, save your own effects or import RE+ effect packs.
 - **Find anything and guided lessons.** Ctrl+Shift+P searches commands, controls, placeables, classes, installed
-  assets, prefabs and presets. Search **Laptop** to reveal its tile, or **tutorial** for 38 cancellable lessons with
+  assets, prefabs and presets. Search **Laptop** to reveal its tile, or **tutorial** for 39 cancellable lessons with
   highlighted controls. Favourites, saved lesson progress and **Show me** help you find the next step.
   See [the command-palette guide](docs/COMMAND-PALETTE.md).
 - **Command line, scripting and MCP.** Everything the app does is also an `ose` command

@@ -20,6 +20,12 @@ namespace OpenScctEditor.Panels;
 [Panel("Prefabs", DockSide.Left, Order = 3)]
 public partial class PrefabsPanel : EditorPanel
 {
+    private static PrefabsPanel? _browser;
+    public static void ShowPrefab(string name)
+    {
+        DockTabs.ShowPanel("Prefabs");
+        _browser?.Reveal(name);
+    }
     protected virtual bool Friendly => false;
     protected virtual void DetailsShown(Control heading) { }
     private readonly PrefabThumbnails _thumbnails = new();
@@ -52,6 +58,7 @@ public partial class PrefabsPanel : EditorPanel
 
     protected override void Build()
     {
+        if (!Friendly) _browser = this;
         _rebuild = new DeferredAction(Reload);
         _refill = new DeferredAction(Fill);
         _refreshInstance = new DeferredAction(RefreshInstance);
@@ -280,7 +287,8 @@ public partial class PrefabsPanel : EditorPanel
         string? description = Friendly && FeaturedGameplay.Descriptions.TryGetValue(def.Name, out string? plain) ? plain : def.Summary;
         if (description is { } summary)
         {
-            PanelUi.Caption(_details, summary);
+            var caption = PanelUi.Caption(_details, summary);
+            if (!Friendly) { caption.MaxLinesVisible = 3; caption.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis; caption.TooltipText = summary; }
         }
         if (FeaturedGameplay.Conditions.TryGetValue(def.Name, out string? conditions)) PanelUi.Caption(_details, conditions);
 
@@ -324,7 +332,9 @@ public partial class PrefabsPanel : EditorPanel
 
     private void ParamRow(PrefabParam param, SvJsonNode value)
     {
-        HBoxContainer row = PanelUi.Row(_details, param.Name, param.Summary);
+        string label = System.Text.RegularExpressions.Regex.Replace(param.Name, "([a-z0-9])([A-Z])", "$1 $2").Replace('_', ' ');
+        if (label.Length > 0) label = char.ToUpperInvariant(label[0]) + label[1..];
+        HBoxContainer row = PanelUi.Row(_details, label, param.Summary);
         switch (param.Default)
         {
             case SvJsonNumber:

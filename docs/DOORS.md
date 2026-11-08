@@ -26,7 +26,7 @@ Save reusable prefab assemblies. Search `tutorial door` in Ctrl+Shift+P, or clic
 
 ## Prefab browser
 
-The 38 built-in pieces include furniture, shelving, crates, pallets, barrels, technology, industrial details, rails,
+The 42 built-in pieces include furniture, shelving, crates, pallets, barrels, technology, industrial details, rails,
 columns, platforms, lights, doors and gameplay assemblies. Common props have generated finishes and work without
 map asset packages. The gameplay devices retain their shared-content requirements.
 
@@ -35,6 +35,30 @@ including actual available mesh assets and visible traversal geometry. Settings 
 browsing and resizing the panel; Reset settings restores defaults. Drag to place on a surface or double-click to
 place at the view centre. Select a part to update or break an instance; Apply to selected rebuilds it with the shown
 settings. Updating replaces hand edits, so break a prefab before keeping individual changes to its parts.
+
+## Double doors, hacking and side access
+
+**Hinged pair** and **Sliding pair** in Doors open their corresponding prefab. Both include two leaves, one frame
+without a centre post, and independently configured side sensors. **Automatic access** provides the same rules for
+a single leaf; **Hack panel** starts with both automatic sides disabled and a five-second hack requirement.
+
+`frontAccess` controls the +X side and `backAccess` the -X side. Each accepts `spies`, `mercs`, `both` or `none`.
+The sensors occupy separate nonblocking brush volumes on their respective sides of the wall and use the game's
+class filters. Rotate the whole prefab to orient these sides. Without a hack panel, all leaves stay open while an
+allowed player is inside a sensor and close after the last allowed player leaves.
+
+All four assemblies can enable `hackPanel`. `hackTime` sets uninterrupted hacking seconds, `hackState` chooses a
+timed or permanent opening, and `stayOpen` controls the timed opening. Set both automatic sides to `none` to require
+hacking; an allowed team can otherwise use its automatic side without hacking. Cancelled hacks fire no door event.
+The default panel model needs shared gameplay content. Panel side, height and offset set its initial position;
+move or rotate the placed panel freely afterward. Its event link stays with the same leaves. Inspector's Door hack
+panel section changes its duration without repositioning it. Applying prefab parameters rebuilds the assembly,
+including the initial panel position.
+
+Drop a material on a leaf to update its saved finish. A prefab pair receives the finish on both leaves as one
+undoable edit. Drops on a single-door frame change Frame material; a pair's shared frame is editable brush
+geometry. Custom finishes persist through resizing, save/reopen and builds. Painting preserves movement keys,
+timing and event links. The built-in Configure door hacking and team access tutorial covers these workflows.
 
 ## Saved design and build output
 

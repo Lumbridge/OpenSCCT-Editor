@@ -36,7 +36,7 @@ public static class DoorGeometry
             foreach (int side in new[] { -1, 1 })
             {
                 if (d.Style == "panelled")
-                    foreach (double z in new[] { -h * .25, h * .23 }) BoxPart(new(2, w * .72, h * .36), new(side * (t / 2 + 1), 0, z), "Editor.DoorInset");
+                    foreach (double z in new[] { -h * .25, h * .23 }) BoxPart(new(2, w * .72, h * .36), new(side * (t / 2 + 1), 0, z), string.IsNullOrWhiteSpace(d.Material) ? "Editor.DoorInset" : d.Material);
                 if (d.Style is "industrial" or "security")
                 {
                     foreach (double z in new[] { -h * .38, 0, h * .38 }) BoxPart(new(3, w * .9, 6), new(side * (t / 2 + 1.5), 0, z), "Editor.DoorMetal");
@@ -47,7 +47,7 @@ public static class DoorGeometry
         }
         foreach (int side in new[] { -1, 1 })
         {
-            double y = d.Motion == "swing right" ? -w * .36 : w * .36;
+            double y = d.Motion.EndsWith("right", StringComparison.Ordinal) ? -w * .36 : w * .36;
             BoxPart(new(3, 6, 18), new(side * (t / 2 + 2), y, -h * .06), "Editor.DoorMetal");
             BoxPart(new(6, 16, 3), new(side * (t / 2 + 5), y - 4, -h * .04), "Editor.DoorMetal");
         }

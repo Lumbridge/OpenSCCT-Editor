@@ -9,6 +9,15 @@ namespace OpenScct.Editor.Core.Doors;
 
 public static class DoorCommands
 {
+    public static IEditCommand Material(MapProject p, string id, string material, bool frame = false)
+    {
+        var owner = p.FindActor(id) ?? throw new ArgumentException("Select a door first");
+        if (owner.Door is null) throw new ArgumentException("This actor is not an editable door");
+        var targets = !frame && owner.Editor.PrefabInstance is { } instance
+            ? p.Actors.Where(a => a.Door is not null && a.Editor.PrefabInstance == instance).ToList() : [owner];
+        return ReplaceObjectsCommand.Edit(p, targets.Select(a => ObjectRef.Actor(a.Id)), "Paint door " + (frame ? "frame" : "leaves"), actor: a =>
+        { if (frame) a.Door!.FrameMaterial = material; else a.Door!.Material = material; DoorAssets.Prepare(a); });
+    }
     public static Actor Create(MapProject p, DoorDesign design, Vec3 centre, Rot rotation = default)
     {
         var a = new Actor(new FreshIds(p).Next("Door"), "Engine.Mover") { Door = design.Clone(), Rotation = rotation };

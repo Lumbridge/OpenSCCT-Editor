@@ -1,0 +1,711 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "double_sliding_door",
+  "title": "Double sliding doors",
+  "category": "doors",
+  "summary": "Two editable leaves share one frame without a centre post. Configure front (+X) and back (-X) automatic access independently for spies, mercs, both or neither. Without a hack panel the sensors hold it open while an allowed player is nearby. Enable hackPanel for a timed hack or permanent opening; its panel can be moved without breaking its Event link. Default panel needs shared gameplay content. Pivot: floor at the doorway centre; wall runs along Y. Change shared settings and Apply to selected to rebuild the assembly; hand-moved panels stay linked when moved normally.",
+  "params": {
+    "width": {
+      "default": 320,
+      "summary": "Total clear doorway width; each leaf uses half",
+      "min": 144,
+      "max": 2048
+    },
+    "height": {
+      "default": 224,
+      "summary": "Clear doorway height",
+      "min": 128,
+      "max": 1024
+    },
+    "style": {
+      "default": "industrial",
+      "summary": "Finish for all leaves",
+      "options": [
+        "plain",
+        "panelled",
+        "industrial",
+        "glazed",
+        "louvred",
+        "security"
+      ]
+    },
+    "movement": {
+      "default": "sliding",
+      "summary": "Opening movement",
+      "options": [
+        "hinged",
+        "sliding"
+      ]
+    },
+    "depth": {
+      "default": 64,
+      "summary": "Wall thickness to cut through",
+      "min": 8,
+      "max": 1024
+    },
+    "opening": {
+      "default": true,
+      "summary": "Carve the doorway; turn off for an existing opening"
+    },
+    "frameWidth": {
+      "default": 8,
+      "summary": "Shared jamb and lintel width",
+      "min": 1,
+      "max": 64
+    },
+    "material": {
+      "default": "",
+      "summary": "Leaf material; empty uses the selected style"
+    },
+    "frameMaterial": {
+      "default": "Editor.DoorFrame",
+      "summary": "Shared frame material"
+    },
+    "moveTime": {
+      "default": 1,
+      "summary": "Seconds to open or close",
+      "min": 0.1,
+      "max": 30
+    },
+    "angle": {
+      "default": 90,
+      "summary": "Swing angle; ignored by sliding doors",
+      "min": 30,
+      "max": 150
+    },
+    "frontAccess": {
+      "default": "both",
+      "summary": "Automatic access from the front (+X); choose independently of the back",
+      "options": [
+        "none",
+        "spies",
+        "mercs",
+        "both"
+      ]
+    },
+    "backAccess": {
+      "default": "both",
+      "summary": "Automatic access from the back (-X)",
+      "options": [
+        "none",
+        "spies",
+        "mercs",
+        "both"
+      ]
+    },
+    "approach": {
+      "default": 128,
+      "summary": "Depth of each side sensor, clear of the wall",
+      "min": 32,
+      "max": 1024
+    },
+    "hackPanel": {
+      "default": false,
+      "summary": "Add a movable linked hack panel; automatic access can be allowed separately"
+    },
+    "hackTime": {
+      "default": 5,
+      "summary": "Seconds of uninterrupted hacking required",
+      "min": 1,
+      "max": 600
+    },
+    "hackState": {
+      "default": "TriggerOpenTimed",
+      "summary": "After a hack: open for stayOpen seconds or stay open permanently",
+      "options": [
+        "TriggerOpenTimed",
+        "TriggerOpenOnceOnly"
+      ]
+    },
+    "stayOpen": {
+      "default": 5,
+      "summary": "Seconds before a hack-controlled timed door closes",
+      "min": 1,
+      "max": 600
+    },
+    "panelSide": {
+      "default": "front",
+      "summary": "Initial panel side; the placed panel can be moved freely",
+      "options": [
+        "front",
+        "back"
+      ]
+    },
+    "panelHeight": {
+      "default": 128,
+      "summary": "Initial hack-panel height",
+      "min": 48,
+      "max": 512
+    },
+    "panelOffset": {
+      "default": 48,
+      "summary": "Distance beside the jamb for the initial hack panel",
+      "min": 24,
+      "max": 1024
+    }
+  },
+  "ops": [
+    {
+      "if": "${opening}",
+      "op": "create",
+      "id": "$opening",
+      "brush": {
+        "kind": "doorway",
+        "width": "${width}",
+        "height": "${height}",
+        "depth": "${depth}"
+      },
+      "at": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "if": "${movement == 'hinged' && hackPanel == false}",
+      "op": "create",
+      "id": "$left",
+      "class": "Engine.Mover",
+      "at": [
+        0,
+        "${-1 * width / 4}",
+        "${height / 2}"
+      ],
+      "door": {
+        "style": "${style}",
+        "motion": "swing left",
+        "width": "${width / 2}",
+        "height": "${height}",
+        "framed": false,
+        "frameWidth": "${frameWidth}",
+        "material": "${material}",
+        "frameMaterial": "${frameMaterial}",
+        "openAngle": "${angle}",
+        "behaviour": "TriggerControl",
+        "moveTime": "${moveTime}",
+        "stayOpen": "${stayOpen}"
+      },
+      "props": {
+        "Tag": "Door"
+      }
+    },
+    {
+      "if": "${movement == 'hinged' && hackPanel == true}",
+      "op": "create",
+      "id": "$left",
+      "class": "Engine.Mover",
+      "at": [
+        0,
+        "${-1 * width / 4}",
+        "${height / 2}"
+      ],
+      "door": {
+        "style": "${style}",
+        "motion": "swing left",
+        "width": "${width / 2}",
+        "height": "${height}",
+        "framed": false,
+        "frameWidth": "${frameWidth}",
+        "material": "${material}",
+        "frameMaterial": "${frameMaterial}",
+        "openAngle": "${angle}",
+        "behaviour": "${hackState}",
+        "moveTime": "${moveTime}",
+        "stayOpen": "${stayOpen}"
+      },
+      "props": {
+        "Tag": "Door"
+      }
+    },
+    {
+      "if": "${movement == 'hinged' && hackPanel == false}",
+      "op": "create",
+      "id": "$right",
+      "class": "Engine.Mover",
+      "at": [
+        0,
+        "${1 * width / 4}",
+        "${height / 2}"
+      ],
+      "door": {
+        "style": "${style}",
+        "motion": "swing right",
+        "width": "${width / 2}",
+        "height": "${height}",
+        "framed": false,
+        "frameWidth": "${frameWidth}",
+        "material": "${material}",
+        "frameMaterial": "${frameMaterial}",
+        "openAngle": "${angle}",
+        "behaviour": "TriggerControl",
+        "moveTime": "${moveTime}",
+        "stayOpen": "${stayOpen}"
+      },
+      "props": {
+        "Tag": "Door"
+      }
+    },
+    {
+      "if": "${movement == 'hinged' && hackPanel == true}",
+      "op": "create",
+      "id": "$right",
+      "class": "Engine.Mover",
+      "at": [
+        0,
+        "${1 * width / 4}",
+        "${height / 2}"
+      ],
+      "door": {
+        "style": "${style}",
+        "motion": "swing right",
+        "width": "${width / 2}",
+        "height": "${height}",
+        "framed": false,
+        "frameWidth": "${frameWidth}",
+        "material": "${material}",
+        "frameMaterial": "${frameMaterial}",
+        "openAngle": "${angle}",
+        "behaviour": "${hackState}",
+        "moveTime": "${moveTime}",
+        "stayOpen": "${stayOpen}"
+      },
+      "props": {
+        "Tag": "Door"
+      }
+    },
+    {
+      "if": "${movement == 'sliding' && hackPanel == false}",
+      "op": "create",
+      "id": "$left",
+      "class": "Engine.Mover",
+      "at": [
+        0,
+        "${-1 * width / 4}",
+        "${height / 2}"
+      ],
+      "door": {
+        "style": "${style}",
+        "motion": "slide left",
+        "width": "${width / 2}",
+        "height": "${height}",
+        "framed": false,
+        "frameWidth": "${frameWidth}",
+        "material": "${material}",
+        "frameMaterial": "${frameMaterial}",
+        "openAngle": "${angle}",
+        "behaviour": "TriggerControl",
+        "moveTime": "${moveTime}",
+        "stayOpen": "${stayOpen}"
+      },
+      "props": {
+        "Tag": "Door"
+      }
+    },
+    {
+      "if": "${movement == 'sliding' && hackPanel == true}",
+      "op": "create",
+      "id": "$left",
+      "class": "Engine.Mover",
+      "at": [
+        0,
+        "${-1 * width / 4}",
+        "${height / 2}"
+      ],
+      "door": {
+        "style": "${style}",
+        "motion": "slide left",
+        "width": "${width / 2}",
+        "height": "${height}",
+        "framed": false,
+        "frameWidth": "${frameWidth}",
+        "material": "${material}",
+        "frameMaterial": "${frameMaterial}",
+        "openAngle": "${angle}",
+        "behaviour": "${hackState}",
+        "moveTime": "${moveTime}",
+        "stayOpen": "${stayOpen}"
+      },
+      "props": {
+        "Tag": "Door"
+      }
+    },
+    {
+      "if": "${movement == 'sliding' && hackPanel == false}",
+      "op": "create",
+      "id": "$right",
+      "class": "Engine.Mover",
+      "at": [
+        0,
+        "${1 * width / 4}",
+        "${height / 2}"
+      ],
+      "door": {
+        "style": "${style}",
+        "motion": "slide right",
+        "width": "${width / 2}",
+        "height": "${height}",
+        "framed": false,
+        "frameWidth": "${frameWidth}",
+        "material": "${material}",
+        "frameMaterial": "${frameMaterial}",
+        "openAngle": "${angle}",
+        "behaviour": "TriggerControl",
+        "moveTime": "${moveTime}",
+        "stayOpen": "${stayOpen}"
+      },
+      "props": {
+        "Tag": "Door"
+      }
+    },
+    {
+      "if": "${movement == 'sliding' && hackPanel == true}",
+      "op": "create",
+      "id": "$right",
+      "class": "Engine.Mover",
+      "at": [
+        0,
+        "${1 * width / 4}",
+        "${height / 2}"
+      ],
+      "door": {
+        "style": "${style}",
+        "motion": "slide right",
+        "width": "${width / 2}",
+        "height": "${height}",
+        "framed": false,
+        "frameWidth": "${frameWidth}",
+        "material": "${material}",
+        "frameMaterial": "${frameMaterial}",
+        "openAngle": "${angle}",
+        "behaviour": "${hackState}",
+        "moveTime": "${moveTime}",
+        "stayOpen": "${stayOpen}"
+      },
+      "props": {
+        "Tag": "Door"
+      }
+    },
+    {
+      "op": "create",
+      "id": "$leftJamb",
+      "brush": {
+        "size": [
+          "${depth + 4}",
+          "${frameWidth}",
+          "${height + frameWidth}"
+        ]
+      },
+      "at": [
+        0,
+        "${-(width + frameWidth) / 2}",
+        "${(height + frameWidth) / 2}"
+      ],
+      "csg": "add",
+      "mat": "${frameMaterial}"
+    },
+    {
+      "op": "create",
+      "id": "$rightJamb",
+      "brush": {
+        "size": [
+          "${depth + 4}",
+          "${frameWidth}",
+          "${height + frameWidth}"
+        ]
+      },
+      "at": [
+        0,
+        "${(width + frameWidth) / 2}",
+        "${(height + frameWidth) / 2}"
+      ],
+      "csg": "add",
+      "mat": "${frameMaterial}"
+    },
+    {
+      "op": "create",
+      "id": "$lintel",
+      "brush": {
+        "size": [
+          "${depth + 4}",
+          "${width}",
+          "${frameWidth}"
+        ]
+      },
+      "at": [
+        0,
+        0,
+        "${height + frameWidth / 2}"
+      ],
+      "csg": "add",
+      "mat": "${frameMaterial}"
+    },
+    {
+      "if": "${frontAccess == 'spies'}",
+      "op": "create",
+      "id": "$frontSensor",
+      "class": "Engine.Trigger",
+      "brush": {
+        "size": [
+          "${approach}",
+          "${width + 64}",
+          "${height + 16}"
+        ]
+      },
+      "at": [
+        "${1 * (depth / 2 + 32 + approach / 2)}",
+        0,
+        "${height / 2}"
+      ],
+      "props": {
+        "Event": "Door",
+        "InitialState": "NormalTrigger",
+        "TriggerType": "TT_ClassProximity",
+        "ClassProximityType": "SBase.SPawnAttaque",
+        "bInitiallyActive": true,
+        "bCollideActors": true,
+        "bBlockActors": false,
+        "bBlockPlayers": false,
+        "bBlockZeroExtentTraces": false,
+        "bBlockNonZeroExtentTraces": false,
+        "ReTriggerDelay": 0,
+        "RepeatTriggerTime": 0
+      }
+    },
+    {
+      "if": "${frontAccess == 'mercs'}",
+      "op": "create",
+      "id": "$frontSensor",
+      "class": "Engine.Trigger",
+      "brush": {
+        "size": [
+          "${approach}",
+          "${width + 64}",
+          "${height + 16}"
+        ]
+      },
+      "at": [
+        "${1 * (depth / 2 + 32 + approach / 2)}",
+        0,
+        "${height / 2}"
+      ],
+      "props": {
+        "Event": "Door",
+        "InitialState": "NormalTrigger",
+        "TriggerType": "TT_ClassProximity",
+        "ClassProximityType": "SBase.SPAWNDEFENSE",
+        "bInitiallyActive": true,
+        "bCollideActors": true,
+        "bBlockActors": false,
+        "bBlockPlayers": false,
+        "bBlockZeroExtentTraces": false,
+        "bBlockNonZeroExtentTraces": false,
+        "ReTriggerDelay": 0,
+        "RepeatTriggerTime": 0
+      }
+    },
+    {
+      "if": "${frontAccess == 'both'}",
+      "op": "create",
+      "id": "$frontSensor",
+      "class": "Engine.Trigger",
+      "brush": {
+        "size": [
+          "${approach}",
+          "${width + 64}",
+          "${height + 16}"
+        ]
+      },
+      "at": [
+        "${1 * (depth / 2 + 32 + approach / 2)}",
+        0,
+        "${height / 2}"
+      ],
+      "props": {
+        "Event": "Door",
+        "InitialState": "NormalTrigger",
+        "TriggerType": "TT_ClassProximity",
+        "ClassProximityType": "SBase.SBasePawn",
+        "bInitiallyActive": true,
+        "bCollideActors": true,
+        "bBlockActors": false,
+        "bBlockPlayers": false,
+        "bBlockZeroExtentTraces": false,
+        "bBlockNonZeroExtentTraces": false,
+        "ReTriggerDelay": 0,
+        "RepeatTriggerTime": 0
+      }
+    },
+    {
+      "if": "${backAccess == 'spies'}",
+      "op": "create",
+      "id": "$backSensor",
+      "class": "Engine.Trigger",
+      "brush": {
+        "size": [
+          "${approach}",
+          "${width + 64}",
+          "${height + 16}"
+        ]
+      },
+      "at": [
+        "${-1 * (depth / 2 + 32 + approach / 2)}",
+        0,
+        "${height / 2}"
+      ],
+      "props": {
+        "Event": "Door",
+        "InitialState": "NormalTrigger",
+        "TriggerType": "TT_ClassProximity",
+        "ClassProximityType": "SBase.SPawnAttaque",
+        "bInitiallyActive": true,
+        "bCollideActors": true,
+        "bBlockActors": false,
+        "bBlockPlayers": false,
+        "bBlockZeroExtentTraces": false,
+        "bBlockNonZeroExtentTraces": false,
+        "ReTriggerDelay": 0,
+        "RepeatTriggerTime": 0
+      }
+    },
+    {
+      "if": "${backAccess == 'mercs'}",
+      "op": "create",
+      "id": "$backSensor",
+      "class": "Engine.Trigger",
+      "brush": {
+        "size": [
+          "${approach}",
+          "${width + 64}",
+          "${height + 16}"
+        ]
+      },
+      "at": [
+        "${-1 * (depth / 2 + 32 + approach / 2)}",
+        0,
+        "${height / 2}"
+      ],
+      "props": {
+        "Event": "Door",
+        "InitialState": "NormalTrigger",
+        "TriggerType": "TT_ClassProximity",
+        "ClassProximityType": "SBase.SPAWNDEFENSE",
+        "bInitiallyActive": true,
+        "bCollideActors": true,
+        "bBlockActors": false,
+        "bBlockPlayers": false,
+        "bBlockZeroExtentTraces": false,
+        "bBlockNonZeroExtentTraces": false,
+        "ReTriggerDelay": 0,
+        "RepeatTriggerTime": 0
+      }
+    },
+    {
+      "if": "${backAccess == 'both'}",
+      "op": "create",
+      "id": "$backSensor",
+      "class": "Engine.Trigger",
+      "brush": {
+        "size": [
+          "${approach}",
+          "${width + 64}",
+          "${height + 16}"
+        ]
+      },
+      "at": [
+        "${-1 * (depth / 2 + 32 + approach / 2)}",
+        0,
+        "${height / 2}"
+      ],
+      "props": {
+        "Event": "Door",
+        "InitialState": "NormalTrigger",
+        "TriggerType": "TT_ClassProximity",
+        "ClassProximityType": "SBase.SBasePawn",
+        "bInitiallyActive": true,
+        "bCollideActors": true,
+        "bBlockActors": false,
+        "bBlockPlayers": false,
+        "bBlockZeroExtentTraces": false,
+        "bBlockNonZeroExtentTraces": false,
+        "ReTriggerDelay": 0,
+        "RepeatTriggerTime": 0
+      }
+    },
+    {
+      "if": "${hackPanel && panelSide == 'front'}",
+      "op": "create",
+      "id": "$hackPanel",
+      "class": "SBase.SInterrupteur",
+      "at": [
+        "${1 * (depth / 2 + 4)}",
+        "${width / 2 + panelOffset}",
+        "${panelHeight}"
+      ],
+      "rotDeg": [
+        0,
+        0,
+        0
+      ],
+      "props": {
+        "Event": "Door",
+        "StaticMesh": "SGameplayObjects.SGPO_SM.trigger_standard",
+        "UsableBy": 3,
+        "iHackingTime": "${hackTime}",
+        "sDescriptionText": "Hack door",
+        "fInteractionRadius": 60,
+        "fInteractionHeight": 120,
+        "bInteractInFront": true,
+        "UseRelativeLocation": [
+          40,
+          0,
+          0
+        ],
+        "UseRelativeRotation": [
+          0,
+          32768,
+          0
+        ],
+        "bBlockActors": true,
+        "bBlockPlayers": true
+      }
+    },
+    {
+      "if": "${hackPanel && panelSide == 'back'}",
+      "op": "create",
+      "id": "$hackPanel",
+      "class": "SBase.SInterrupteur",
+      "at": [
+        "${-1 * (depth / 2 + 4)}",
+        "${width / 2 + panelOffset}",
+        "${panelHeight}"
+      ],
+      "rotDeg": [
+        0,
+        180,
+        0
+      ],
+      "props": {
+        "Event": "Door",
+        "StaticMesh": "SGameplayObjects.SGPO_SM.trigger_standard",
+        "UsableBy": 3,
+        "iHackingTime": "${hackTime}",
+        "sDescriptionText": "Hack door",
+        "fInteractionRadius": 60,
+        "fInteractionHeight": 120,
+        "bInteractInFront": true,
+        "UseRelativeLocation": [
+          40,
+          0,
+          0
+        ],
+        "UseRelativeRotation": [
+          0,
+          32768,
+          0
+        ],
+        "bBlockActors": true,
+        "bBlockPlayers": true
+      }
+    }
+  ]
+}

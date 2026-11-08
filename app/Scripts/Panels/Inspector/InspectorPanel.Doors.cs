@@ -7,6 +7,19 @@ namespace OpenScctEditor.Panels;
 
 public partial class InspectorPanel
 {
+    private void DoorHackSection(Actor owner)
+    {
+        PanelUi.Header(_sections, "Door hack panel");
+        var row = PanelUi.Row(_sections, "Hack time", "Seconds of uninterrupted hacking before this panel opens its linked doors", 100);
+        var time = new Godot.SpinBox { MinValue = 1, MaxValue = 600, Step = 1, Value = owner.Props.GetInt("iHackingTime"), UpdateOnTextChanged = false, SizeFlagsHorizontal = Godot.Control.SizeFlags.ExpandFill };
+        row.AddChild(time); time.ValueChanged += value =>
+        {
+            if (ReferenceEquals(_builtFor, Context.Project)) Context.Execute(DoorAccess.HackTime(Context.Project, owner.Id, (int)value));
+        };
+        var targets = DoorAccess.Targets(Context.Project, owner);
+        PanelUi.Caption(_sections, "Linked to " + string.Join(", ", targets.Select(a => a.Id)) + ". Move or rotate this panel freely; its door link is retained.");
+        PanelUi.Button(_sections, "Select linked doors", "Select the door leaves controlled by this hack panel", () => Context.Selection.Set(targets.Select(a => ObjectRef.Actor(a.Id))));
+    }
     private void DoorSection(Actor owner)
     {
         PanelUi.Header(_sections, "Door");

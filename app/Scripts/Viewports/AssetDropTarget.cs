@@ -619,6 +619,12 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         }
 
         _refused = null;
+        if (t.Door is { } doorId)
+        {
+            _ctx.Execute(OpenScct.Editor.Core.Doors.DoorCommands.Material(_ctx.Project, doorId, t.Material, t.Frame));
+            _ctx.SetStatus($"Applied {drag.Name} to {doorId} {(t.Frame ? "frame" : "leaf")}");
+            return;
+        }
         if (_ctx.Project.FindBrush(t.Hit.Face.Brush) is { Stair: not null } staircase && FaceEdit.Find(_ctx.Project, t.Hit.Face)?.StairRole is { } role)
         {
             _ctx.Execute(OpenScct.Editor.Core.Stairs.StairCommands.Material(_ctx.Project, staircase.Id, role, t.Material));
@@ -667,7 +673,17 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         // an actor, the baked world in front of the face as read-only.
         SurfaceHit? front = baked is { } bk ? new SurfaceHit(null, (bk.Point - ray.Origin).Length, bk.Point, bk.Normal)
             : hit is { } fh ? new SurfaceHit(ObjectRef.Brush(fh.Face.Brush), fh.Distance, fh.Point, fh.Normal) : null;
-        if (Nearest(front, ray, 0) is { Object: { Kind: ObjectKind.Actor } actor })
+        SurfaceHit? nearest = Nearest(front, ray, 0);
+        Actor? door = null; bool frame = false; double distance = nearest?.Distance ?? double.MaxValue;
+        foreach (Actor candidate in p.Actors.Where(a => a.Door is not null && ObjectFilter.IsVisible(p, a.Editor)))
+            if (Picking.RayDoorSurface(ray.Origin, ray.Direction, candidate, 0, out double t, out bool onFrame) && t <= distance + .05)
+            { door = candidate; frame = onFrame; distance = t; }
+        if (door is not null)
+        {
+            if (!ObjectFilter.IsPickable(p, door.Editor)) return Refuse("unlock this door before changing its finish");
+            return (new SurfaceTarget(default, false, material, door.Id, frame), $"Drop to apply {name} to {door.Id} {(frame ? "frame" : "leaf")}");
+        }
+        if (nearest is { Object: { Kind: ObjectKind.Actor } actor })
         {
             return Refuse($"{actor.Id} is an actor; drop {name} on a brush face");
         }
@@ -719,7 +735,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         }
 
         // Redrawn when the face (or what it applies to) changes, not on every move over the same face.
-        if (at.Target?.Hit.Face != _face?.Hit.Face || at.Target?.Picked != _face?.Picked || _faceView != view)
+        if (at.Target?.Hit.Face != _face?.Hit.Face || at.Target?.Picked != _face?.Picked || at.Target?.Door != _face?.Door || at.Target?.Frame != _face?.Frame || _faceView != view)
         {
             EditorViewport? old = _faceView;
             _face = at.Target;
@@ -779,6 +795,16 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
         MapProject p = _ctx.Project;
         ViewCamera cam = view.Cam;
+        if (target.Door is { } doorId && p.FindActor(doorId) is { Door: { } design } door)
+        {
+            if (target.Frame)
+                foreach (var part in OpenScct.Editor.Core.Doors.DoorGeometry.Parts(door).Where(b => b.Oper == CsgOper.Add))
+                foreach (var f in part.WorldFaces()) FacePicking.DrawPolygon(cam, canvas, f.Vertices, new Color(SceneStyle.DropTarget, .3f), SceneStyle.DropTarget);
+            else
+                foreach (var part in OpenScct.Editor.Core.Doors.DoorGeometry.Leaf(design))
+                foreach (var f in part.Shape.Faces) FacePicking.DrawPolygon(cam, canvas, f.Vertices.Select(door.LocalToWorld).ToArray(), new Color(SceneStyle.DropTarget, .3f), SceneStyle.DropTarget);
+            return;
+        }
         if (p.FindBrush(target.Hit.Face.Brush) is { Stair: not null } staircase && FaceEdit.Find(p, target.Hit.Face)?.StairRole is { } role)
         {
             foreach (var f in staircase.WorldFaces().Where(f => f.StairRole == role))
@@ -809,7 +835,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
     /// <summary>The face a material or texture would be dropped on, whether it goes on all the picked faces, and the
     /// material the faces get.</summary>
-    private readonly record struct SurfaceTarget(FaceHit Hit, bool Picked, string Material);
+    private readonly record struct SurfaceTarget(FaceHit Hit, bool Picked, string Material, string? Door = null, bool Frame = false);
 
 
     // ---- the ghost --------------------------------------------------------------------------------------------------

@@ -69,6 +69,11 @@ public static class AssetEdits
         foreach (Actor a in project.Actors)
         {
             List<string> props = a.Props.Where(kv => References(kv.Value, path)).Select(kv => kv.Key).ToList();
+            if (a.Door is { } door)
+            {
+                if (door.Material.Length > 0 && Same(door.Material, path)) props.Add("Door finish");
+                if (door.Framed && Same(door.FrameMaterial, path)) props.Add("Door frame");
+            }
             if (props.Count > 0)
             {
                 uses.Add(new AssetUse(ObjectRef.Actor(a.Id), string.Join(", ", props)));
@@ -92,6 +97,11 @@ public static class AssetEdits
 
         foreach (Actor a in project.Actors)
         {
+            if (a.Door is { } door)
+            {
+                foreach (string material in new[] { door.Material, door.Framed ? door.FrameMaterial : "" }.Where(s => s.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+                    used[material] = used.GetValueOrDefault(material) + 1;
+            }
             foreach ((string _, SvJsonNode v) in a.Props)
             {
                 foreach (string p in AssetRefs(v))

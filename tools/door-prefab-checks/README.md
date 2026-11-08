@@ -19,3 +19,9 @@ real click/drag placement, wall cuts, Inspector edits, undo/redo, prefab search/
 destinations. It reverts prior edits in that disposable session before starting. Normal user editors reject UI
 driving. `tools/discovery-checks` covers tutorial search and the full lesson catalogue; `tools/window-checks`
 guards the existing window geometry, fitting, history, runtime collision and breakage workflow.
+
+The assembly checks also cover every front/back team combination, synchronized double leaves, independent copies,
+real rectangular side-sensor overlaps, allowed-player occupancy, cancelled/successful hacks, configurable hack
+timers, moved panel links, painting both leaves and persisted finishes. `AccessDoorGallery.osmap` and
+`DoorMaterialDrop.osmap` are the fixtures for `check_access_ui.py <run-folder> <output-folder>`, which exercises
+actual leaf/frame material drags, undo/redo, the four access-assembly shortcuts and the access tutorial.

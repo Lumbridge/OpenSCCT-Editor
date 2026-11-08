@@ -72,7 +72,7 @@ Check(File.ReadAllText(Path.Combine(save,"map.json")).Contains("osmap/4"), "Olde
 var ordinary = MapProject.CreateDefault("Ordinary","No doors"); ProjectStore.Save(ordinary,Path.Combine(output,"Ordinary.osmap"));
 Check(!File.ReadAllText(Path.Combine(output,"Ordinary.osmap","map.json")).Contains("osmap/4"), "Ordinary projects keep existing format");
 
-Check(PrefabStore.Builtin.Count >= 38, "Expanded prefab library is embedded");
+Check(PrefabStore.Builtin.Count >= 42, "Expanded prefab library is embedded");
 foreach (var def in PrefabStore.Builtin)
 {
     var preview = PrefabPreview.Expand(def.Name,null,out string? problem); Check(preview is not null, def.Name + ": " + problem);
@@ -145,4 +145,5 @@ ProjectStore.Save(kit,Path.Combine(output,"PrefabGallery.osmap"));
 var builtKit = new MapCompiler().Compile(kit,Path.Combine(output,"PrefabGallery"),new CompileOptions { FastLighting=true });
 Check(builtKit.Ok,"Kit builds and loads: " + string.Join(';',builtKit.Findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));
 Check(!builtKit.Findings.Any(f => f.Code.Contains("missing",StringComparison.Ordinal)),"All kit materials are packaged");
+DoorAssemblyChecks.Run(Check,output);
 Console.WriteLine($"PASS {checks} door/prefab checks. Samples: {output}");

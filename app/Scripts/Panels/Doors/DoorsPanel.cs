@@ -26,6 +26,12 @@ public partial class DoorsPanel : EditorPanel
             button.Pressed += Choose; flow.AddChild(button); tiles.Add(button);
             button.SetDragForwarding(Callable.From<Vector2, Variant>(_ => { if (DoorTools.Tool.Settings.Style != style) Choose(); return Drag(button); }), Callable.From<Vector2, Variant, bool>((_, _) => false), Callable.From<Vector2, Variant>((_, _) => { }));
         }
+        PanelUi.Header(body, "Door assemblies");
+        var pairs = PanelUi.Toolbar(body);
+        PanelUi.Button(pairs, "Hinged pair", "Open the editable double-door prefab; both leaves share an automatic player sensor", () => PrefabsPanel.ShowPrefab("double_hinged_door"));
+        PanelUi.Button(pairs, "Sliding pair", "Open the split sliding-door prefab; both leaves open together", () => PrefabsPanel.ShowPrefab("double_sliding_door"));
+        PanelUi.Button(pairs, "Automatic access", "Configure spies, mercs, both or neither separately on each side", () => PrefabsPanel.ShowPrefab("automatic_door"));
+        PanelUi.Button(pairs, "Hack panel", "A timed hack panel with a movable link to its door; also available on either double-door assembly", () => PrefabsPanel.ShowPrefab("hackable_door"));
         PanelUi.Primary(body, "Place Door", "Click in a viewport to place a door; R rotates and Escape cancels", () => { DoorTools.Tool.Cancel(); ToolManager.Instance!.Activate("doors"); });
         PanelUi.Button(body, "Learn door tools", "Start the built-in door tutorial", () => Context.Run("tutorial.doors"));
         fields = new VBoxContainer(); body.AddChild(fields); EditorLifetime.Defer(Rebuild);
