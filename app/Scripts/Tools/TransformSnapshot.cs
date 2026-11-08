@@ -54,6 +54,9 @@ public sealed class TransformSnapshot
     /// <summary>An actor as it was when the snapshot was taken (do not change it), or null.</summary>
     public Actor? StartActor(string id) => _actors.GetValueOrDefault(id);
 
+    /// <summary>A GE as it was when the snapshot was taken (do not change it), or null.</summary>
+    public Ge? StartGe(string id) => _ges.GetValueOrDefault(id);
+
     /// <summary>A fresh move baseline rotated about the selection pivot, without touching the map.</summary>
     public TransformSnapshot Turned(MapProject p, Vec3 pivot, int units)
     {

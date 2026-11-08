@@ -57,7 +57,7 @@ public sealed class NeighbourDrag
     /// <summary>True when this drag sticks to neighbours now.</summary>
     public bool Effective => _tools.NeighbourSnapFor(_use, AltHeld);
 
-    /// <summary>The selection's shape at the start of the drag, or null when it has none (GEs only).</summary>
+    /// <summary>The selection's shape at the start of the drag, or null when it has no geometry or points.</summary>
     public MovingShape? Shape
     {
         get
@@ -506,12 +506,12 @@ public sealed class NeighbourDrag
 
     /// <summary>
     /// The shape a selection sticks by: one brush (or shaped actor) by its own faces, one actor by its box, several
-    /// objects by their combined box (plus the primary's faces when it is one small brush). GEs add nothing; a
-    /// selection of GEs alone has no shape.
+    /// objects by their combined box (plus the primary's faces when it is one small brush). GEs use their control
+    /// point bounds, with their line and facing directions for rotation.
     /// </summary>
     public static MovingShape? ShapeOf(TransformSnapshot snap, ObjectRef? primary)
     {
-        List<ObjectRef> refs = snap.Refs.Where(r => r.Kind != ObjectKind.Ge).ToList();
+        List<ObjectRef> refs = snap.Refs.ToList();
         if (refs.Count == 0)
         {
             return null;
@@ -539,7 +539,7 @@ public sealed class NeighbourDrag
         }
 
         MovingShape box = MovingShape.Box(min, max);
-        ObjectRef main = primary is { Kind: not ObjectKind.Ge } pr && refs.Contains(pr) ? pr : refs[0];
+        ObjectRef main = primary is { } pr && refs.Contains(pr) ? pr : refs[0];
         MovingShape? own = refs.Count <= 400 ? Single(snap, main) : null;
         IReadOnlyList<SnapFace> faces = box.Faces;
         if (own is not null && main.Kind is (ObjectKind.Brush or ObjectKind.Stair) && own.Faces.Count <= SnapFaces.MaxMovingFaces)
@@ -554,6 +554,8 @@ public sealed class NeighbourDrag
     {
         switch (r.Kind)
         {
+            case ObjectKind.Ge when snap.StartGe(r.Id) is { } g:
+                return SnapFaces.OfGe(g);
             case ObjectKind.Brush or ObjectKind.Stair when snap.StartBrush(r.Id) is { } b:
                 return SnapFaces.Shape(ActorSnapBox.Faces(b), r);
             case ObjectKind.Actor when snap.StartActor(r.Id) is { Shape: not null } a:
@@ -585,6 +587,7 @@ public sealed class NeighbourDrag
         ObjectKind.Brush or ObjectKind.Stair when snap.StartBrush(r.Id) is { } b => (BrushGeometry.Of(b).Min, BrushGeometry.Of(b).Max),
         ObjectKind.Actor when snap.StartActor(r.Id) is { Shape: not null } a => ObjectGeometry.ActorBounds(a),
         ObjectKind.Actor when snap.StartActor(r.Id) is { } a => ActorSnapBox.Of(a) is { } box ? box.Box.Bounds() : ObjectGeometry.ActorBounds(a),
+        ObjectKind.Ge when snap.StartGe(r.Id) is { Points.Count: > 0 } g => (g.Points.Aggregate(Vec3.Min), g.Points.Aggregate(Vec3.Max)),
         _ => null,
     };
 

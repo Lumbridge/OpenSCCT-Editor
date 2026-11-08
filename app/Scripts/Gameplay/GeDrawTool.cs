@@ -1,6 +1,7 @@
 using Godot;
 using OpenScct.Editor.Core.Commands;
 using OpenScct.Editor.Core.Gameplay;
+using OpenScct.Editor.Core.Geometry.Snap;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
 using OpenScctEditor.Panels;
@@ -36,6 +37,7 @@ public sealed class GeDrawTool : IViewportTool
     private Ge? _editing;
     private Ge? _draft;
     private int _pointIndex;
+    private NeighbourDrag? _handleSnap;
     private int? _previewShapeKey;
     private readonly List<(Vec3 A, Vec3 B)> _previewEdges = [];
 
@@ -44,6 +46,7 @@ public sealed class GeDrawTool : IViewportTool
         _tools = tools;
         _state = state;
         tools.DragInterrupted += Reset;
+        tools.Changed += ResolveHandle;
     }
 
     public string Id => "ge";
@@ -102,6 +105,11 @@ public sealed class GeDrawTool : IViewportTool
                     _editing = handle.Ge.Clone();
                     _draft = handle.Ge.Clone();
                     _pointIndex = handle.Index;
+                    bool facing = GeKinds.HasThirdPoint(_editing.Kind) && _pointIndex == 2;
+                    Vec3 anchor = _editing.Points[_pointIndex];
+                    _handleSnap = new NeighbourDrag(_tools, view, facing ? SnapUse.Rotate : _pointIndex == 0 ? SnapUse.Move : SnapUse.Resize,
+                        [_editing.Id], () => facing ? SnapFaces.OfGe(_editing) : MovingShape.Box(anchor, anchor, ObjectRef.Ge(_editing.Id)))
+                    { AltHeld = press.AltPressed };
                     _tools.Context.Selection.Set([ObjectRef.Ge(handle.Ge.Id)]);
                     return true;
                 }
@@ -147,6 +155,7 @@ public sealed class GeDrawTool : IViewportTool
                 _moved |= _pressed && _mouse.DistanceTo(_pressedAt) >= 4;
                 if (_editing is not null && _moved)
                 {
+                    _handleSnap!.AltHeld = motion.AltPressed || Godot.Input.IsKeyPressed(Key.Alt);
                     MoveHandle(view, motion.Position);
                 }
                 else if (_start is not null)
@@ -160,6 +169,10 @@ public sealed class GeDrawTool : IViewportTool
 
                 ViewportLayout.Instance?.RedrawAll();
                 return _start is not null || _editing is not null;
+            case InputEventKey { Keycode: Key.Alt } alt when _handleSnap is not null:
+                _handleSnap.AltHeld = alt.Pressed;
+                ResolveHandle();
+                return true;
             case InputEventKey { Pressed: true, Keycode: Key.Enter or Key.KpEnter } when _start is not null:
                 Finish();
                 return true;
@@ -218,10 +231,13 @@ public sealed class GeDrawTool : IViewportTool
         }
 
         batch.Draw(view.Cam, canvas);
+        _handleSnap?.Draw(view, canvas);
         // The first line says what is drawn (in the GE's colour), the rest are the shape checks' warnings.
         if (view == _view)
         {
             ViewTags.BesideLines(canvas, _mouse, lines.Select((line, i) => new TagPart(line, i == 0 ? c : EditorTheme.Warning)));
+            if (_handleSnap is { } snap)
+                ViewTags.BesideStack(canvas, _mouse + new Vector2(0, 24), snap.Readout());
         }
     }
 
@@ -562,7 +578,7 @@ public sealed class GeDrawTool : IViewportTool
         Vec3 at;
         if (view.Cam.IsOrtho)
         {
-            at = Placement.Point(_tools, view.Cam, mouse, depth: anchor[ViewAxes.DepthAxis(view.Cam.Kind)]);
+            at = view.Cam.PlanePoint(mouse, anchor[ViewAxes.DepthAxis(view.Cam.Kind)]);
         }
         else
         {
@@ -575,7 +591,39 @@ public sealed class GeDrawTool : IViewportTool
                 return;
             }
 
-            at = _tools.Snap(origin + direction * (Vec3.Dot(anchor - origin, normal) / denominator));
+            at = origin + direction * (Vec3.Dot(anchor - origin, normal) / denominator);
+        }
+
+        bool facing = GeKinds.HasThirdPoint(source.Kind) && _pointIndex == 2;
+        if (facing)
+        {
+            Vec3 direction = at - source.Points[0];
+            if (direction.X * direction.X + direction.Y * direction.Y < 1e-8) return;
+            Vec3 start = source.Points[2] - source.Points[0];
+            double angle = Math.Atan2(direction.Y, direction.X) * Rot.UnitsPerTurn / Math.Tau;
+            double original = Math.Atan2(start.Y, start.X) * Rot.UnitsPerTurn / Math.Tau;
+            double raw = angle - original;
+            raw -= Math.Round(raw / Rot.UnitsPerTurn) * Rot.UnitsPerTurn;
+            double radius = view.Cam.ToScreen(source.Points[0]) is { } center && view.Cam.ToScreen(anchor) is { } tip
+                ? Math.Max(center.DistanceTo(tip), 1) : 1;
+            int threshold = (int)Math.Clamp(_tools.NeighbourSnapPx * Rot.UnitsPerTurn / (Math.Tau * radius), 182, 910);
+            if (_tools.RotationSnap) threshold = Math.Min(threshold, (int)(_tools.RotationGrid / (2 * NeighbourSnap.HoldReach)));
+            TurnSnap? turn = _handleSnap!.Turn(2, source.Points[0], (int)Math.Round(raw), threshold, null, 0);
+            int units = turn?.Units ?? _tools.SnapRotation(angle) - (int)Math.Round(original);
+            at = source.Points[0] + RotationMath.About(2, units).Rotate(start);
+        }
+        else
+        {
+            bool verticalTop = _pointIndex == 1 && (GeKinds.HasThirdPoint(source.Kind) || source.Kind == GeKinds.Pole);
+            int depth = view.Cam.IsOrtho ? ViewAxes.DepthAxis(view.Cam.Kind) : -1;
+            int[] free = Enumerable.Range(0, 3).Where(a => a != depth && (!verticalTop || a == 2)).ToArray();
+            Vec3 raw = at - anchor;
+            foreach (int axis in Enumerable.Range(0, 3).Except(free)) raw = raw.With(axis, 0);
+            MoveSnap stick = _handleSnap!.Move(raw, free);
+            at = anchor;
+            foreach (int axis in free)
+                at = at.With(axis, stick.Stuck(axis) ? anchor[axis] + stick.Offset[axis] : _tools.SnapValue(anchor[axis] + raw[axis]));
+            _handleSnap.Moved(at - anchor);
         }
 
         if (GeKinds.HasThirdPoint(source.Kind) && source.Points.Count == 3)
@@ -624,11 +672,21 @@ public sealed class GeDrawTool : IViewportTool
         }
         catch (ArgumentException error)
         {
+            _handleSnap?.Release();
             _tools.Context.SetStatus(error.Message);
             return;
         }
 
         _draft = draft;
+        if (!facing && (draft.Points[_pointIndex] - at).Length > .01) _handleSnap?.Release();
+        _tools.Context.SetStatus($"Reshape {draft.Id}{_handleSnap?.Status()}");
+    }
+
+    private void ResolveHandle()
+    {
+        if (_editing is null || !_moved || _view is null) return;
+        MoveHandle(_view, _mouse);
+        ViewportLayout.Instance?.RedrawAll();
     }
 
     private void Preview(OverlayBatch batch, Ge ge)
@@ -699,6 +757,7 @@ public sealed class GeDrawTool : IViewportTool
         _lastQuery = null;
         _editing = null;
         _draft = null;
+        _handleSnap = null;
         _pressed = false;
         _moved = false;
         _previewShapeKey = null;

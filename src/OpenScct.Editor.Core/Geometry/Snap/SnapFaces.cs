@@ -5,6 +5,23 @@ namespace OpenScct.Editor.Core.Geometry.Snap;
 /// <summary>Snap faces of brushes, shaped actors and boxes, and the moving shape of a selection.</summary>
 public static class SnapFaces
 {
+    /// <summary>A GE snaps by its control points, including flat and vertical shapes. Turns use its actual line
+    /// and facing directions rather than the world-aligned bounds.</summary>
+    public static MovingShape? OfGe(Ge ge)
+    {
+        if (ge.Points.Count == 0) return null;
+        MovingShape box = MovingShape.Box(ge.Points.Aggregate(Vec3.Min), ge.Points.Aggregate(Vec3.Max), ObjectRef.Ge(ge.Id));
+        var directions = new List<Vec3>();
+        foreach (Vec3 p in ge.Points.Skip(1))
+        {
+            Vec3 d = (p - ge.Points[0]).Normalized();
+            if (d.LengthSquared > 1e-12 && !directions.Any(v => Math.Abs(Vec3.Dot(v, d)) >= SnapFace.ParallelCos)) directions.Add(d);
+        }
+        if (directions.Count >= 2 && Vec3.Cross(directions[0], directions[1]).Normalized() is var cross && cross.LengthSquared > 1e-12)
+            directions.Add(cross);
+        return box with { Directions = directions };
+    }
+
     /// <summary>A single moving brush with more faces than this sticks by its box and the axis faces on its box's edges.</summary>
     public const int MaxMovingFaces = 64;
 

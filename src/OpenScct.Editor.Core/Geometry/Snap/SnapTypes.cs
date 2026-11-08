@@ -164,8 +164,9 @@ public readonly record struct OrientedBox(Vec3 Center, Vec3 X, Vec3 Y, Vec3 Z, V
         return (Center - e, Center + e);
     }
 
-    /// <summary>The six faces (index 0..5: −X, +X, −Y, +Y, −Z, +Z of the box's own axes).</summary>
-    public IReadOnlyList<SnapFace> Faces(ObjectRef? owner, SnapSource source, bool approximate)
+    /// <summary>The six faces (index 0..5: −X, +X, −Y, +Y, −Z, +Z of the box's own axes). Flat faces are omitted
+    /// unless <paramref name="includeDegenerate"/> is true, for a moving line or point that still snaps to planes.</summary>
+    public IReadOnlyList<SnapFace> Faces(ObjectRef? owner, SnapSource source, bool approximate, bool includeDegenerate = false)
     {
         var faces = new List<SnapFace>(6);
         double[] h = [Half.X, Half.Y, Half.Z];
@@ -186,6 +187,14 @@ public readonly record struct OrientedBox(Vec3 Center, Vec3 X, Vec3 Y, Vec3 Z, V
                 if (SnapFace.Of(owner, i * 2 + (s > 0 ? 1 : 0), source, tidy, approximate, a * s) is { } face)
                 {
                     faces.Add(face);
+                }
+                else if (includeDegenerate)
+                {
+                    // A moving GE or endpoint has no volume. Keep its exact planes without padding its bounds:
+                    // padding would stop the handle short of the surface it is meant to reach.
+                    int axis = Enumerable.Range(0, 3).FirstOrDefault(k => Math.Abs(a[k]) >= SnapFace.ParallelCos, -1);
+                    faces.Add(new SnapFace(owner, i * 2 + (s > 0 ? 1 : 0), source, a * s, Vec3.Dot(a * s, f),
+                        tidy, tidy.Aggregate(Vec3.Min), tidy.Aggregate(Vec3.Max), axis, axis >= 0 ? f[axis] : 0, approximate) { Center = f });
                 }
             }
         }
@@ -218,7 +227,7 @@ public sealed record MovingShape(Vec3 Min, Vec3 Max, IReadOnlyList<SnapFace> Fac
 
     /// <summary>The six faces of a world box.</summary>
     public static MovingShape Box(Vec3 min, Vec3 max, ObjectRef? owner = null) =>
-        new(min, max, OrientedBox.Aligned(min, max).Faces(owner, SnapSource.Brush, false), [Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ]);
+        new(min, max, OrientedBox.Aligned(min, max).Faces(owner, SnapSource.Brush, false, includeDegenerate: true), [Vec3.UnitX, Vec3.UnitY, Vec3.UnitZ]);
 }
 
 /// <summary>

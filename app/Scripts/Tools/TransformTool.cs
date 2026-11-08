@@ -359,7 +359,7 @@ public sealed class TransformTool : IViewportTool
         {
             Mode = Mode,
             Mouse = mouse,
-            StartRotation = primary is { } pr ? snap.Start(pr)?.Rotation : null,
+            StartRotation = primary is { Kind: not ObjectKind.Ge } pr ? snap.Start(pr)?.Rotation : null,
             ScaleBlocker = Mode == TransformMode.Scale ? NeighbourDrag.ScaleBlocker(snap) : null,
         };
         ViewCamera cam = view.Cam;

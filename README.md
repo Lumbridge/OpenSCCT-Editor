@@ -93,6 +93,8 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 - **Gameplay.** Ledge detection, flush and corner joins, GE IDs; event wiring and the event graph; missions; the
   mover, SMagicEvent, camera network, property set, zone action and zone tip workbenches; player-count rules, map
   outfits and native conveyors; the map's name, dossier, places, pictures and translations.
+  GE dots use grid and neighbour snapping when moved or resized; ladder and pipe facing dots use rotation and
+  neighbour angle snapping. The Move, Rotate and Scale tools snap GE selections too. Hold Alt to invert neighbour snapping.
 - **Analysis.** Map Check with stable rule codes and fixes, a deep check of the compiled map (leaks, void, floating
   meshes, collision caps), the stealth light map, reachability and routes for each side, and the bots' nav graph.
 - **Assets and prefabs.** An asset catalogue of the materials, meshes, textures and sounds a map can use, glTF and OBJ

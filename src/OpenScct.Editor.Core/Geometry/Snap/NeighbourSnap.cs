@@ -282,7 +282,7 @@ public static class NeighbourSnap
             double gap = coord - face;
             double px = Math.Abs(gap) * ppu;
             SnapFace target = BakedFace(shape, raw, a, s, coord);
-            SnapFace moving = OrientedBox.Aligned(shape.Min, shape.Max).Faces(null, SnapSource.Brush, false)[a * 2 + (s > 0 ? 1 : 0)];
+            SnapFace moving = MovingShape.Box(shape.Min, shape.Max).Faces[a * 2 + (s > 0 ? 1 : 0)];
             var match = new SnapMatch(a, SnapRelation.Touching, target, moving, gap);
             bool held = stuck?.Any(x => x.SameAs(match)) == true;
             if (!(px <= (held ? HoldReach : 1) * view.ThresholdPx))
@@ -353,7 +353,7 @@ public static class NeighbourSnap
         }
 
         return SnapFace.Of(null, 0, SnapSource.Baked, poly, normal: Vec3.Zero.With(a, -s))
-            ?? new SnapFace(null, 0, SnapSource.Baked, Vec3.Zero.With(a, -s), -s * coord, poly, min, max, a, coord, false);
+            ?? new SnapFace(null, 0, SnapSource.Baked, Vec3.Zero.With(a, -s), -s * coord, poly, min, max, a, coord, false) { Center = (min + max) / 2 };
     }
 
     // ---- scale ---------------------------------------------------------------------------------------------------
@@ -430,7 +430,7 @@ public static class NeighbourSnap
                 continue;
             }
 
-            IReadOnlyList<SnapFace> box = OrientedBox.Aligned(shape.Min, shape.Max).Faces(null, SnapSource.Brush, false);
+            IReadOnlyList<SnapFace> box = MovingShape.Box(shape.Min, shape.Max).Faces;
             for (int side = 0; side < 2; side++)
             {
                 double start = side == 0 ? shape.Min[k] : shape.Max[k];
