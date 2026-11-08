@@ -110,8 +110,8 @@ public partial class MissionsPanel : EditorPanel
         Context.ProjectChanged += _ => _update.Queue();
         // Only the controls scroll when the dock is short. The mission tree always fills the remaining height.
         var header = GetChildren().OfType<Control>().Where(c => c != content).ToList();
-        _headerScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
-        _headerBody = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        _headerScroll = new ScrollContainer { Name = "MissionControls", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
+        _headerBody = new VBoxContainer { Name = "Rows", SizeFlagsHorizontal = SizeFlags.ExpandFill };
         AddChild(_headerScroll);
         MoveChild(_headerScroll, 0);
         _headerScroll.AddChild(_headerBody);

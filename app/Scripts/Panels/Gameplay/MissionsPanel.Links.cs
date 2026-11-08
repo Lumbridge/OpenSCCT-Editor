@@ -27,7 +27,7 @@ public partial class MissionsPanel
     private void BuildLinks()
     {
         s_instance = this;
-        var missions = new HBoxContainer();
+        var missions = new HBoxContainer { Name = "MissionRow" };
         AddChild(missions);
         missions.AddChild(new Label { Text = "1. Mission", MouseFilter = MouseFilterEnum.Pass });
         _missionPicker = Picker(missions, "Choose mission", ChooseMission);
@@ -37,7 +37,7 @@ public partial class MissionsPanel
         WorkbenchUi.Guard(PanelUi.IconButton(missions, "link", "Link selected objectives to the chosen mission", () =>
             LinkSelected(Mission, objectives: true)), () => CanLinkSelection(Mission, true));
 
-        var objectives = new HBoxContainer();
+        var objectives = new HBoxContainer { Name = "ObjectiveRow" };
         AddChild(objectives);
         objectives.AddChild(new Label { Text = "2. Objective", MouseFilter = MouseFilterEnum.Pass });
         _objectivePicker = Picker(objectives, "Choose objective", ChooseObjective);
@@ -45,8 +45,9 @@ public partial class MissionsPanel
         WorkbenchUi.Guard(PanelUi.Button(objectives, "New device…", "Choose a device, then click in a view to place it and link it to this objective", NewDevice), () => Objective is not null);
         WorkbenchUi.Guard(PanelUi.Button(objectives, "Add devices…", "Link computers, bomb targets or disks that complete this objective", () =>
             AddPicker(_objectivePicker, Objective, objectives: false)), () => Objective is not null);
-        WorkbenchUi.Guard(PanelUi.IconButton(objectives, "link", "Link selected devices to the chosen objective", () =>
-            LinkSelected(Objective, objectives: false)), () => CanLinkSelection(Objective, false));
+        Button linkDevices = PanelUi.IconButton(objectives, "link", "Link selected devices to the chosen objective", () => LinkSelected(Objective, objectives: false));
+        linkDevices.Name = "LinkSelectedDevices";
+        WorkbenchUi.Guard(linkDevices, () => CanLinkSelection(Objective, false));
         var hints = new HBoxContainer();
         AddChild(hints);
         _linkHint = WorkbenchUi.Value(hints, "Choose a mission, add objectives, then connect their devices.", "Dim");
