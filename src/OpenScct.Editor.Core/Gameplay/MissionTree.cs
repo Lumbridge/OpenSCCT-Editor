@@ -48,7 +48,7 @@ public sealed class MissionTree
         IReadOnlyList<string> modes = classes?.EnumValues("Core.Object.EGameMode") ?? GameModes;
         var listed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var missions = new List<MissionNode>();
-        foreach (Actor m in p.Actors.Where(a => a.ShortClass == "SMission"))
+        foreach (Actor m in p.Actors.Where(MatchPlan.IsMission))
         {
             var objectives = new List<ObjectiveNode>();
             foreach (string oid in Refs(m.Props["Objectives"]))
@@ -67,7 +67,7 @@ public sealed class MissionTree
                 objectives, Refs(m.Props["Triggers"])));
         }
 
-        List<string> unlisted = p.Actors.Where(a => a.ShortClass == "SObjective" && !listed.Contains(a.Id)).Select(a => a.Id).ToList();
+        List<string> unlisted = p.Actors.Where(a => MissionLinks.IsObjective(a) && !MatchPlan.IsMission(a) && !listed.Contains(a.Id)).Select(a => a.Id).ToList();
         List<MatchSizeRule> rules = p.Actors.Where(a => a.Match is { IsEmpty: false })
             .Select(a => new MatchSizeRule(a.Id, a.Class, MatchPlan.Describe(a.Match!), Native: true))
             .Concat(p.Actors.Where(a => MatchSizeClasses.Contains(a.ShortClass, StringComparer.OrdinalIgnoreCase))

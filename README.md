@@ -93,6 +93,12 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 - **Gameplay.** Ledge detection, flush and corner joins, GE IDs; event wiring and the event graph; missions; the
   mover, SMagicEvent, camera network, property set, zone action and zone tip workbenches; player-count rules, map
   outfits and native conveyors; the map's name, dossier, places, pictures and translations.
+  **Link missions & objectives** in Building or Inspector opens the Missions panel in either workspace. Choose a
+  mission by name, use **Add objectives…** to check several existing objectives, then choose an objective and
+  **Add devices…** to connect its computers, bomb targets or disks. Search keeps checked items when filtered.
+  **Link selection** adds the actors selected in the map to the named target; **New mission** and **New objective**
+  start a new chain. Tree × buttons unlink without deleting actors; arrows change objective order for chained
+  missions. Every batch is one undo step. **Completion actions** reveals doors, messages and timing.
   GE dots use grid and neighbour snapping when moved or resized; ladder and pipe facing dots use rotation and
   neighbour angle snapping. The Move, Rotate and Scale tools snap GE selections too. Hold Alt to invert neighbour snapping.
 - **Analysis.** Map Check with stable rule codes and fixes, a deep check of the compiled map (leaks, void, floating

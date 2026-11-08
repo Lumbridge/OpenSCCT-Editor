@@ -11,7 +11,7 @@ public sealed class WorkspaceMode : IShellPart
 {
     public static bool Simple => AppSettings.GetString("workspace", "mode", "advanced") == "simple";
     public static event Action? Changed;
-    public static bool Allows(string panel) => !Simple || panel is "Building" or "Your first map" or "Inspector" or "Outliner" or "Assets" or "Prefabs" or "Map Check" or "Lights" or "Stairs" or "Geometry" or "Windows";
+    public static bool Allows(string panel) => !Simple || panel is "Building" or "Your first map" or "Inspector" or "Outliner" or "Assets" or "Prefabs" or "Map Check" or "Lights" or "Stairs" or "Geometry" or "Windows" or "Missions";
     public static bool AllowsAction(string id) => !Simple || !id.StartsWith("tools.", StringComparison.Ordinal) ||
         id is "tools.select" or "tools.move" or "tools.rotate" or "tools.scale" or "tools.brush" or "tools.place" or "tools.face" or "tools.stairs" or "tools.windows";
 

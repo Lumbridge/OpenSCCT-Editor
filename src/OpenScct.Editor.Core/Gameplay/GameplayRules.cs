@@ -221,7 +221,8 @@ internal sealed class WiringRules : MapRule
         foreach (MissionNode m in tree.Missions)
         {
             Vec3? at = c.Project.FindActor(m.Id)?.Location;
-            foreach (ObjectiveNode o in m.Objectives.Where(o => o.Triggers.Count == 0))
+            foreach (ObjectiveNode o in m.Objectives.Where(o => o.Triggers.Count == 0
+                && c.Project.FindActor(o.Id) is { } actor && !MatchPlan.IsMission(actor)))
             {
                 c.Report(Severity.Warning, ObjectiveNoTrigger, $"{o.Id} ({m.Id}) has no trigger", c.Project.FindActor(o.Id)?.Location,
                     ObjectRef.Actor(o.Id));
