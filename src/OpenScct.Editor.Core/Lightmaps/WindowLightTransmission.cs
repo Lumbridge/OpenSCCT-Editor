@@ -9,6 +9,8 @@ public sealed class WindowLightTransmission
     private readonly TriangleBvh _panes;
     private readonly Vec3[] _colours;
     public List<OpenScct.Content.WindowLightTransfer.Pane> Panes { get; } = [];
+    public sealed record Sheet(string Actor, Vec3 Colour, IReadOnlyList<Vec3> Triangles);
+    public List<Sheet> Sheets { get; } = [];
 
     public WindowLightTransmission(IEnumerable<Actor> windows)
     {
@@ -19,14 +21,17 @@ public sealed class WindowLightTransmission
             if (actor.Window is not { } d || Math.Abs(actor.DrawScale3D.X * actor.DrawScale3D.Y * actor.DrawScale3D.Z * actor.DrawScale) < 1e-12) continue;
             var outline = WindowGeometry.Offset(WindowGeometry.Outline(d), -d.Clearance);
             int source = colours.Count;
+            var points = new List<Vec3>();
             // Treat the pane as one optical sheet, so its front and back do not filter the light twice.
             foreach (var (a, b, c) in WindowGeometry.Triangles(outline))
             {
                 Vec3 Point(int i) => actor.LocalToWorld(new Vec3(d.DepthOffset, outline[i].Y, outline[i].Z));
                 triangles.Add(new(Point(a), Point(b), Point(c), OccluderFlags.None, source));
+                points.AddRange([Point(a), Point(b), Point(c)]);
             }
             double transmission = d.Finish == "frosted" ? .5 : d.Finish == "tinted" ? .72 : .94;
             colours.Add(new Vec3(Math.Clamp(d.Tint[0], 0, 1), Math.Clamp(d.Tint[1], 0, 1), Math.Clamp(d.Tint[2], 0, 1)) * transmission);
+            Sheets.Add(new(actor.Id, colours[^1], points));
             Panes.Add(new() { Actor = actor.Id, Tint = [(float)colours[^1].X, (float)colours[^1].Y, (float)colours[^1].Z] });
         }
         _panes = TriangleBvh.Build(triangles);

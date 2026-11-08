@@ -78,7 +78,8 @@ public sealed partial class RenderBuild
         r.AddConveyors();
         r.WriteEmitters(baked);
         r.Finish(baked);
-        if (r._lighting.WindowResponse.Batches.Any(b => b.Samples.Count > 0))
+        // Live lights need the pane descriptors even when the map has no baked light paths to recombine.
+        if (r._lighting.WindowResponse.Panes.Count > 0)
             ctx.Files[OpenScct.Content.WindowLightTransfer.RelativePath] = r._lighting.WindowResponse.Save();
     }
 

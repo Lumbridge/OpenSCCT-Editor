@@ -15,7 +15,7 @@ namespace OpenScctEditor.Viewports.Render;
 /// over its baked vertex light the same way, with the actor falloff 1 - 3x^2 + 2x^3, as the game's D3D vertex lights
 /// give it (svm_dyn_falloff; RenderingModeNormal::SetLight). A trigger light takes the event
 /// preview's state while one plays, else its state at the round's start (WorldScene decides); light types count at
-/// their mean brightness. Like the base pass, it is cut to the storey shown (<see cref="StoreyClip"/>), and it draws the
+    /// their current brightness. Like the base pass, it is cut to the storey shown (<see cref="StoreyClip"/>), and it draws the
 /// same sides: a two-sided surface takes the lights on its back face too, with the normal turned round as the game's
 /// shader turns it; a masked surface only where its texture passes the alpha test, a blended one by its alpha.
 /// </summary>
@@ -31,6 +31,9 @@ public static class DynamicWorldLights
     private static ImageTexture? s_texture;
     private static readonly Dictionary<(bool VertexLit, bool TwoSided), Shader> s_shaders = new();
     private static int s_leftOut;
+    private static bool s_dirty;
+    private static float s_strobeTime = float.NaN;
+    private static bool s_strobeOff;
 
     // {BAKED} is the baked light term in half units, {FALLOFF} the falloff over x = distance / radius, {CULL} the cull mode.
     private const string Template = """
@@ -46,6 +49,8 @@ public static class DynamicWorldLights
         uniform bool has_albedo = false;
         // 0 opaque, 1 masked (alpha test at a half), 2 blended (the pass scaled by the texture's alpha).
         uniform int alpha_mode = 0;
+
+        {WINDOW_FILTER}
 
         varying vec3 v_wpos;
         varying vec3 v_wn;
@@ -85,7 +90,9 @@ public static class DynamicWorldLights
                         att *= clamp((dot(-l, s.xyz) - s.w) / max(c.a - s.w, 1e-5), 0.0, 1.0);
                     }
                 }
-                dyn += c.rgb * att * max(0.0, dot(wn, l));
+                vec3 live = c.rgb * att * max(0.0, dot(wn, l));
+                if (any(greaterThan(live, vec3(0.0)))) live *= svm_window_filter(v_wpos, p);
+                dyn += live;
             }
             vec4 t = has_albedo ? texture(albedo, UV) : vec4(1.0);
             if (dot(dyn, dyn) <= 0.0 || (alpha_mode == 1 && t.a < 0.5)) {
@@ -104,7 +111,9 @@ public static class DynamicWorldLights
     {
         if (!s_shaders.TryGetValue((vertexLit, twoSided), out Shader? shader))
         {
-            string code = Template.Replace("{CULL}", twoSided ? "cull_disabled" : "cull_back");
+            OpenScctGame.Render.WindowLightFilter.EnsureGlobals();
+            using var shaderSource = new StreamReader(typeof(DynamicWorldLights).Assembly.GetManifestResourceStream("WindowLightShader")!);
+            string code = Template.Replace("{CULL}", twoSided ? "cull_disabled" : "cull_back").Replace("{WINDOW_FILTER}", shaderSource.ReadToEnd());
             code = vertexLit
                 ? code.Replace("{BAKED}", "COLOR.rgb").Replace("{FALLOFF}", "1.0 - 3.0 * x * x + 2.0 * x * x * x")
                 : code.Replace("{BAKED}", "texture(lightmap, UV2).rgb").Replace("{FALLOFF}", "1.0 - x * x");
@@ -151,7 +160,7 @@ public static class DynamicWorldLights
 
     /// <summary>Writes the map's run-time world lights that are on (<paramref name="isOn"/>: a trigger light as the
     /// round starts it or an event preview switches it).</summary>
-    public static void Update(MapProject p, Func<Actor, bool> isOn)
+    public static void Update(MapProject p, Func<Actor, bool> isOn, float time = 0)
     {
         int row = 0, taken = 0, leftOut = 0;
         foreach (Actor a in p.Actors.Where(IsDynamicWorldLight))
@@ -165,12 +174,12 @@ public static class DynamicWorldLights
             taken++;
             if (isOn(a))
             {
-                Write(++row, a);
+                Write(++row, a, time);
             }
         }
 
-        s_rows.SetPixel(0, 0, new Color(row, 0, 0, 0));
-        Rows.Update(s_rows);
+        Pixel(0, 0, new Color(row, 0, 0, 0));
+        if (s_dirty) { Rows.Update(s_rows); s_dirty = false; }
         if (leftOut != s_leftOut)
         {
             s_leftOut = leftOut;
@@ -194,19 +203,38 @@ public static class DynamicWorldLights
         : ClassDefaults.IsA(a, "Engine.Spotlight") && a.Props["LightEffect"] is null ? ActorLightRules.LE_Spotlight
         : (int)ClassDefaults.Number(a, "LightEffect", 0);
 
-    private static void Write(int row, Actor a)
+    public static float Modulation(Actor a, float time)
+    {
+        if (time != s_strobeTime) { s_strobeTime = time; s_strobeOff = !s_strobeOff; }
+        int type = (int)ClassDefaults.Number(a, "LightType", 1);
+        uint seed = 2166136261;
+        foreach (char c in a.Id) seed = (seed ^ c) * 16777619;
+        uint h = seed ^ (uint)BitConverter.SingleToInt32Bits(time);
+        h ^= h >> 16; h *= 0x7feb352dU; h ^= h >> 15; h *= 0x846ca68bU; h ^= h >> 16;
+        return ActorLightRules.Modulation(type, (float)ClassDefaults.Number(a, "LightPeriod", 32),
+            (float)ClassDefaults.Number(a, "LightPhase", 0), time, (h >> 8) / 16777216f, s_strobeOff);
+    }
+
+    private static void Pixel(int column, int row, Color value)
+    {
+        if (s_rows.GetPixel(column, row) == value) return;
+        s_rows.SetPixel(column, row, value);
+        s_dirty = true;
+    }
+
+    private static void Write(int row, Actor a, float time)
     {
         int effect = Effect(a);
         float brightness = (float)ClassDefaults.Number(a, "LightBrightness", 64) *
-            ActorLightRules.MeanModulation((int)ClassDefaults.Number(a, "LightType", 1));
+            Modulation(a, time);
         LightRgb c = ActorLightRules.Colour((byte)ClassDefaults.Number(a, "LightHue", 0), (byte)ClassDefaults.Number(a, "LightSaturation", 255), brightness);
         Vector3 facing = Space.DirToGodot(a.Rotation.Axes().Forward);
         if (effect == ActorLightRules.LE_Sunlight)
         {
             float k = ActorLightRules.SunLightGain;
-            s_rows.SetPixel(0, row, new Color(-facing.X, -facing.Y, -facing.Z, -1));
-            s_rows.SetPixel(1, row, new Color(c.R * k, c.G * k, c.B * k, 1));
-            s_rows.SetPixel(2, row, new Color(0, 0, 0, -2));
+            Pixel(0, row, new Color(-facing.X, -facing.Y, -facing.Z, -1));
+            Pixel(1, row, new Color(c.R * k, c.G * k, c.B * k, 1));
+            Pixel(2, row, new Color(0, 0, 0, -2));
             return;
         }
 
@@ -220,8 +248,8 @@ public static class DynamicWorldLights
             cosTheta = MathF.Cos(phi * ActorLightRules.SpotThetaRatio * 0.5f);
         }
 
-        s_rows.SetPixel(0, row, new Color(at.X, at.Y, at.Z, radius));
-        s_rows.SetPixel(1, row, new Color(c.R * g, c.G * g, c.B * g, cosTheta));
-        s_rows.SetPixel(2, row, new Color(facing.X, facing.Y, facing.Z, cosHalfPhi));
+        Pixel(0, row, new Color(at.X, at.Y, at.Z, radius));
+        Pixel(1, row, new Color(c.R * g, c.G * g, c.B * g, cosTheta));
+        Pixel(2, row, new Color(facing.X, facing.Y, facing.Z, cosHalfPhi));
     }
 }

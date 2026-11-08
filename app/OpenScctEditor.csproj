@@ -22,5 +22,7 @@
     <!-- Use the same simulation and particle geometry as the game, without its full scene or render pipeline. -->
     <Compile Include="$(OpenScctDir)game\Scripts\Render\Particles\ParticleParams.cs;$(OpenScctDir)game\Scripts\Render\Particles\ParticleEmitterSim.cs;$(OpenScctDir)game\Scripts\Render\Particles\ParticleSystemSim.cs;$(OpenScctDir)game\Scripts\Render\Particles\ParticleGeometry.cs" Link="Shared\Particles\%(Filename)%(Extension)" />
     <Compile Include="$(OpenScctDir)game\Scripts\Space\UeSpace.cs" Link="Shared\UeSpace.cs" />
+    <Compile Include="$(OpenScctDir)game\Scripts\Render\WindowLightFilter.cs" Link="Shared\WindowLightFilter.cs" />
+    <EmbeddedResource Include="$(OpenScctDir)game\Shaders\svm_window_light.gdshaderinc" LogicalName="WindowLightShader" />
   </ItemGroup>
 </Project>

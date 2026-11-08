@@ -107,7 +107,7 @@ public static class GameExe
     }
 
     /// <summary>The oldest OpenSCCT the editor starts: older games lack options and map data the editor's builds use.</summary>
-    public static readonly Version MinimumVersion = new(0, 8, 112);
+    public static readonly Version MinimumVersion = new(0, 8, 115);
 
     /// <summary>
     /// The version of the game at <paramref name="exe"/>: the version in its <c>openscct-build.json</c> (a release), else

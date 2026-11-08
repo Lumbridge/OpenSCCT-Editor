@@ -165,6 +165,7 @@ internal static class PanelUi
             CustomMinimumSize = new Vector2(width, 0),
         };
         spin.Value = value;
+        UseArrowStepForWheel(spin);
         if (scrub)
         {
             spin.ThemeTypeVariation = "ScrubSpin";
@@ -172,6 +173,31 @@ internal static class PanelUi
 
         parent.AddChild(spin);
         return spin;
+    }
+
+    /// <summary>Keep precise typed values while using the stepper's increment for the mouse wheel.</summary>
+    public static void UseArrowStepForWheel(SpinBox spin)
+    {
+        LineEdit edit = spin.GetLineEdit();
+        bool typed = false;
+        edit.TextChanged += _ => typed = true;
+        edit.FocusExited += () => typed = false;
+        void Wheel(InputEvent input)
+        {
+            if (!spin.Editable || !edit.IsEditing() || input is not InputEventMouseButton { Pressed: true } mouse ||
+                mouse.ButtonIndex is not (MouseButton.WheelUp or MouseButton.WheelDown)) return;
+
+            spin.AcceptEvent();
+            if (typed)
+            {
+                spin.Apply();
+                typed = false;
+            }
+            double step = spin.CustomArrowStep != 0 ? spin.CustomArrowStep : spin.Step;
+            spin.Value += (mouse.ButtonIndex == MouseButton.WheelUp ? 1 : -1) * step * mouse.Factor;
+        }
+        spin.GuiInput += Wheel;
+        edit.GuiInput += Wheel;
     }
 
     /// <summary>A drop-down that never widens its dock: it keeps the width the layout gives it, long text ends in

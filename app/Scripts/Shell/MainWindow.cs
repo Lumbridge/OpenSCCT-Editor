@@ -154,6 +154,18 @@ public partial class MainWindow : Control
             MouseFilter = MouseFilterEnum.Pass,
         };
         StatusRow.AddChild(_status);
+        var clearStatus = new Godot.Timer { WaitTime = 5, OneShot = true, Autostart = true };
+        AddChild(clearStatus);
+        clearStatus.Timeout += () =>
+        {
+            if (BackgroundJobs.IsBusy) { clearStatus.Start(); return; }
+            _status.Text = _status.TooltipText = "";
+        };
+        BackgroundJobs.Changed += () =>
+        {
+            // A long import/export may finish after its last progress message. Give its result a fresh interval.
+            if (!BackgroundJobs.IsBusy && _status.Text.Length > 0) clearStatus.Start();
+        };
         // Fields other parts add (live editing's) get the status bar's look: small text after a hairline.
         StatusRow.ChildEnteredTree += node =>
         {
@@ -166,6 +178,7 @@ public partial class MainWindow : Control
         {
             _status.Text = t;
             _status.TooltipText = t;
+            if (t.Length > 0) clearStatus.Start(); else clearStatus.Stop();
         };
 
         CreatePanels(ctx);

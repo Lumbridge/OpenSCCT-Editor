@@ -37,6 +37,8 @@ public sealed class SdcWriteRefusedException(string message) : InvalidOperationE
 /// <summary>What was written: the unpacked package, the findings, and counts by origin.</summary>
 public sealed record SdcWriteResult(byte[] Package, IReadOnlyList<Finding> Findings, SdcWriteStats Stats)
 {
+    /// <summary>The editor world was regenerated from recovered brushes rather than copied from the source.</summary>
+    public bool WorldRebuilt { get; init; }
     /// <summary>Project ids written under another export name (the package already held an object of that name).</summary>
     public IReadOnlyDictionary<string, string> Renamed { get; init; } = new Dictionary<string, string>();
 
@@ -59,7 +61,7 @@ public static class SdcWriter
 {
     /// <summary>The unpacked package of <paramref name="project"/> under the package name <paramref name="packageName"/>
     /// (the .sdc file's name: the engine roots the map's object paths at it).</summary>
-    /// <exception cref="SdcWriteRefusedException">An editor copy asked of a map imported from a cooked copy.</exception>
+    /// <exception cref="SdcWriteRefusedException">An editor copy asked of a cooked map with no recovered brushes.</exception>
     public static SdcWriteResult Write(MapProject project, string packageName, SdcWriteOptions options)
     {
         try
@@ -72,22 +74,29 @@ public static class SdcWriter
         }
         var findings = new List<Finding>();
         (UPackage? src, SdcMap? srcMap) = options.UseSource ? Source(project, options, findings) : (null, null);
-        if (srcMap?.Layout == SdcLayout.Cooked && options.Layout == SdcLayout.Editor)
+        bool recoveredEditor = srcMap?.Layout != SdcLayout.Editor && options.Layout == SdcLayout.Editor &&
+            project.Brushes.Any(Compile.BakedContent.IsRecovered);
+        if (srcMap?.Layout == SdcLayout.Cooked && options.Layout == SdcLayout.Editor && !recoveredEditor)
         {
-            // The cook dropped the CSG brushes and the lightmap records, but its world's nodes still name lightmaps:
-            // an editor copy made from it would be one no stock save makes. Brushes recovered from the compiled BSP do
-            // not bring the lightmap records back.
-            throw new SdcWriteRefusedException(project.Brushes.Any(Compile.BakedContent.IsRecovered)
-                ? @"this map was imported from a cooked copy (Packages\Maps), which has no lightmap records: its brushes were recovered from "
-                  + "the compiled BSP, but only a cooked copy can be written as an .sdc from it. For the original editor, export it as T3D "
-                  + @"(--format t3d) or as RE+'s folder (--format original) and rebuild it there, or import the editor copy from Packages\MapsEd"
-                : @"this map was imported from a cooked copy (Packages\Maps), which has no CSG brushes or lightmap records: only a cooked copy "
-                  + @"can be written from it (import the editor copy from Packages\MapsEd to write an editor copy)");
+            // Without recovered brushes there is no editable world to regenerate the missing editor records from.
+            throw new SdcWriteRefusedException(@"this cooked map has no recovered CSG brushes. Recover its brushes before exporting an editor copy "
+                + @"for Packages\MapsEd, or choose the playable cooked copy for Packages\Maps");
         }
 
-        var plan = new SdcPackagePlan(project, packageName, options, src, srcMap, findings);
+        if (recoveredEditor)
+        {
+            // Preserve map-local resources and classes, but compile the world from the editable brushes.
+            // Export must never change the open project's baked-world preferences.
+            project = Session.ProjectSnapshot.Take(project);
+            project.Baked = null;
+            findings.Add(Finding.Info("sdc.recoveredEditor", "Rebuilt the editor world and lightmap records from the recovered brushes. "
+                + (src is null ? "" : "Kept the source package's map-local assets and classes. ")
+                + "Lighting uses the available lights and may differ from the original; Build All in RE+ refreshes mesh lighting."));
+        }
+
+        var plan = new SdcPackagePlan(project, packageName, options, src, srcMap, findings, recoveredEditor);
         byte[] package = plan.Build();
-        return new SdcWriteResult(package, findings, plan.Stats) { Renamed = plan.Renamed, HandedOff = plan.HandedOff };
+        return new SdcWriteResult(package, findings, plan.Stats) { Renamed = plan.Renamed, HandedOff = plan.HandedOff, WorldRebuilt = recoveredEditor };
     }
 
     /// <summary>Writes the .sdc file (one zlib chunk, as a normal stock save).</summary>

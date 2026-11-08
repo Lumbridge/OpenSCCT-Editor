@@ -52,6 +52,7 @@ public sealed partial class TransformBar : HBoxContainer
                 Apply();
                 edit.ReleaseFocus();
             };
+            edit.FocusExited += Apply;
             _fields[i] = edit;
             _spinners[i] = spin;
         }
@@ -121,7 +122,11 @@ public sealed partial class TransformBar : HBoxContainer
 
         // Untouched fields leave their component alone (their text is rounded, so re-reading it would nudge it).
         double?[] typed = _fields.Select((f, i) => f.Text != _shown[i]
-            && double.TryParse(f.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double v) ? v : (double?)null).ToArray();
+            && PanelUi.TryNum(f.Text, out double v) ? v : (double?)null).ToArray();
+        for (int i = 0; i < typed.Length; i++)
+        {
+            if (typed[i] is { } value) _spinners[i].SetValueNoSignal(value);
+        }
         IEditCommand? cmd = Mode switch
         {
             TransformMode.Move => snapshot.Translate(ctx.Project, new Vec3(

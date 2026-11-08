@@ -61,10 +61,6 @@ public sealed class SdcExporter : IMapExporter
         bool fromSource = project.Source.Kind == "sdc";
         string packageName = Path.GetFileNameWithoutExtension(path);
         Lint(project, schema, fromSource, packageName, findings);
-        if (fromSource)
-        {
-            StaleWorld(project, findings);
-        }
 
         findings.Add(Finding.Info("sdc.mapSettings",
             "map settings per mode, interface pictures and briefing texts live in the <Map>-i.utc package, which this export does not write"));
@@ -96,9 +92,10 @@ public sealed class SdcExporter : IMapExporter
         }
 
         findings.AddRange(result.Findings);
+        if (fromSource && !result.WorldRebuilt) StaleWorld(project, findings);
         options.Progress?.Invoke("reading the written file back");
         findings.AddRange(SdcRoundTripLint.Check(project, result, packageName, layout, schema));
-        if (result.Stats.SourceUsed && result.Stats.Source is { } source)
+        if (!result.WorldRebuilt && result.Stats.SourceUsed && result.Stats.Source is { } source)
         {
             StaleLighting(project, packageName, writeOptions, result, source, schema, findings);
         }

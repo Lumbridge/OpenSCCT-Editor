@@ -48,6 +48,8 @@ public sealed partial class WorldScene : Node3D
     private string? _previewError;
     private double _previewWait;
     private MapProject? _project;
+    private float _lightTime;
+    private OpenScctGame.Render.WindowLightFilter _windowFilter = null!;
     private string? _folder;
 
     // The Lit Preview's bake: runs after the CSG preview and whenever lights, meshes, the LevelInfo or the lighting
@@ -136,6 +138,7 @@ public sealed partial class WorldScene : Node3D
 
     public override void _Ready()
     {
+        _windowFilter = new();
         _builder = new Node3D { Name = "BuilderBrush" };
         AddChild(_builder);
         _baked = new BakedWorldNode { Name = "BakedWorld" };
@@ -291,6 +294,12 @@ public sealed partial class WorldScene : Node3D
         }
 
         List<object> inputs = LightInputs(p);
+        if (brushesChanged)
+        {
+            var windowsLight = new WindowLightTransmission(p.Actors.Where(a => a.Window is not null && !ClassDefaults.Flag(a, "bHidden")));
+            _windowFilter.SetPanes(windowsLight.Sheets.Select(s => new OpenScctGame.Render.WindowLightFilter.Pane(s.Actor,
+                new Color((float)s.Colour.X, (float)s.Colour.Y, (float)s.Colour.Z), s.Triangles.Select(Space.ToGodot).ToArray())).ToList());
+        }
         if (!inputs.SequenceEqual(_lightInputs))
         {
             Render.DynamicWorldLights.Update(p, LightOn);
@@ -593,6 +602,15 @@ public sealed partial class WorldScene : Node3D
 
     public override void _Process(double delta)
     {
+        _lightTime += (float)delta;
+        if (_project is { } project)
+        {
+            Render.DynamicWorldLights.Update(project, LightOn, _lightTime);
+            foreach (Entry entry in _entries.Values)
+                if (entry.Light is { } light && entry.Source is Actor actor)
+                    light.LightEnergy = Math.Max(0, (float)ClassDefaults.Number(actor, "LightBrightness", 64) / 64f) *
+                        Render.DynamicWorldLights.Modulation(actor, _lightTime);
+        }
         if (_iconsDirty)
         {
             WriteIcons();

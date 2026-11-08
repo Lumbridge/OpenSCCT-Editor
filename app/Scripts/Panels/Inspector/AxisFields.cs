@@ -50,6 +50,7 @@ public partial class AxisFields : HBoxContainer
                 TooltipText = axes[i],
             };
             LineEdit box = spin.GetLineEdit();
+            PanelUi.UseArrowStepForWheel(spin);
             box.CustomMinimumSize = Vector2.Zero;
             box.AddThemeConstantOverride("minimum_character_width", 1);
             spin.ValueChanged += value =>
@@ -180,6 +181,10 @@ public partial class AxisFields : HBoxContainer
 
         if (PanelUi.TryNum(text, out double v))
         {
+            // The inspector refresh deliberately leaves the focused box alone. Keep its backing value current so
+            // focus loss (and SpinBox's deferred submission) cannot restore the value from before typing.
+            _values[axis] = v;
+            _spinners[axis].SetValueNoSignal(v);
             Edited?.Invoke(axis, v, final);
         }
     }

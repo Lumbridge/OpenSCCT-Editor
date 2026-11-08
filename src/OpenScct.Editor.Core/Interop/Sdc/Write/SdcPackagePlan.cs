@@ -40,6 +40,7 @@ internal sealed class SdcPackagePlan
     private readonly UPackage? _src;
     private readonly SdcMap? _srcMap;
     private readonly SdcLayout _srcLayout;
+    private readonly bool _rebuildWorld;
     private readonly List<Finding> _findings;
     private readonly UPackageBuilder _b;
     private readonly SdcAssetImports _assets;
@@ -64,7 +65,7 @@ internal sealed class SdcPackagePlan
     private Item? _worldXbox;
     private Item? _worldPsx2;
 
-    public SdcPackagePlan(MapProject p, string name, SdcWriteOptions o, UPackage? src, SdcMap? srcMap, List<Finding> findings)
+    public SdcPackagePlan(MapProject p, string name, SdcWriteOptions o, UPackage? src, SdcMap? srcMap, List<Finding> findings, bool rebuildWorld = false)
     {
         _p = p;
         _name = name;
@@ -74,6 +75,7 @@ internal sealed class SdcPackagePlan
         _src = src;
         _srcMap = srcMap;
         _srcLayout = srcMap?.Layout ?? SdcLayout.Editor;
+        _rebuildWorld = rebuildWorld;
         _findings = findings;
         _b = new UPackageBuilder(name);
         _assets = new SdcAssetImports(o.GameRoot);
@@ -488,6 +490,14 @@ internal sealed class SdcPackagePlan
         }
 
         LevelActorsFromSource(map);
+        if (_rebuildWorld)
+        {
+            // The compiled source lost its builder brush and editor lightmap records. Retain its resource slots,
+            // replacing the world with an editor model whose surfaces refer to the recovered brushes.
+            _levelActors.Insert(1, PlanBuilderBrush());
+            if (_worldXbox is not null) PlanWorld(_worldXbox);
+            if (_worldPsx2 is not null) PlanWorld(_worldPsx2);
+        }
         Relocate(src);
     }
 
@@ -988,8 +998,15 @@ internal sealed class SdcPackagePlan
 
         _worldXbox = NewItem(Unique("Model"), New, ModelFlags);
         _worldXbox.ClassRef = () => _b.ImportClass("Engine", "Model");
+        PlanWorld(_worldXbox);
+    }
+
+    private void PlanWorld(Item worldItem)
+    {
+        if (worldItem.Src >= 0) worldItem.Origin = FromProject;
+        worldItem.Movable = true;
+        worldItem.Copied = null;
         // Built when written: its materials and actors resolve to their slots then.
-        Item worldItem = _worldXbox;
         var refs = new SdcWorldRefs(FaceMaterial, id => _actors.TryGetValue(id, out Item? a) ? a.Ref : 0,
             () => worldItem.Ref, WorldPoly);
         var world = new Lazy<UModelData>(() =>
@@ -997,7 +1014,7 @@ internal sealed class SdcPackagePlan
             _o.Progress?.Invoke("building the world: CSG, BSP, zones and lightmaps");
             return SdcWorldModel.Build(_p, _o.ContentRoot, _findings, _layout, refs);
         });
-        _worldXbox.Write = w => world.Value.Write(w, _layout, Identity);
+        worldItem.Write = w => world.Value.Write(w, _layout, Identity);
     }
 
     /// <summary>The LevelSummary every stock map has (the LevelInfo's Summary): the map's title and author, which the
@@ -1034,6 +1051,18 @@ internal sealed class SdcPackagePlan
     /// project's brushes in CSG order.</summary>
     private void PlanAuthoredBrushes()
     {
+        _levelActors.Add(PlanBuilderBrush());
+        foreach (Brush b in _p.Brushes)
+        {
+            Item item = NewActor(b.Id, "Engine.Brush", CsgBrushFlags, () => BrushProps(b, null));
+            PlanNewShape(item, b.Shape, b, csg: true);
+            _actors[b.Id] = item;
+            _levelActors.Add(item);
+        }
+    }
+
+    private Item PlanBuilderBrush()
+    {
         var builderBrush = new Brush(Unique("Brush")) { Oper = CsgOper.Add, Shape = Geometry.Box.Shape(new Vec3(256, 256, 256)) };
         foreach (BrushFace f in builderBrush.Shape.Faces)
         {
@@ -1048,15 +1077,7 @@ internal sealed class SdcPackagePlan
         });
         PlanNewShape(builder, builderBrush.Shape, builderBrush, csg: true);
         _actors[builder.Name] = builder;
-        _levelActors.Add(builder);
-
-        foreach (Brush b in _p.Brushes)
-        {
-            Item item = NewActor(b.Id, "Engine.Brush", CsgBrushFlags, () => BrushProps(b, null));
-            PlanNewShape(item, b.Shape, b, csg: true);
-            _actors[b.Id] = item;
-            _levelActors.Add(item);
-        }
+        return builder;
     }
 
     // ---- new objects ------------------------------------------------------------------------------------------
@@ -1107,7 +1128,13 @@ internal sealed class SdcPackagePlan
         it.Write = w =>
         {
             UPropertyWriter.StateFrame(w, Remap(e.ClassRef), latent);
-            _props.WriteObject(w, typing, cls, WithoutDefaults(KeepDeletedRefs(props(), n), typing ?? cls, n), n.Name, n.Props.Select(kv => kv.Key).ToList());
+            var actorProps = KeepDeletedRefs(props(), n);
+            if (_rebuildWorld)
+            {
+                actorProps.RemoveAll(kv => kv.Key.Equals("Level", StringComparison.OrdinalIgnoreCase));
+                actorProps.Add(new("Level", ItemRef(_levelInfo.Name)));
+            }
+            _props.WriteObject(w, typing, cls, WithoutDefaults(actorProps, typing ?? cls, n), n.Name, n.Props.Select(kv => kv.Key).ToList());
         };
     }
 
