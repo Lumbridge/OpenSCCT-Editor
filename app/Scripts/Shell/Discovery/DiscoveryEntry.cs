@@ -57,7 +57,7 @@ public static class DiscoverySearch
             + (s.Contains("glass") || s.Contains("window") ? " glass window transparent breakable" : "");
     }
 
-    public static int? Score(string query, string title, string keywords)
+    public static int? Score(string query, string title, string keywords, string? kind = null)
     {
         if (query.Length == 0) return 0;
         string haystack = title + " " + keywords;
@@ -70,6 +70,10 @@ public static class DiscoverySearch
             else if (Panels.TextMatch.Fuzzy(word, title) is { } fuzzy) score += Math.Min(100, fuzzy);
             else return null;
         }
+        // A complete task title must beat a broader title sharing its words, even after recency bonuses.
+        (string titleQuery, string? titleKind) = Parse(title);
+        if (kind == "Tutorial" && titleKind != "Tutorial") titleQuery = Parse("tutorials: " + title).Query;
+        if (query.Equals(titleQuery, StringComparison.OrdinalIgnoreCase)) score += 4000;
         return score;
     }
 }

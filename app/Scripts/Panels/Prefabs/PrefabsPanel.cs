@@ -271,6 +271,8 @@ public partial class PrefabsPanel : EditorPanel
         }
 
         PanelUi.Header(_details, def.Title ?? def.Name);
+        if (def.Source == PrefabSource.Builtin && TutorialCatalog.DoorTutorialForPrefab(def.Name) is { } doorLesson)
+            PanelUi.Button(_details, "Learn this door", "Start this door's built-in tutorial", () => Context.Run("tutorial." + doorLesson));
         if (!Friendly)
         {
             string source = def.Source == PrefabSource.Builtin ? "Built in" : def.Source == PrefabSource.Project ? "This map" : "My library";

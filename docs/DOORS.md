@@ -21,8 +21,26 @@ already linked to its generated door. Each instance owns its event names. The sw
 content; the door mesh itself needs no content pack. An optional mesh parameter keeps support for custom meshes.
 The **Mover** workbench offers detailed keys and a timeline; changing Door settings rebuilds its two movement keys.
 
-**Help → Tutorials** includes Create and edit doors, Place a door with a switch, Browse and customise prefabs and
-Save reusable prefab assemblies. Search `tutorial door` in Ctrl+Shift+P, or click **Learn door tools** in Doors.
+**Help → Tutorials** lists the door lessons alongside all other built-in tutorials. **Learn door tools** in Doors
+starts the general introduction; **Browse door tutorials** shows the whole set. Each built-in door prefab also has
+**Learn this door**. Search `tutorials: door` in Ctrl+Shift+P to find a particular task:
+
+- **Build a hinged door**, **Build a sliding door** and **Build a rising security door** cover placement, movement,
+  clearance, previews and timing for single doors, including the six appearance styles.
+- **Build double hinged doors** and **Build double sliding doors** cover shared dimensions, synchronised leaves,
+  side sensors and editing the whole assembly.
+- **Choose door activation and timing** explains contact, toggle, timed, held and once-only opening.
+- **Place a door with a switch** covers the ready-linked switch assembly.
+- **Build a hackable door and move its panel** covers durations, timed/permanent opening, cancelled hacks and moving
+  or retiming a panel while retaining its event link.
+- **Build doors with automatic team access** covers independent front/back spy/merc rules, occupancy and combining
+  automatic access with hacking. Side rules control activation; an already open doorway can be crossed.
+- **Paint door leaves and frames** covers material drops, paired leaves, frame geometry, Undo and saved finishes.
+
+Lessons reveal the relevant preset and controls without placing objects or changing map settings. Back, Cancel,
+Show me again and Resume Last Tutorial work as they do for the rest of the catalogue. The old combined access
+walkthrough is replaced by the focused hacking and automatic-access lessons. General mover guidance now teaches
+the current platform and stop controls rather than duplicating door setup.
 
 ## Prefab browser
 
@@ -58,7 +76,7 @@ including the initial panel position.
 Drop a material on a leaf to update its saved finish. A prefab pair receives the finish on both leaves as one
 undoable edit. Drops on a single-door frame change Frame material; a pair's shared frame is editable brush
 geometry. Custom finishes persist through resizing, save/reopen and builds. Painting preserves movement keys,
-timing and event links. The built-in Configure door hacking and team access tutorial covers these workflows.
+timing and event links. The dedicated hacking, automatic-access and painting tutorials cover these workflows.
 
 ## Saved design and build output
 

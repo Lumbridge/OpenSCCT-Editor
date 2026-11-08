@@ -164,6 +164,10 @@ public partial class TutorialRunner : PanelContainer, IShellPart
                 }
                 break;
             case "panel": DiscoveryNavigation.ShowPanel(detail[0], detail.Length > 1 ? detail[1] : null, lesson: true); break;
+            case "prefab":
+                PrefabsPanel.ShowPrefab(detail[0]);
+                DiscoveryNavigation.ShowPanel("Prefabs", detail.Length > 1 ? detail[1] : null, lesson: true);
+                break;
             case "placeable": PlaceablesPanel.Instance?.RevealClass(detail[0], lesson: true); break;
             case "assetkind": AssetBrowserPanel.Instance?.RevealKind(Enum.Parse<AssetKind>(detail[0]), lesson: true); break;
             case "action":

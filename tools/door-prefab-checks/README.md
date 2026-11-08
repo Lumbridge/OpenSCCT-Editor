@@ -25,3 +25,8 @@ real rectangular side-sensor overlaps, allowed-player occupancy, cancelled/succe
 timers, moved panel links, painting both leaves and persisted finishes. `AccessDoorGallery.osmap` and
 `DoorMaterialDrop.osmap` are the fixtures for `check_access_ui.py <run-folder> <output-folder>`, which exercises
 actual leaf/frame material drags, undo/redo, the four access-assembly shortcuts and the access tutorial.
+
+`check_tutorials_ui.py <run-folder> [hackable_door.osmap]` exercises all nine dedicated door-type and interaction lessons in a disposable
+background Editor. It verifies the actual preset and highlighted parameter for every prefab destination, conditional
+sliding controls, discovery alongside existing tutorials, contextual entry points and Back/Cancel/Resume/Finish.
+The obsolete combined access lesson has been replaced by separate hacking and automatic-access lessons.

@@ -4,6 +4,7 @@
     <ProjectReference Include="../../src/OpenScct.Editor.Core/OpenScct.Editor.Core.csproj" />
     <Compile Include="../../app/Scripts/Shell/Discovery/DiscoveryEntry.cs" Link="DiscoveryEntry.cs" />
     <Compile Include="../../app/Scripts/Shell/Discovery/TutorialCatalog.cs" Link="TutorialCatalog.cs" />
+    <Compile Include="../../app/Scripts/Shell/Discovery/TutorialCatalog.Doors.cs" Link="TutorialCatalog.Doors.cs" />
     <Compile Include="../../app/Scripts/Shell/Discovery/TutorialMapGuidance.cs" Link="TutorialMapGuidance.cs" />
     <Compile Include="../../app/Scripts/Panels/Common/TextMatch.cs" Link="TextMatch.cs" />
   </ItemGroup>

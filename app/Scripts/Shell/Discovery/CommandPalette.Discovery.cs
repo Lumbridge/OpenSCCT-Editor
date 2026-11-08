@@ -144,7 +144,7 @@ public sealed partial class CommandPalette
             if (_favouritesOnly && !favourites.Contains(entry.Key)) return;
             if (kind is not null && entry.Kind != kind && !(kind == "Class" && entry.Kind == "Placeable")
                 && !(kind == "Asset" && entry.Kind is "Prefab" or "Preset" or "Effect")) return;
-            if (DiscoverySearch.Score(query, entry.Title, entry.Keywords + " " + entry.Path) is not { } score) return;
+            if (DiscoverySearch.Score(query, entry.Title, entry.Keywords + " " + entry.Path, entry.Kind) is not { } score) return;
             int at = Array.IndexOf(recent, entry.Key);
             candidates.Add((entry, score + (favourites.Contains(entry.Key) ? 40 : 0) + (at >= 0 ? 24 - at : 0)
                 + (query.Length > 0 && entry.Kind == "Placeable" ? 2200 : 0)));

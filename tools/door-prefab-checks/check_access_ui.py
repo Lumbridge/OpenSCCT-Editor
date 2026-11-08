@@ -47,12 +47,12 @@ step('click',at='text:Hinged pair');assert any(c.get('text')=='Double hinged doo
 nav('panels: Doors');step('click',at='text:Sliding pair');assert any(c.get('text')=='Double sliding doors' for c in tree());shot('double-sliding-prefab')
 nav('panels: Doors');step('click',at='text:Automatic access');assert any(c.get('text')=='Automatic access door' for c in tree());shot('automatic-side-access')
 nav('panels: Doors');step('click',at='text:Hack panel');assert any(c.get('text')=='Hackable access door' for c in tree());shot('hackable-prefab')
-nav('tutorial: Configure door hacking and team access')
-for i in range(5):
-    assert any(c.get('tutorial')=='door-access' and c.get('tutorialStep')==i for c in tree())
-    if i<4:step('click',at='text:Next')
+nav('tutorial: Build doors with automatic team access')
+for i in range(6):
+    assert any(c.get('tutorial')=='door-automatic' and c.get('tutorialStep')==i for c in tree())
+    if i<5:step('click',at='text:Next')
 step('click',at='text:Cancel')
-print('PASS all four assembly shortcuts and the door-access tutorial',flush=True)
+print('PASS all four assembly shortcuts and the automatic team-access tutorial',flush=True)
 call('open',dict(path=str(fixture/'hackable_door.osmap')))
 panel=call('query',dict(q='find',**{'class':'SBase.SInterrupteur'},fields=['id','loc','event']))['items'][0]
 call('apply',dict(ops=[dict(op='update',id=panel['id'],at=[panel['loc'][0]+64,*panel['loc'][1:]]),dict(op='select',id=panel['id'])]))

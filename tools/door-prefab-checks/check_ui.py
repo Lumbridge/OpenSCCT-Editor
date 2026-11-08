@@ -91,7 +91,7 @@ shot('prefab-favourites')
 print('PASS prefab search, favourite toggle, filtering and no-result guidance',flush=True)
 
 before=call('summary')['counts']; destinations=0
-for title, lesson in [('Create and edit doors','doors'),('Place a door with a switch','door-switch'),('Browse and customise prefabs','prefabs'),('Set up moving doors and platforms','movers'),('Configure door hacking and team access','door-access')]:
+for title, lesson in [('Create and edit doors','doors'),('Place a door with a switch','door-switch'),('Browse and customise prefabs','prefabs'),('Build a moving platform and edit its stops','movers')]:
     navigate('tutorial: '+title)
     n=int(next(re.search(r'Step 1 of (\d+)',c.get('text','')) for c in tree() if re.search(r'Step 1 of (\d+)',c.get('text',''))).group(1))
     for index in range(n):
