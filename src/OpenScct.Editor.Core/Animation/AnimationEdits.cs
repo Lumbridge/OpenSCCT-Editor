@@ -5,6 +5,34 @@ namespace OpenScct.Editor.Core.Animation;
 
 public static class AnimationEdits
 {
+    /// <summary>Replace a dense interval with an eased path while preserving endpoint poses and motion outside it.</summary>
+    public static void SmoothBetween(BoneTrack track, float start, float end, float framesPerSecond)
+    {
+        if (!float.IsFinite(start) || !float.IsFinite(end) || end <= start || !float.IsFinite(framesPerSecond) || framesPerSecond <= 0)
+            throw new ArgumentOutOfRangeException(nameof(end));
+        AnimationKey first = track.Keys.FirstOrDefault(k => k.Time == start) ?? throw new ArgumentException("Select a start key on this track.");
+        AnimationKey last = track.Keys.FirstOrDefault(k => k.Time == end) ?? throw new ArgumentException("Select an end key on the same track.");
+        track.Keys.RemoveAll(k => k.Time > start && k.Time < end);
+        if (track.Channel == TrackChannel.Rotation)
+        {
+            // Slerp takes the short arc even when endpoint quaternions have opposite signs. Sample eased time
+            // without changing either endpoint's representation or the neighbouring outside segments.
+            Quaternion a = ClipEvaluator.SafeRotation(first.Value), b = ClipEvaluator.SafeRotation(last.Value);
+            int count = Math.Max(2, (int)MathF.Ceiling((end - start) * Math.Clamp(framesPerSecond, 30, 480)));
+            first.Interpolation = KeyInterpolation.Linear;
+            for (int i = 1; i < count; i++)
+            {
+                float t = (float)i / count, ease = t * t * (3 - 2 * t);
+                track.Keys.Add(new() { Time = start + (end - start) * t, Value = ClipEvaluator.V(Quaternion.Normalize(Quaternion.Slerp(a, b, ease))) });
+            }
+        }
+        else
+        {
+            first.Interpolation = KeyInterpolation.Cubic;
+            first.OutTangent = Vector4.Zero; last.InTangent = Vector4.Zero;
+        }
+        track.Keys.Sort((a, b) => a.Time.CompareTo(b.Time));
+    }
     public static IEnumerable<List<AnimationKey>> KeySets(AnimationClip clip) => clip.Tracks.Concat(clip.RootTracks).Select(t => t.Keys)
         .Concat(clip.Layers.SelectMany(l => l.Tracks).Select(t => t.Keys)).Concat(clip.Layers.Select(l => l.WeightKeys)).Concat(clip.Constraints.Select(c => c.WeightKeys));
     public static AnimationClip Duplicate(AnimationClip clip)

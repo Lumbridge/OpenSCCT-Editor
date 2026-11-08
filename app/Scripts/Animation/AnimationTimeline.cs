@@ -1,6 +1,7 @@
 using Godot;
 using OpenScctEditor.Panels;
 using OpenScct.Animation;
+using OpenScct.Editor.Core.Animation;
 using OpenScctEditor.Shell;
 using NVector4 = System.Numerics.Vector4;
 
@@ -17,11 +18,13 @@ public partial class AnimationTimeline : VBoxContainer
     private int _channel;
     private bool _rootTracks;
     private string? _selectionContext;
+    private Button _smoothBetween = null!;
     public bool HasSelectedKeys => _selected.Count > 0;
     public void SelectKeys(bool all)
     {
         _selected.Clear();
         if (all) for (int i = 0; i < Tracks.Count; i++) if (TrackVisible(Tracks[i])) foreach (AnimationKey key in Tracks[i].Keys) _selected.Add((i, key.Time));
+        UpdateSelectionTools();
         _canvas.QueueRedraw();
     }
     public AnimationTimeline(StudioState state, bool curves = false) { _state = state; _curves = curves; }
@@ -50,6 +53,9 @@ public partial class AnimationTimeline : VBoxContainer
         PanelUi.Button(tools, "Delete", "Delete selected keys", Delete);
         foreach (KeyInterpolation interpolation in Enum.GetValues<KeyInterpolation>())
             PanelUi.Button(tools, interpolation.ToString(), "Set selected key interpolation", () => Edit("Key interpolation", (key, _) => key.Interpolation = interpolation));
+        _smoothBetween = PanelUi.Button(tools, "Smooth between", "", SmoothBetween);
+        _smoothBetween.Name = "AnimationSmoothBetween";
+        UpdateSelectionTools();
         if (_curves)
         {
             PanelUi.Button(tools, "Frame keys", "Fit selected keys, or all visible keys when none are selected", FrameKeys);
@@ -58,9 +64,11 @@ public partial class AnimationTimeline : VBoxContainer
             var component = new OptionButton(); foreach (string axis in new[] { "X", "Y", "Z", "W" }) component.AddItem(axis); tools.AddChild(component);
             component.Name = "CurveComponent";
             component.ItemSelected += i => { _component = (int)i; Redraw(); };
-            PanelUi.Caption(tools, "In", false); SpinBox input = PanelUi.Spin(tools, -10000, 10000, .1, 0, "Incoming tangent", 70);
+            var incoming = new HBoxContainer(); tools.AddChild(incoming);
+            PanelUi.Caption(incoming, "In", false); SpinBox input = PanelUi.Spin(incoming, -10000, 10000, .1, 0, "Incoming tangent", 70);
             input.ValueChanged += v => Edit("Incoming key tangent", (key, _) => key.InTangent = Set(key.InTangent, (float)v));
-            PanelUi.Caption(tools, "Out", false); SpinBox output = PanelUi.Spin(tools, -10000, 10000, .1, 0, "Outgoing tangent", 70);
+            var outgoing = new HBoxContainer(); tools.AddChild(outgoing);
+            PanelUi.Caption(outgoing, "Out", false); SpinBox output = PanelUi.Spin(outgoing, -10000, 10000, .1, 0, "Outgoing tangent", 70);
             output.ValueChanged += v => Edit("Outgoing key tangent", (key, _) => key.OutTangent = Set(key.OutTangent, (float)v));
         }
         _canvas = new TimelineCanvas(this) { Name = _curves ? "AnimationCurves" : "AnimationDopeSheet", SizeFlagsVertical = SizeFlags.ExpandFill, CustomMinimumSize = new(0, 120) };
@@ -73,7 +81,39 @@ public partial class AnimationTimeline : VBoxContainer
         string context = _state.ClipId + "/" + _state.Layer + "/" + _rootTracks + (_curves ? "/" + _state.Bone + "/" + _component + "/" + _channel : "");
         if (_selectionContext != context) { _selectionContext = context; _selected.Clear(); _canvas.RequestFit(); }
         _canvas.CheckKeyCount();
+        UpdateSelectionTools();
         _canvas.QueueRedraw();
+    }
+    private (int Track, float Start, float End)[] SelectedRanges()
+    {
+        List<BoneTrack> tracks = Tracks;
+        return _selected.Where(k => k.Track >= 0 && k.Track < tracks.Count && TrackVisible(tracks[k.Track]))
+            .GroupBy(k => k.Track).Select(g =>
+            {
+                var selected = g.Select(k => k.Time).ToHashSet();
+                float[] times = tracks[g.Key].Keys.Where(k => selected.Contains(k.Time)).Select(k => k.Time).ToArray();
+                return (Track: g.Key, Times: times);
+            }).Where(g => g.Times.Length >= 2).Select(g => (g.Track, g.Times.Min(), g.Times.Max())).ToArray();
+    }
+    private void UpdateSelectionTools()
+    {
+        if (_smoothBetween is null) return;
+        _smoothBetween.Disabled = SelectedRanges().Length == 0;
+        _smoothBetween.TooltipText = _smoothBetween.Disabled ? "Select two endpoint keys on the same track (Ctrl-click the second)."
+            : "Replace keys between the first and last selected key on each track with eased motion on all axes. Endpoint poses and outside motion are preserved. Undo restores the original keys.";
+    }
+    private void SmoothBetween()
+    {
+        var ranges = SelectedRanges();
+        if (ranges.Length == 0 || _state.CurrentClip is not { } clip) return;
+        _state.Playing = false;
+        _state.Session.EditClip("Smooth between animation keys", clip.Id, _ =>
+        {
+            foreach (var (track, start, end) in ranges) AnimationEdits.SmoothBetween(Tracks[track], start, end, clip.FramesPerSecond);
+        });
+        _selected.Clear();
+        foreach (var (track, start, end) in ranges) { _selected.Add((track, start)); _selected.Add((track, end)); }
+        UpdateSelectionTools(); _canvas.RequestFit();
     }
     private float Get(NVector4 v) => _component switch { 0 => v.X, 1 => v.Y, 2 => v.Z, _ => v.W };
     private NVector4 Set(NVector4 v, float value) => _component switch { 0 => v with { X = value }, 1 => v with { Y = value }, 2 => v with { Z = value }, _ => v with { W = value } };
@@ -117,6 +157,7 @@ public partial class AnimationTimeline : VBoxContainer
             foreach (var (index, time) in _selected) if (index >= 0 && index < Tracks.Count) Tracks[index].Keys.RemoveAll(k => k.Time == time);
         });
         _selected.Clear();
+        UpdateSelectionTools();
     }
     private partial class TimelineCanvas : Control
     {
@@ -306,7 +347,7 @@ public partial class AnimationTimeline : VBoxContainer
                     }
                 }
                 if (!mouse.Pressed) _scrub = false;
-                QueueRedraw(); AcceptEvent();
+                _owner.UpdateSelectionTools(); QueueRedraw(); AcceptEvent();
             }
             if (e is InputEventMouseMotion scrub && _scrub)
             {

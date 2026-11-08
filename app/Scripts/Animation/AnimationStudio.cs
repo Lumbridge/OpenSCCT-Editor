@@ -250,6 +250,7 @@ public partial class AnimationStudio : VBoxContainer
         if (parts[0] is "Scene" or "Pose" or "Bindings" or "Clip") ShowInspector(parts[0]);
         if (parts[0] == "Stock") ShowLibrary(true);
         if (parts[0] == "Project") ShowLibrary(false);
+        for (int i = 0; i < _tabs.GetTabCount(); i++) if (_tabs.GetTabControl(i).Name == parts[0]) _tabs.CurrentTab = i;
         string target = parts.Length > 1 ? parts[1] : parts[0];
         if (target is "Load setup" or "New action clip" or "Eye view" or "Bind actions") _firstPerson.ShowControls();
         Control? control = DiscoveryNavigation.Descendants(this).OfType<Control>().FirstOrDefault(c => c.Name == target && c.IsVisibleInTree())

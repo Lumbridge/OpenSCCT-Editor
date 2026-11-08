@@ -1,5 +1,22 @@
 # Animation Studio implementation checks
 
+## Smoothing a dense keyed interval (2026-11-08)
+
+**Smooth between** in Curves and the dope sheet uses the first and last selected keys on each selected track. It
+replaces intervening position/scale keys with zero-end-velocity cubic easing, retaining endpoint values and the
+incoming/outgoing interpolation outside the interval. Rotations use sampled eased shortest-arc slerp to handle
+quaternion sign changes without flipping or changing the endpoint representation. All axes of the selected
+channel are edited together, within the active base/layer/root track set. The action is a single document history
+transaction and is disabled until at least two valid keys on one track are selected. The stock-editing lesson now
+teaches this workflow and opens the actual Curves tab before highlighting the control.
+
+Validation: 82 animation checks and 507 discovery/lesson checks pass (53 lessons, 226 steps). The rendered editor
+passes 116 interaction checks without engine errors, including Ctrl-clicking two actual Desert Eagle magazine
+position keys, replacing the dense interval, scrubbing an eased intermediate pose, exact whole-project Undo/Redo,
+editing an override layer without changing base tracks, and tutorial navigation. Unit checks cover endpoints,
+neighbouring interpolation, scale, rotation sign changes and rejection without partial edits. The rendered curve
+was visually reviewed. Native held-spinner autorepeat and human gameplay acceptance remain manual checks.
+
 ## Imported weapon authoring regressions (2026-11-08)
 
 The Desert Eagle first-person GLB carries a 0.01 ancestor scale. A 30-pixel local move previously displaced its

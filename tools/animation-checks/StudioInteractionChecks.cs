@@ -295,10 +295,49 @@ public partial class AnimationStudio
             State.Session.Undo(); await Frames();
             Check(Math.Abs(curves.Tracks[firstKey.Key.Track].Keys.Single(k => k.Time == firstKey.Key.Time).Value.Y - beforeValue) < .001f, "Undo restores a dragged curve key");
             curves.SelectKeys(true); await Frames();
+            Button smooth = (Button)curves.FindChild("AnimationSmoothBetween", true, false);
+            string baseBeforeSmooth = System.Text.Json.JsonSerializer.Serialize(State.CurrentClip!.Tracks, AnimationJson.Options);
+            await Click(smooth);
+            Check(curves.Tracks.Single(t => t.Channel == TrackChannel.Translation).Keys[0].Interpolation == KeyInterpolation.Cubic
+                && baseBeforeSmooth == System.Text.Json.JsonSerializer.Serialize(State.CurrentClip.Tracks, AnimationJson.Options), "Smooth between edits sparse active-layer keys without changing the base tracks");
+            State.Session.Undo(); await Frames();
             await Click(DiscoveryNavigation.Descendants(curves).OfType<Button>().Single(b => b.Text == "Cubic"));
             Check(curves.Tracks.Single(t => t.Channel == TrackChannel.Translation).Keys.All(k => k.Interpolation == KeyInterpolation.Cubic), "visible sparse keys accept Cubic interpolation");
             State.Layer = -1; State.Notify(); await Frames();
             Check(curves.KeyPoints.Count > 2 && curves.SelectedKeyCount == 0, "switching back to base curves restores its keys and clears layer selection");
+            _tabs.CurrentTab = 0;
+            RevealTutorial("Curves|AnimationSmoothBetween"); await Frames();
+            Check(_tabs.CurrentTab == 1 && NavigationHighlight.Instance!.TargetPath == smooth.GetPath().ToString(), "smoothing tutorial reveals and highlights the actual Curves button");
+            NavigationHighlight.Instance!.Clear();
+            Check(smooth.Disabled, "Smooth between explains that two keys on one track must be selected");
+            State.Session.EditClip("Disable test layer", State.ClipId!, clip => clip.Layers.ForEach(l => l.Enabled = false)); await Frames();
+            int magTrack = curves.Tracks.FindIndex(t => t.Bone == "mag" && t.Channel == TrackChannel.Translation);
+            BoneTrack dense = curves.Tracks[magTrack];
+            AnimationKey from = dense.Keys[dense.Keys.Count / 4], until = dense.Keys[dense.Keys.Count * 3 / 4];
+            byte[] beforeSmooth = AnimationJson.Write(State.Project);
+            int interior = dense.Keys.Count(k => k.Time > from.Time && k.Time < until.Time), denseCount = dense.Keys.Count;
+            foreach (var endpoint in new[] { from, until })
+            {
+                UiInput.Click(GetTree().Root, chart.GlobalPosition + curves.KeyPoints[(magTrack, endpoint.Time)], MouseButton.Left, endpoint == from ? 0 : KeyModifierMask.MaskCtrl);
+                await Frames();
+                if (endpoint == from) Check(smooth.Disabled, "a single endpoint keeps Smooth between disabled");
+            }
+            Check(curves.SelectedKeyCount == 2 && !smooth.Disabled, "Ctrl-click selects the two actual Desert Eagle magazine endpoint keys");
+            await Click(smooth);
+            Check(curves.Tracks[magTrack].Keys.Count == denseCount - interior && !curves.Tracks[magTrack].Keys.Any(k => k.Time > from.Time && k.Time < until.Time), "Smooth between replaces dense imported position keys inside the selected interval");
+            Check(curves.Tracks[magTrack].Keys.Single(k => k.Time == from.Time).Value == from.Value
+                && curves.Tracks[magTrack].Keys.Single(k => k.Time == until.Time).Value == until.Value, "Smooth between preserves the magazine's selected endpoint poses");
+            float quarter = from.Time + (until.Time - from.Time) * .25f;
+            State.Seek(quarter); await Frames();
+            var expectedPosition = ClipEvaluator.Xyz(System.Numerics.Vector4.Lerp(from.Value, until.Value, .15625f));
+            Check(System.Numerics.Vector3.Distance(State.Pose()[magazine].Position, expectedPosition) < .00001f, "scrubbing between smoothed magazine endpoints follows the eased path");
+            byte[] afterSmooth = AnimationJson.Write(State.Project);
+            await Shot("desert-eagle-smooth-between");
+            UiInput.Key("Ctrl+Z"); await Frames();
+            Check(beforeSmooth.AsSpan().SequenceEqual(AnimationJson.Write(State.Project)), "one Undo restores every original dense key and the rest of the project");
+            UiInput.Key("Ctrl+Y"); await Frames();
+            Check(afterSmooth.AsSpan().SequenceEqual(AnimationJson.Write(State.Project)), "one Redo restores the smoothed interval");
+            State.Session.Undo(); await Frames();
             _firstPerson.ShowControls(); ShowLibrary(true); await Frames();
             string sourceId = State.ClipId!; byte[] sourceKeys = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(State.CurrentClip, AnimationJson.Options);
             int countBeforeAction = State.Project.Clips.Count;

@@ -77,6 +77,14 @@ instead of competing with the imported base keys. Select the layer's keys in Cur
 movement or Cubic for easing. Key the layer's Weight to zero outside the edited interval when the original motion
 should resume. Check the hand grip and clearance through the magazine well; a third key can shape the approach.
 
+For an existing dense animation, key the two corrected endpoint poses first. Select the bone, open **Curves**, choose
+**Position**, and click one endpoint key then Ctrl-click the other. Click **Smooth between** to replace the original
+keys inside that interval with an eased path between your endpoint values. Position changes apply to all three
+axes. The endpoints, motion outside the interval, other bones and other channels retain their existing poses;
+Ctrl+Z restores the entire operation. Use the Rotation or Scale filter for those channels. This also works on an
+override layer, root motion, or selected rows in the dope sheet. With more than two selected keys on one track,
+the first and last are the endpoints. **Cubic** alone changes interpolation while retaining intermediate keys.
+
 The dope sheet and curve editor support Ctrl/Shift multiselection, dragging, copy/paste, deletion and Step, Linear
 or Cubic interpolation. Curves automatically fits the selected bone's keys when changing clips, layers, channels,
 components or panel size. **Frame keys** fits selected keys, or all visible keys when none are selected. The ruler

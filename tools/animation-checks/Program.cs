@@ -17,6 +17,33 @@ clip.Tracks[0].Keys[0].Interpolation = KeyInterpolation.Step;
 Near(ClipEvaluator.Evaluate(skeleton, clip, .5f)[0].Position.X, 0, "step midpoint");
 clip.Tracks[0].Keys[0].Interpolation = KeyInterpolation.Cubic; clip.Tracks[0].Keys[0].OutTangent = new(4, 0, 0, 0);
 Near(ClipEvaluator.Evaluate(skeleton, clip, .5f)[0].Position.X, 1.5f, "cubic tangent midpoint");
+var denseTrack = new BoneTrack { Bone = "Root", Channel = TrackChannel.Translation, Keys = Enumerable.Range(0, 9).Select(i => new AnimationKey
+    { Time = i * .5f, Value = new(i * 10, i * 2, -i, 0), Interpolation = KeyInterpolation.Cubic, InTangent = new(2, 3, 4, 0), OutTangent = new(5, 6, 7, 0) }).ToList() };
+var denseSource = AnimationJson.Clone(denseTrack);
+AnimationEdits.SmoothBetween(denseTrack, 1, 3, 30);
+Check(denseTrack.Keys.Count == 6 && denseTrack.Keys.All(k => k.Time <= 1 || k.Time >= 3), "smooth between removes dense interior keys");
+Check(denseTrack.Keys.Single(k => k.Time == 1).Value == denseSource.Keys[2].Value && denseTrack.Keys.Single(k => k.Time == 3).Value == denseSource.Keys[6].Value, "smooth between preserves both endpoint values on every axis");
+Near(ClipEvaluator.Sample(denseTrack.Keys, 1.5f).X, 26.25f, "smooth between evaluates eased endpoint motion instead of original keys");
+Check(ClipEvaluator.Sample(denseTrack.Keys, .75f) == ClipEvaluator.Sample(denseSource.Keys, .75f)
+    && ClipEvaluator.Sample(denseTrack.Keys, 3.25f) == ClipEvaluator.Sample(denseSource.Keys, 3.25f), "smooth between preserves neighbouring outside interpolation");
+var scaleTrack = AnimationJson.Clone(denseSource); scaleTrack.Channel = TrackChannel.Scale;
+AnimationEdits.SmoothBetween(scaleTrack, 1, 3, 30);
+Near(ClipEvaluator.Sample(scaleTrack.Keys, 1.5f).Y, 5.25f, "scale ranges use the same eased motion");
+var rotationTrack = new BoneTrack { Channel = TrackChannel.Rotation, Keys = [new() { Time = 0, Value = ClipEvaluator.V(Quaternion.Identity) },
+    new() { Time = 1, Value = ClipEvaluator.V(Quaternion.CreateFromAxisAngle(Vector3.UnitY, 2)) },
+    new() { Time = 2, Value = -ClipEvaluator.V(Quaternion.CreateFromAxisAngle(Vector3.UnitZ, .8f)) },
+    new() { Time = 3, Value = ClipEvaluator.V(Quaternion.Identity) }] };
+var rotationSource = AnimationJson.Clone(rotationTrack);
+AnimationEdits.SmoothBetween(rotationTrack, 0, 2, 30);
+Quaternion easedQuarter = Quaternion.Slerp(Quaternion.Identity, Quaternion.CreateFromAxisAngle(Vector3.UnitZ, .8f), .15625f);
+Check(MathF.Abs(Quaternion.Dot(ClipEvaluator.Q(ClipEvaluator.Sample(rotationTrack.Keys, .5f, true)), easedQuarter)) > .99999f, "rotation smoothing eases along the short arc across opposite quaternion signs");
+Check(rotationTrack.Keys.All(k => MathF.Abs(k.Value.Length() - 1) < .00001f) && rotationTrack.Keys.Single(k => k.Time == 2).Value == rotationSource.Keys[2].Value,
+    "rotation smoothing keeps unit rotations and exact endpoint representation");
+Check(ClipEvaluator.Sample(rotationTrack.Keys, 2.5f, true) == ClipEvaluator.Sample(rotationSource.Keys, 2.5f, true), "rotation smoothing preserves motion after the interval");
+var invalidRange = AnimationJson.Clone(denseSource); string invalidBefore = System.Text.Json.JsonSerializer.Serialize(invalidRange, AnimationJson.Options);
+Reject(() => AnimationEdits.SmoothBetween(invalidRange, 1, 1, 30), "smooth between rejects identical endpoint times");
+Reject(() => AnimationEdits.SmoothBetween(invalidRange, 1, 2.1f, 30), "smooth between requires actual endpoint keys");
+Check(invalidBefore == System.Text.Json.JsonSerializer.Serialize(invalidRange, AnimationJson.Options), "invalid smoothing leaves the original track intact");
 byte[] document = AnimationJson.Write(project); var restored = AnimationJson.Read(document);
 Check(document.AsSpan().SequenceEqual(AnimationJson.Write(restored)), "lossless project roundtrip");
 var session = new AnimationSession(project);
