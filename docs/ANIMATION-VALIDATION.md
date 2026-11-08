@@ -1,5 +1,19 @@
 # Animation Studio implementation checks
 
+## Project clip selection regression (2026-11-08)
+
+Editor 0.2.30's Project tree handled selection synchronously. Selecting a different row refreshed and rebuilt that
+same tree while Godot still blocked tree changes for its selection signal. The rebuild failed and left the UI's
+refresh guard enabled; scrub inputs were then ignored until playback refreshed the transport.
+
+The follow-up defers clip selection until the input signal finishes, ignores selections queued for a replaced
+document, and clears the refresh guard in a `finally` block. Rendered regression checks click Project rows, switch
+between clips with different durations, and scrub both transport controls before playback. They also select and
+scrub an imported stock clip and verify its displayed skeleton changes. The new selection/range check fails on
+the 0.2.30 implementation with the tree-blocked error and a null reference, before applying the fix.
+After the fix, all 38 rendered interaction checks pass without engine errors, including both timeline controls
+immediately after Project selection and the first scrub of a scrolled stock clip. The app builds without warnings.
+
 ## Interaction fixes and guided lessons (2026-11-08)
 
 The `fix/animation-studio-interaction` branch adds five animation lessons through the existing tutorial system and

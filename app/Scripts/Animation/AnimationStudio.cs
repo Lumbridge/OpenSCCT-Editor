@@ -67,7 +67,16 @@ public partial class AnimationStudio : VBoxContainer
         PanelUi.IconButton(actions, "copy", "Duplicate the selected clip", DuplicateClip).Name = "AnimationDuplicateClip";
         _clips = new Tree { Name = "AnimationClips", HideRoot = true, SizeFlagsVertical = SizeFlags.ExpandFill };
         local.AddChild(_clips);
-        _clips.ItemSelected += () => { if (!_refreshing && _clips.GetSelected()?.GetMetadata(0).AsString() is { Length: > 0 } id) State.SelectClip(id); };
+        _clips.ItemSelected += () =>
+        {
+            if (_refreshing || _clips.GetSelected()?.GetMetadata(0).AsString() is not { Length: > 0 } id) return;
+            // Selection refreshes this tree. Wait until Godot finishes dispatching its selection signal.
+            AnimationSession session = State.Session;
+            Callable.From(() =>
+            {
+                if (State.Session == session && State.Project.Clips.Any(c => c.Id == id)) State.SelectClip(id);
+            }).CallDeferred();
+        };
         var stock = new VBoxContainer { Name = "Stock" }; library.AddChild(stock);
         _search = PanelUi.Search(stock, "Search animation assets", _ => FillStock());
         PanelUi.Caption(stock, "Double-click a model to import an editable copy.");
@@ -157,30 +166,34 @@ public partial class AnimationStudio : VBoxContainer
     {
         if (!IsNodeReady()) return;
         _refreshing = true;
-        _title.Text = State.Project.Name + (HasUnsavedChanges ? " *" : "");
-        foreach ((string tool, Button button) in _poseTools) button.SetPressedNoSignal(State.TransformTool == tool);
-        _clips.Clear(); TreeItem root = _clips.CreateItem();
-        foreach (Clip clip in State.Project.Clips.Where(c => _firstPerson?.EditingSkeleton is not { } skeleton || c.Skeleton == skeleton))
+        try
         {
-            TreeItem item = _clips.CreateItem(root); item.SetText(0, clip.Name); item.SetMetadata(0, clip.Id);
-            item.SetTooltipText(0, $"{clip.Duration:0.###} s · {clip.Tracks.Count} tracks · {clip.FramesPerSecond:0.##} fps");
-            if (clip.Id == State.ClipId) item.Select(0);
-        }
-        _rig.Clear(); TreeItem rigRoot = _rig.CreateItem();
-        if (State.Skeleton is { } skeleton)
-        {
-            var items = new List<TreeItem>();
-            for (int i = 0; i < skeleton.Bones.Count; i++)
+            _title.Text = State.Project.Name + (HasUnsavedChanges ? " *" : "");
+            foreach ((string tool, Button button) in _poseTools) button.SetPressedNoSignal(State.TransformTool == tool);
+            _clips.Clear(); TreeItem root = _clips.CreateItem();
+            foreach (Clip clip in State.Project.Clips.Where(c => _firstPerson?.EditingSkeleton is not { } skeleton || c.Skeleton == skeleton))
             {
-                TreeItem item = _rig.CreateItem(skeleton.Bones[i].Parent < 0 ? rigRoot : items[skeleton.Bones[i].Parent]);
-                item.SetText(0, skeleton.Bones[i].Name); item.SetMetadata(0, i); items.Add(item);
-                item.SetTextOverrunBehavior(0, TextServer.OverrunBehavior.TrimEllipsis); item.SetTooltipText(0, skeleton.Bones[i].Name);
-                if (i == State.Bone) item.Select(0);
+                TreeItem item = _clips.CreateItem(root); item.SetText(0, clip.Name); item.SetMetadata(0, clip.Id);
+                item.SetTooltipText(0, $"{clip.Duration:0.###} s · {clip.Tracks.Count} tracks · {clip.FramesPerSecond:0.##} fps");
+                if (clip.Id == State.ClipId) item.Select(0);
             }
+            _rig.Clear(); TreeItem rigRoot = _rig.CreateItem();
+            if (State.Skeleton is { } skeleton)
+            {
+                var items = new List<TreeItem>();
+                for (int i = 0; i < skeleton.Bones.Count; i++)
+                {
+                    TreeItem item = _rig.CreateItem(skeleton.Bones[i].Parent < 0 ? rigRoot : items[skeleton.Bones[i].Parent]);
+                    item.SetText(0, skeleton.Bones[i].Name); item.SetMetadata(0, i); items.Add(item);
+                    item.SetTextOverrunBehavior(0, TextServer.OverrunBehavior.TrimEllipsis); item.SetTooltipText(0, skeleton.Bones[i].Name);
+                    if (i == State.Bone) item.Select(0);
+                }
+            }
+            foreach (Node child in _inspector.GetChildren()) { _inspector.RemoveChild(child); child.QueueFree(); }
+            BuildInspector();
         }
-        foreach (Node child in _inspector.GetChildren()) { _inspector.RemoveChild(child); child.QueueFree(); }
-        BuildInspector();
-        _refreshing = false; RefreshTime();
+        finally { _refreshing = false; }
+        RefreshTime();
     }
     private void RefreshTime()
     {
