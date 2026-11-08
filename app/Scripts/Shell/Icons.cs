@@ -34,6 +34,8 @@ public static class Icons
         ["arrow-left"] = """<path d="M13.5 8h-11M6.5 4l-4 4 4 4"/>""",
         ["arrow-up"] = """<path d="M8 13.5v-11M4 6.5l4-4 4 4"/>""",
         ["arrow-down"] = """<path d="M8 2.5v11M4 9.5l4 4 4-4"/>""",
+        ["workspace-expand"] = """<path d="M3.5 7.5L8 3l4.5 4.5M3.5 13.5L8 9l4.5 4.5"/>""",
+        ["workspace-collapse"] = """<path d="M3.5 2.5L8 7l4.5-4.5M3.5 8.5L8 13l4.5-4.5"/>""",
 
         // Checkboxes and radios.
         ["check-on"] = $"""<rect x="2.5" y="2.5" width="11" height="11" rx="2.5" fill="C"/><path d="M5 8.2l2 2 4-4.2" stroke="{Dark}" stroke-width="1.8"/>""",

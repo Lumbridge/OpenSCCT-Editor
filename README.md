@@ -53,7 +53,8 @@ play. The checklist follows the map as you edit, undo and reopen it. Gameplay pi
 content before placement. Objective computers include an activating Story mission so their laptops appear during
 play. Hover over common settings for plain-language explanations.
 
-The **Full Workspace** switch in the status bar (also **View > Workspace**) exposes all tools and panels. Each workspace
+The double-chevron button at the right of the bottom status bar expands or collapses the workspace. Up chevrons show
+all tools and panels; down chevrons return to the simpler layout. These choices are also in **View > Workspace**. Each workspace
 remembers its view, dock sizes and tabs separately. Existing settings keep the full workspace. Default tool keys
 are **S** Select, **M** Move, **R** Rotate, **Shift+S** Scale and **Shift+M** Measure; custom bindings and explicit
 preset assignments take precedence. Shared initials use Shift for the secondary tool.

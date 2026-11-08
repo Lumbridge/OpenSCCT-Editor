@@ -31,8 +31,19 @@ public sealed class WorkspaceMode : IShellPart
         { IsChecked = () => Simple, RadioGroup = "workspace", Order = 100 });
         context.AddAction(new EditorAction("workspace.advanced", "Full Workspace", "View/Workspace", () => Set(false))
         { IsChecked = () => !Simple, RadioGroup = "workspace", Order = 110 });
-        var mode = PanelUi.Toggle(window.StatusRow, "Full Workspace", "Show all editor tools and panels", !Simple, full => Set(!full));
-        Changed += () => mode.SetPressedNoSignal(!Simple);
+        context.AddAction(new EditorAction("workspace.expand", "Expand workspace", "", () => Set(false))
+        { IsEnabled = () => Simple, Description = "Show all editor tools and panels" });
+        context.AddAction(new EditorAction("workspace.collapse", "Collapse workspace", "", () => Set(true))
+        { IsEnabled = () => !Simple, Description = "Show the simpler set of tools and panels" });
+        var expand = new ActionButton(context, "workspace.expand", Icons.Get("workspace-expand", EditorTheme.Text), variation: "IconButton")
+        { VisibleWhen = () => Simple };
+        var collapse = new ActionButton(context, "workspace.collapse", Icons.Get("workspace-collapse", EditorTheme.Text), variation: "IconButton")
+        { VisibleWhen = () => !Simple };
+        window.StatusRow.AddChild(expand);
+        window.StatusRow.AddChild(collapse);
+        void Refresh() { expand.Refresh(); collapse.Refresh(); }
+        Changed += Refresh;
+        Refresh();
         Documents.BeforeSave += () => window.SaveWorkspaceLayout(Simple ? "simple" : "advanced");
         window.CloseRequested += () => window.SaveWorkspaceLayout(Simple ? "simple" : "advanced");
         Apply(window);

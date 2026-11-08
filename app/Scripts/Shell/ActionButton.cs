@@ -42,6 +42,9 @@ public sealed partial class ActionButton : Button
 
     public string ActionId { get; }
 
+    /// <summary>Optional UI condition for controls that share one slot in different workspace states.</summary>
+    public Func<bool>? VisibleWhen { get; set; }
+
     private string? Label { get; }
 
     /// <summary>The tooltip: the action's name with its shortcut dim at the right, and what it does as a caption
@@ -83,7 +86,7 @@ public sealed partial class ActionButton : Button
     public void Refresh()
     {
         EditorAction? a = _ctx.FindAction(ActionId);
-        Visible = a is not null && WorkspaceMode.AllowsAction(ActionId);
+        Visible = a is not null && WorkspaceMode.AllowsAction(ActionId) && (VisibleWhen?.Invoke() ?? true);
         if (a is null)
         {
             return;
