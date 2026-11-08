@@ -84,6 +84,7 @@ public sealed class ToolbarPart : IShellPart
 
         Button("file.new");
         Button("file.open");
+        Button("file.downloadOpen");
         Button("file.save");
         Gap();
         Button("edit.undo");

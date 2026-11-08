@@ -17,6 +17,7 @@ public static class ToolbarIcons
     {
         ["file.new"] = ("""<path d="M3.5 1.5h5.5l3.5 3.5v9.5h-9z"/><path d="M9 1.5v3.5h3.5"/>""", null),
         ["file.open"] = ("""<path d="M1.5 3.5h4.5l1.5 1.5h7v8.5h-13z"/><path d="M1.5 7h13"/>""", null),
+        ["file.downloadOpen"] = ("""<path d="M8 1.5v8M5 6.5l3 3 3-3M2 10v4h12v-4"/>""", null),
         ["file.save"] = ("""<path d="M2 2h9.5l2.5 2.5v9.5h-12z"/><path d="M5 2v3.5h5.5v-3.5"/><path d="M4.5 14v-4.5h7v4.5"/>""", null),
         ["edit.undo"] = ("""<path d="M5.5 2.5l-3.5 3.5 3.5 3.5"/><path d="M2 6h7.5a3.75 3.75 0 0 1 0 7.5h-3"/>""", null),
         ["edit.redo"] = ("""<path d="M10.5 2.5l3.5 3.5-3.5 3.5"/><path d="M14 6h-7.5a3.75 3.75 0 0 0 0 7.5h3"/>""", null),

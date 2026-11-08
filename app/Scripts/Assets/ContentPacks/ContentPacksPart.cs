@@ -3,13 +3,14 @@ using OpenScctEditor.Shell;
 
 namespace OpenScctEditor.Assets;
 
-/// <summary>Opens the content catalogue on demand from the Assets and Tools menus.</summary>
+/// <summary>Opens the asset-pack catalogue or the File menu's downloadable-map picker.</summary>
 [ShellPart(Order = -21)]
 public sealed class ContentPacksPart : IShellPart
 {
     private static ContentPacksPart? s_current;
     private MainWindow _window = null!;
     private ContentPacksWindow? _packs;
+    private ContentPacksWindow? _maps;
 
     public void Attach(MainWindow window, EditorContext context)
     {
@@ -20,6 +21,16 @@ public sealed class ContentPacksPart : IShellPart
             Order = 810,
             Description = "Find and download map asset libraries and shared data from OpenSCCT-Content",
         });
+        context.AddAction(new EditorAction("file.downloadOpen", "Download & Open…", "File", () =>
+        {
+            _maps ??= CreateWindow(openMaps: true);
+            _maps.Open(null);
+        })
+        {
+            Order = 115,
+            IsEnabled = () => !BackgroundJobs.IsRunning("Import"),
+            Description = "Choose a map from OpenSCCT-Content, download it and open it for editing",
+        });
     }
 
     /// <summary>Shows the catalogue, optionally searching for a map code.</summary>
@@ -29,10 +40,16 @@ public sealed class ContentPacksPart : IShellPart
     {
         if (_packs is null)
         {
-            _packs = new ContentPacksWindow();
-            _window.AddChild(_packs);
+            _packs = CreateWindow(openMaps: false);
         }
 
         _packs.Open(mapCode);
+    }
+
+    private ContentPacksWindow CreateWindow(bool openMaps)
+    {
+        var window = new ContentPacksWindow(openMaps);
+        _window.AddChild(window);
+        return window;
     }
 }

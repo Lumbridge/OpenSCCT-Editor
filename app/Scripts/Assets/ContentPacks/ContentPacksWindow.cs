@@ -8,10 +8,11 @@ using OpenScctEditor.Shell;
 
 namespace OpenScctEditor.Assets;
 
-/// <summary>A catalogue of downloadable map asset libraries and shared packs.</summary>
+/// <summary>A catalogue of map asset libraries and shared packs, or maps to download and open for editing.</summary>
 public sealed partial class ContentPacksWindow : AcceptDialog
 {
     private const int TextWidth = 600;
+    private readonly bool _openMaps;
     private readonly ContentPacks _service = new();
     private readonly LineEdit _search;
     private readonly OptionButton _categories;
@@ -29,10 +30,15 @@ public sealed partial class ContentPacksWindow : AcceptDialog
 
     private static EditorContext Context => EditorContext.Instance;
 
-    public ContentPacksWindow()
+    public ContentPacksWindow() : this(openMaps: false)
     {
-        Name = "ContentPacks";
-        Title = "OpenSCCT Content Packs";
+    }
+
+    public ContentPacksWindow(bool openMaps)
+    {
+        _openMaps = openMaps;
+        Name = openMaps ? "DownloadMaps" : "ContentPacks";
+        Title = openMaps ? "Download & Open Map" : "OpenSCCT Content Packs";
         OkButtonText = "Close";
         MinSize = new Vector2I(650, 420);
         Unresizable = false;
@@ -42,12 +48,18 @@ public sealed partial class ContentPacksWindow : AcceptDialog
         var body = new VBoxContainer { CustomMinimumSize = new Vector2(TextWidth, 0) };
         body.AddThemeConstantOverride("separation", EditorTheme.SpaceS);
         AddChild(body);
-        PanelUi.Caption(body, "Download map asset libraries and shared game data for use in the editor.", wrap: false);
+        PanelUi.Caption(body, openMaps ? "Choose a map from OpenSCCT-Content to download and open in the editor."
+            : "Download map asset libraries and shared game data for use in the editor.", wrap: false);
         PanelUi.Caption(body, "Map downloads can include required shared packs.", wrap: false);
-        PanelUi.Caption(body, $"Install folder  {_service.Root}", wrap: false);
+        if (openMaps) PanelUi.Caption(body, "Maps open as unsaved projects. Use Save As to keep your edits.", wrap: false);
+        Label location = PanelUi.Caption(body, "", wrap: false);
+        location.ClipText = true;
+        location.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        location.Text = $"Install folder  {_service.Root}";
+        location.TooltipText = location.Text;
         HFlowContainer filters = PanelUi.Toolbar(body);
-        _search = PanelUi.Search(filters, "Search packs", _ => Fill(), "Search pack names, map codes and categories");
-        _search.Name = "PackSearch";
+        _search = PanelUi.Search(filters, openMaps ? "Search maps" : "Search packs", _ => Fill(), "Search names, map codes and categories");
+        _search.Name = openMaps ? "MapSearch" : "PackSearch";
         _categories = PanelUi.Options(filters, "Filter by pack category");
         _categories.CustomMinimumSize = new Vector2(142, 0);
         _categories.AddItem("All Categories");
@@ -62,13 +74,13 @@ public sealed partial class ContentPacksWindow : AcceptDialog
 
         _tree = new Tree
         {
-            Name = "Packs",
+            Name = openMaps ? "Maps" : "Packs",
             HideRoot = true,
             SelectMode = Tree.SelectModeEnum.Row,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
             CustomMinimumSize = new Vector2(0, 215),
         };
-        PanelUi.Columns(_tree, ("Name", 190, true), ("Code", 72, false), ("Category", 84, false),
+        PanelUi.Columns(_tree, ("Name", 190, true), ("Code", 120, false), ("Category", 100, false),
             ("Download", 78, false), ("Status", 120, false));
         _tree.ItemSelected += UpdateButtons;
         _tree.ItemActivated += Download;
@@ -87,6 +99,10 @@ public sealed partial class ContentPacksWindow : AcceptDialog
         {
             if (action == "download") Download();
             else if (action == "cancel") Cancel();
+        };
+        VisibilityChanged += () =>
+        {
+            if (_openMaps && !Visible && _operation is not null) Cancel();
         };
         UpdateButtons();
     }
@@ -116,10 +132,10 @@ public sealed partial class ContentPacksWindow : AcceptDialog
         Run(_service.ListAsync, entries =>
         {
             string? category = PickedCategory();
-            _catalog = entries;
+            _catalog = _openMaps ? entries.Where(e => e.Category != "shared").ToList() : entries;
             _categories.Clear();
             _categories.AddItem("All Categories");
-            foreach (string value in entries.Select(e => e.Category).Distinct(StringComparer.OrdinalIgnoreCase)
+            foreach (string value in _catalog.Select(e => e.Category).Distinct(StringComparer.OrdinalIgnoreCase)
                          .OrderBy(c => c == "shared" ? "" : c, StringComparer.OrdinalIgnoreCase))
             {
                 _categories.AddItem(CategoryName(value));
@@ -129,7 +145,8 @@ public sealed partial class ContentPacksWindow : AcceptDialog
             }
 
             Fill();
-            _status.Text = notice ?? "Choose a pack to see whether it can be downloaded or updated.";
+            _status.Text = notice ?? (_openMaps ? "Select a map, then choose Download & Open."
+                : "Choose a pack to see whether it can be downloaded or updated.");
         }, error => Report(error, reading: true, notice));
     }
 
@@ -166,8 +183,9 @@ public sealed partial class ContentPacksWindow : AcceptDialog
             count++;
         }
 
-        _count.Text = count == 0 ? (_catalog is null ? "" : "No packs match these filters.")
-            : $"{count} {(count == 1 ? "pack" : "packs")}";
+        string noun = _openMaps ? "map" : "pack";
+        _count.Text = count == 0 ? (_catalog is null ? "" : $"No {noun}s match these filters.")
+            : $"{count} {noun}{(count == 1 ? "" : "s")}";
         if ((retained ?? first) is { } chosen)
         {
             chosen.Select(0);
@@ -185,12 +203,21 @@ public sealed partial class ContentPacksWindow : AcceptDialog
 
     private static bool CanDownload(ContentPackEntry? pack) => pack?.State is ContentPackState.Available or ContentPackState.UpdateAvailable;
 
+    private bool CanChoose(ContentPackEntry? pack) => CanDownload(pack) || _openMaps && pack?.State == ContentPackState.Installed;
+
     private void UpdateButtons()
     {
         ContentPackEntry? selected = Selected;
         _refresh.Disabled = _operation is not null;
-        _download.Disabled = _operation is not null || !CanDownload(selected);
-        _download.Text = selected?.State == ContentPackState.UpdateAvailable ? "Update" : "Download";
+        _download.Disabled = _operation is not null || !CanChoose(selected) || _openMaps && BackgroundJobs.IsRunning("Import");
+        _download.Text = _openMaps ? selected?.State switch
+        {
+            ContentPackState.Installed => "Open Map",
+            ContentPackState.UpdateAvailable => "Update & Open",
+            _ => "Download & Open",
+        } : selected?.State == ContentPackState.UpdateAvailable ? "Update" : "Download";
+        _download.TooltipText = _openMaps && selected?.State == ContentPackState.Local
+            ? "Local files occupy this map's download folder. Use File > Import SVMap Folder to open the local copy." : "";
         _cancel.Visible = _installing;
         _cancel.Disabled = _operation?.IsCancellationRequested != false;
         _progress.Visible = _installing;
@@ -198,7 +225,7 @@ public sealed partial class ContentPacksWindow : AcceptDialog
 
     private void Download()
     {
-        if (_operation is not null || Selected is not { } pack || !CanDownload(pack)) return;
+        if (_operation is not null || Selected is not { } pack || !CanChoose(pack) || _openMaps && BackgroundJobs.IsRunning("Import")) return;
         _installing = true;
         _progress.Value = 0;
         _status.Text = $"Preparing {pack.Title}…";
@@ -219,11 +246,21 @@ public sealed partial class ContentPacksWindow : AcceptDialog
             });
         }), cancel), result =>
         {
-            if (result.Changed || _service.Revision != revision) AssetService.Instance.ContentPacksChanged(_service.Root);
+            if (_openMaps || result.Changed || _service.Revision != revision) AssetService.Instance.ContentPacksChanged(_service.Root);
             foreach (string warning in result.Warnings) Context.Log($"Content Packs: {warning}", Severity.Warning);
             string message = $"Installed {result.Pack.Title}.";
             if (result.Warnings.FirstOrDefault() is { } warningText) message += $" {warningText}";
             Context.SetStatus(message);
+            if (_openMaps && Visible)
+            {
+                Hide();
+                _catalog = null;
+                Context.Run("animation.map");
+                // Import keeps the downloaded files as its baked source; Save As creates the editable project.
+                // Its completion also asks about edits made while the download or import was running.
+                Documents.Instance?.Import(Path.Combine(_service.Root, "svmap", result.Pack.Code));
+                return;
+            }
             Refresh(message);
         }, error => InstallFailed(pack, error, revision));
     }
@@ -258,7 +295,15 @@ public sealed partial class ContentPacksWindow : AcceptDialog
             try
             {
                 T result = await work(linked.Token).ConfigureAwait(false);
-                BackgroundJobs.Post(() => Finish(cancel, () => done(result)));
+                BackgroundJobs.Post(() =>
+                {
+                    bool cancelled = cancel.IsCancellationRequested;
+                    Finish(cancel, () =>
+                    {
+                        if (cancelled) failed(new OperationCanceledException());
+                        else done(result);
+                    });
+                });
             }
             catch (Exception ex)
             {

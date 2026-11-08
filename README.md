@@ -66,6 +66,9 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 
 - **Projects.** `.osmap` project folders made for version control, undo and redo, autosave, crash recovery and
   rotating save backups.
+- **Download and open.** Use **Download & Open** on the toolbar or in **File** to browse maps from OpenSCCT-Content,
+  search by name or code, and filter by category or download status. The editor downloads the map and required
+  shared packs, then opens it as an unsaved project. Choose **Save As** to keep your edits; installed maps can be opened again.
 - **Import and export.** OpenSCCT's converted maps, T3D from the stock editor, and `.sdc` map packages (static lights
   and editable brushes recovered from cooked copies). Export to T3D, to `.sdc` written natively, or to a folder with
   the steps for RE+.
