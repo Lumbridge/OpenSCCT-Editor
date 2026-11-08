@@ -11,7 +11,7 @@ internal sealed class WindowRules : MapRule
         new("window.design", Severity.Error, "Invalid window dimensions, outline or actor class"),
         new("window.refit", Severity.Warning, "A linked pane needs Refit or Detach"),
         new("window.bakedCut", Severity.Error, "A window would cut retained baked geometry"),
-        new("window.originalUnsupported", Severity.Error, "Editable windows require an OpenSCCT build") { OriginalOnly = true },
+        new("window.originalFallback", Severity.Warning, "SDC exports replace editable windows with standard original-game glass") { OriginalOnly = true },
     ];
     public override void Run(CheckContext c)
     {
@@ -28,7 +28,7 @@ internal sealed class WindowRules : MapRule
                 c.Report(Severity.Warning, "window.refit", "The frame changed or is missing. Use Refit, or Detach to keep this pane independently.", a.Location, reference);
             if (d.CutDepth > 0 && !WindowGeometry.CanCarve(c.Project, d))
                 c.Report(Severity.Error, "window.bakedCut", "This window cannot cut retained baked geometry. Place it in an existing opening.", a.Location, reference);
-            if (c.Original) c.Report(Severity.Error, "window.originalUnsupported", "Editable shaped windows currently require an OpenSCCT build; original-game export is not supported.", a.Location, reference);
+            if (c.Original) c.Report(Severity.Warning, "window.originalFallback", "SDC export automatically replaces this window with a rectangular, breakable original-game window fitted to its pane bounds. Custom shape, thickness, tint and frosting become standard glass. T3D export still requires replacing editable windows manually.", a.Location, reference);
         }
     }
 }

@@ -34,35 +34,68 @@ public sealed class SdcExporter : IMapExporter
         _ => throw new ArgumentException($"unknown .sdc layout '{value}' (editor or cooked)"),
     };
 
-    /// <summary>Writes the file even when the lint finds errors; <see cref="ExportResult.Ok"/> is false then.</summary>
+    /// <summary>Applies known replacements, checks the complete package, then publishes it only without errors.</summary>
     public ExportResult Export(MapProject project, string path, ExportOptions options)
+    {
+        ExportResult result;
+        try
+        {
+            result = ExportChecked(project, path, options);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or SdcWriteRefusedException)
+        {
+            result = new ExportResult(false, [], [Finding.Error("sdc.export", ex.Message
+                + " Resolve the reported file, install or geometry problem and export again; the previous SDC is preserved.")]);
+        }
+        result = result with { Findings = result.Findings.Select(SdcExportReport.WithWorkaround).ToArray() };
+        // Keep a readable report next to successful and refused exports, including for CLI callers.
+        try
+        {
+            string report = Path.GetFullPath(path) + ".export-report.md";
+            Directory.CreateDirectory(Path.GetDirectoryName(report)!);
+            File.WriteAllText(report, SdcExportReport.Text(result));
+            result = result with { Files = result.Files.Append(report).ToArray() };
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            result = result with { Findings = result.Findings.Append(Finding.Warning("sdc.report",
+                $"Could not save the export report: {ex.Message}. The complete findings are available in Map Check and the export result.")).ToArray() };
+        }
+        return result;
+    }
+
+    private ExportResult ExportChecked(MapProject project, string path, ExportOptions options)
     {
         if (project.Actors.Any(a => MoverBase.IsMover(a) && OpenScct.Editor.Core.Gameplay.MoverSetup.Read(a).Keys.Count > 8))
             return new ExportResult(false, [], [Finding.Error("mover.original-limit", "This map uses mover paths longer than eight stops. Build for OpenSCCT, or shorten those paths before exporting to the original game.")]);
-        if (project.Actors.Any(a => a.Window is not null))
-            return new ExportResult(false, [], [Finding.Error("window.originalUnsupported", "Editable shaped windows currently require an OpenSCCT build; original-game window export is not supported")]);
+
+        var findings = new List<Finding>();
+        string? gameRoot = GameRoot(project, options, findings);
+        options.Progress?.Invoke("applying original-game compatible replacements");
+        project = SdcCompatibility.Prepare(project, options.ContentRoot ?? EditorServices.ContentRoot, gameRoot, findings);
         try
         {
             project = Stairs.StairGeometry.Lower(OpenScct.Editor.Core.Gameplay.GeGeometry.Expand(project));
         }
         catch (ArgumentException ex)
         {
-            return new ExportResult(false, [], [Finding.Error("ge.geometry", ex.Message)]);
+            findings.Add(Finding.Error("ge.geometry", ex.Message + " Correct the listed traversal or stair geometry and export again."));
+            return new ExportResult(false, [], findings);
         }
         SdcLayout layout = ParseLayout(options.Choice(this, LayoutChoice));
         var destination = new DirectoryInfo(Path.GetDirectoryName(Path.GetFullPath(path))!);
         if (layout == SdcLayout.Editor && destination.Name.Equals("Maps", StringComparison.OrdinalIgnoreCase)
             && destination.Parent?.Name.Equals("Packages", StringComparison.OrdinalIgnoreCase) == true)
         {
-            return new ExportResult(false, [], [Finding.Error("sdc.editorInMaps",
-                "An editor copy cannot be played by Reloaded. Choose Play in Reloaded (cooked), or save the editor copy in Packages\\MapsEd.")]);
+            findings.Add(Finding.Error("sdc.editorInMaps",
+                "An editor copy cannot be played by Reloaded. Choose Play in Reloaded (cooked), or save the editor copy in Packages\\MapsEd."));
         }
         UeSchema? schema = UeSchema.Load(options.ContentRoot ?? EditorServices.ContentRoot);
         options.Progress?.Invoke("checking round-trip compatibility");
-        var findings = new List<Finding>();
         bool fromSource = project.Source.Kind == "sdc";
         string packageName = Path.GetFileNameWithoutExtension(path);
         Lint(project, schema, fromSource, packageName, findings);
+        if (findings.Any(f => f.Severity == Severity.Error)) return new ExportResult(false, [], findings);
 
         findings.Add(Finding.Info("sdc.mapSettings",
             "map settings per mode, interface pictures and briefing texts live in the <Map>-i.utc package, which this export does not write"));
@@ -79,13 +112,13 @@ public sealed class SdcExporter : IMapExporter
             Layout = layout,
             Schema = schema,
             ContentRoot = options.ContentRoot,
-            GameRoot = GameRoot(project, options, findings),
+            GameRoot = gameRoot,
             Progress = options.Progress,
         };
         SdcWriteResult result;
         try
         {
-            result = SdcWriter.WriteFile(project, path, writeOptions);
+            result = SdcWriter.Write(project, packageName, writeOptions);
         }
         catch (SdcWriteRefusedException ex)
         {
@@ -95,7 +128,7 @@ public sealed class SdcExporter : IMapExporter
 
         findings.AddRange(result.Findings);
         if (fromSource && !result.WorldRebuilt) StaleWorld(project, findings);
-        options.Progress?.Invoke("reading the written file back");
+        options.Progress?.Invoke("checking the generated package before saving");
         findings.AddRange(SdcRoundTripLint.Check(project, result, packageName, layout, schema));
         if (!result.WorldRebuilt && result.Stats.SourceUsed && result.Stats.Source is { } source)
         {
@@ -103,7 +136,20 @@ public sealed class SdcExporter : IMapExporter
         }
 
         bool ok = !findings.Any(f => f.Severity == Severity.Error);
-        return new ExportResult(ok, [Path.GetFullPath(path)], findings);
+        if (!ok) return new ExportResult(false, [], findings);
+        string fullPath = Path.GetFullPath(path);
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
+        string temporary = fullPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try
+        {
+            File.WriteAllBytes(temporary, UPackageBuilder.Pack(result.Package));
+            File.Move(temporary, fullPath, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(temporary)) File.Delete(temporary);
+        }
+        return new ExportResult(true, [fullPath], findings);
     }
 
     /// <summary>

@@ -12,6 +12,12 @@ solid block, and verify that fresh BSP and editor lightmap records include the e
 available and the open project's baked-world settings remain unchanged. A cooked map without recovered brushes is
 still refused. Generated fixtures stay under `local/sdc-recovery-checks` (an optional second argument changes it).
 
+Window compatibility checks also use the installed original game's real `SGameplayObjects.usx` and converted
+shared gameplay mesh. Pass an original install as the third argument (otherwise normal install discovery is used).
+They cover every editable shape/finish, rotation, mirrored/nonuniform scale and pre-pivots, retained frame geometry
+and gameplay links, both SDC layouts, success/failure reports, bold required actions, multiple actionable errors,
+missing fallback dependencies, and preservation of the source project and previous SDC on failure.
+
 On 2026-11-08 both this fixture and ArcadeBackup (166 recovered brushes, 600 project actors and 724 GEs) passed the
 isolated native RE+ ordinary open, geometry/BSP/light rebuild, File Save, reopen and T3D export harness. That path
 did not invoke RE+ recovery. Reconstructed source geometry does not restore original brush history or missing

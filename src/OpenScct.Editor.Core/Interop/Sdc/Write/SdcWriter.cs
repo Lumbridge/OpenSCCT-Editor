@@ -64,6 +64,10 @@ public static class SdcWriter
     /// <exception cref="SdcWriteRefusedException">An editor copy asked of a cooked map with no recovered brushes.</exception>
     public static SdcWriteResult Write(MapProject project, string packageName, SdcWriteOptions options)
     {
+        var findings = new List<Finding>();
+        project = SdcCompatibility.Prepare(project, options.ContentRoot ?? EditorServices.ContentRoot, options.GameRoot, findings);
+        if (findings.Any(f => f.Severity == Severity.Error))
+            throw new SdcWriteRefusedException(string.Join(Environment.NewLine, findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));
         try
         {
             project = Stairs.StairGeometry.Lower(GeGeometry.Expand(project));
@@ -72,7 +76,6 @@ public static class SdcWriter
         {
             throw new SdcWriteRefusedException(ex.Message);
         }
-        var findings = new List<Finding>();
         (UPackage? src, SdcMap? srcMap) = options.UseSource ? Source(project, options, findings) : (null, null);
         bool recoveredEditor = srcMap?.Layout != SdcLayout.Editor && options.Layout == SdcLayout.Editor &&
             project.Brushes.Any(Compile.BakedContent.IsRecovered);

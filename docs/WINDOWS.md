@@ -68,8 +68,21 @@ the runtime recombines these cached values when glass breaks or resets, without 
 
 Default new windows are 160 × 128 units (circles: 160 diameter), with 2-unit glass, 0.5-unit edge clearance and an
 8-unit-wide, 16-unit-deep neutral frame. Generated glass finishes use translucent colour; frosted glass adds a cloudy
-texture. They do not refract or blur the scene. Original-game SDC, T3D and handoff exports report an explicit error
-for these windows; use an OpenSCCT build.
+texture. They do not refract or blur the scene.
+
+SDC exports automatically replace editable panes with the original game's standard rectangular breakable glass
+(`SBase.SVitre`, `SGameplayObjects.Objects.F_vitreSolo01`), scaled to the pane bounds. The export keeps the pane's
+world position, rotation, tags/events and permanent frame/cut brushes. Custom outlines, glass thickness, tint and
+frosting become standard glass; **check the fit in non-rectangular openings**. Generated frames use the original
+default material. The project keeps its original editable window design. The original install and converted
+shared gameplay mesh must be available; missing dependencies identify the affected windows and how to restore them.
+T3D and handoff exports still require manually replacing editable windows.
+
+An SDC result dialog separates automatic replacements, errors and warnings. Required user actions, including
+rebuilding in RE+, are bold in the dialog, Map Check and the saved Markdown report. Copy the report or open Map
+Check to select the affected objects. The report is saved beside the destination as `<map>.sdc.export-report.md`,
+even when export fails. Validation and native read-back finish before an existing SDC is replaced. Errors preserve
+the previous SDC and include workarounds where available.
 
 ## Verification
 
