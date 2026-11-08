@@ -83,7 +83,8 @@ public static class DoorFields
         }
         void Number(string label, double value, double min, double max, Action<DoorDesign, double> set, string help, double step = 1)
         {
-            var row = PanelUi.Row(parent, label, help, 100); var spin = new SpinBox { MinValue = min, MaxValue = max, Step = step, Value = value, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, UpdateOnTextChanged = false }; row.AddChild(spin);
+            var row = PanelUi.Row(parent, label, help, 100); var spin = new SpinBox { MinValue = min, MaxValue = max, Step = 0.000000001, CustomArrowStep = step, Value = value, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, UpdateOnTextChanged = false }; row.AddChild(spin);
+            PanelUi.UseArrowStepForWheel(spin);
             double accepted = value; spin.ValueChanged += v => { if (Apply(x => set(x, v))) accepted = v; else spin.SetValueNoSignal(accepted); };
         }
         Pick("Style", d.Style, DoorDesign.Styles, (x, v) => x.Style = v, "Built-in door finish and details");

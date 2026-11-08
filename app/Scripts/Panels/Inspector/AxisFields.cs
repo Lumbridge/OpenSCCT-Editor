@@ -181,10 +181,17 @@ public partial class AxisFields : HBoxContainer
 
         if (PanelUi.TryNum(text, out double v))
         {
-            // The inspector refresh deliberately leaves the focused box alone. Keep its backing value current so
-            // focus loss (and SpinBox's deferred submission) cannot restore the value from before typing.
+            // Keep our backing value current, but let SpinBox submit its own text on Enter or focus loss.
+            // Setting its Value while typing rewrites the LineEdit and moves the caret in unfinished decimals.
             _values[axis] = v;
-            _spinners[axis].SetValueNoSignal(v);
+            if (final)
+            {
+                // Synchronise only the submitted value so SpinBox's deferred Apply cannot report the same edit
+                // a second time (authored doors consume scale into their dimensions).
+                _setting = true;
+                _spinners[axis].SetValueNoSignal(v);
+                _setting = false;
+            }
             Edited?.Invoke(axis, v, final);
         }
     }

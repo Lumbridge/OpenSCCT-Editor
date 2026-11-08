@@ -50,6 +50,7 @@ public partial class InspectorPanel : EditorPanel
     private DeferredAction _rebuild = null!;
     private DeferredAction _sync = null!;
     private string _signature = "";
+    private LineEdit? _rebuildAfterEdit;
     private bool _moreProperties;
     private bool Compact => WorkspaceMode.Simple && !_moreProperties;
     private ObjectIndex? _index;
@@ -141,6 +142,7 @@ public partial class InspectorPanel : EditorPanel
 
     private void Rebuild()
     {
+        _rebuildAfterEdit = null;
         _windowTint = null;
         _index = null;
         _live.Flush();
@@ -306,6 +308,29 @@ public partial class InspectorPanel : EditorPanel
         }
         if (Signature() != _signature)
         {
+            if (GetViewport().GuiGetFocusOwner() is LineEdit { Editable: true } edit && IsAncestorOf(edit) && edit.IsEditing())
+            {
+                // Live changes can update an authored object's design. Keep the active editor until its value
+                // is submitted; rebuilding here frees its LineEdit after the first digit or typing pause.
+                if (_rebuildAfterEdit != edit)
+                {
+                    _rebuildAfterEdit = edit;
+                    edit.FocusExited += () =>
+                    {
+                        if (_rebuildAfterEdit != edit) return;
+                        _rebuildAfterEdit = null;
+                        _sync.Queue();
+                    };
+                    edit.TextSubmitted += _ =>
+                    {
+                        if (_rebuildAfterEdit != edit) return;
+                        _rebuildAfterEdit = null;
+                        _rebuild.Queue();
+                    };
+                }
+                SyncAll();
+                return;
+            }
             Rebuild();
             return;
         }
@@ -361,10 +386,13 @@ public partial class InspectorPanel : EditorPanel
             tooltip: "Turn the object: pitch tilts up/down, yaw turns left/right, roll tips sideways. Values are degrees.");
         if (_refs.Any(r => r.Kind == ObjectKind.Actor))
         {
+            // Authored doors and windows consume scale into dimensions and reset DrawScale to one. Applying every typed
+            // prefix would multiply the design repeatedly, so submit those scale edits as a complete value.
+            bool liveScale = !_refs.Any(r => r.Kind == ObjectKind.Actor && Index.Actor(r) is { Door: not null } or { Window: not null });
             VecRow("Draw scale", ["Scale"], r => r.Kind == ObjectKind.Actor && Index.Actor(r) is { } a ? [a.DrawScale] : null,
-                actor: (a, _, v) => a.DrawScale = v, tooltip: "Resize the object's appearance uniformly. 2 makes it twice as large.");
+                actor: (a, _, v) => a.DrawScale = v, tooltip: "Resize the object's appearance uniformly. 2 makes it twice as large.", live: liveScale);
             VecRow("Draw scale 3D", ["X", "Y", "Z"], r => r.Kind == ObjectKind.Actor && Index.Actor(r) is { } a ? Arr(a.DrawScale3D) : null,
-                actor: (a, i, v) => a.DrawScale3D = a.DrawScale3D.With(i, v), tooltip: "Stretch the object's appearance along individual axes. 1 keeps the original size.");
+                actor: (a, i, v) => a.DrawScale3D = a.DrawScale3D.With(i, v), tooltip: "Stretch the object's appearance along individual axes. 1 keeps the original size.", live: liveScale);
         }
 
         if (Compact) return;
@@ -372,7 +400,7 @@ public partial class InspectorPanel : EditorPanel
         {
             VecRow("Main scale", ["X", "Y", "Z"], r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && Index.Brush(r) is { } b ? Arr(b.MainScale) : null,
                 brush: (b, i, v) => _scaleSeries.Rescale(b, x => x.MainScale = x.MainScale.With(i, v), SurfaceActions.ScaleKeepsTextures),
-                tooltip: "Brush MainScale (applied before rotation)");
+                tooltip: "Brush MainScale (applied before rotation)", live: !_refs.Any(r => Index.Brush(r)?.Stair is not null));
             VecRow("Post scale", ["X", "Y", "Z"], r => r.Kind is (ObjectKind.Brush or ObjectKind.Stair) && Index.Brush(r) is { } b ? Arr(b.PostScale) : null,
                 brush: (b, i, v) => _scaleSeries.Rescale(b, x => x.PostScale = x.PostScale.With(i, v), SurfaceActions.ScaleKeepsTextures),
                 tooltip: "Brush PostScale (applied after rotation)");
@@ -406,7 +434,7 @@ public partial class InspectorPanel : EditorPanel
 
     /// <summary>A row of number boxes bound to a per-object vector; an edit changes one component on every object.</summary>
     private void VecRow(string label, string[] axes, Func<ObjectRef, double[]?> read, Action<Brush, int, double>? brush = null,
-        Action<Actor, int, double>? actor = null, Action<Ge, int, double>? ge = null, string? tooltip = null)
+        Action<Actor, int, double>? actor = null, Action<Ge, int, double>? ge = null, string? tooltip = null, bool live = true)
     {
         HBoxContainer row = PanelUi.Row(_sections, label, tooltip, LabelWidth);
         AxisFields fields = axes.Length == 1 ? AxisFields.Number(tooltip ?? label) : AxisFields.Create(axes);
@@ -427,7 +455,7 @@ public partial class InspectorPanel : EditorPanel
                 actor: actor is null ? null : a => actor(a, axis, v),
                 ge: ge is null ? null : g => ge(g, axis, v),
                 mergeKey: $"inspector:{label}:{axis}"));
-        }, final);
+        }, final, live);
         _syncers.Add(() =>
         {
             var values = _refs.Select(read).OfType<double[]>().ToList();

@@ -222,9 +222,13 @@ internal static class PanelUi
     {
         menu.AboutToPopup += () =>
         {
-            float scale = menu.IsInsideTree() ? menu.GetTree().Root.ContentScaleFactor : 1f;
+            // Embedded popups already inherit their parent's canvas scale; native windows use screen pixels.
+            bool embedded = menu.IsInsideTree() && menu.IsEmbedded();
+            float scale = menu.IsInsideTree() && !embedded ? menu.GetTree().Root.ContentScaleFactor : 1f;
+            float height = menu.IsInsideTree() ? embedded ? menu.GetTree().Root.GetVisibleRect().Size.Y : menu.GetTree().Root.Size.Y : int.MaxValue;
+            int available = Math.Max(1, (int)(height - 32 * scale));
             // Window.MaxSize clamps both axes, so the width gets a cap too: one no menu reaches.
-            menu.MaxSize = new Vector2I(16384, (int)(EditorTheme.PopupMaxHeight * scale));
+            menu.MaxSize = new Vector2I(16384, Math.Min(available, (int)(EditorTheme.PopupMaxHeight * scale)));
         };
     }
 

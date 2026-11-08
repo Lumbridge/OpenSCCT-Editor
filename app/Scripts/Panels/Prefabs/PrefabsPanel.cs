@@ -342,7 +342,10 @@ public partial class PrefabsPanel : EditorPanel
             case SvJsonNumber:
                 ApiJson.TryNumber(value, out double v);
                 bool whole = ApiJson.TryNumber(param.Default, out double d) && d == Math.Floor(d);
-                SpinBox spin = PanelUi.Spin(row, param.Min ?? -1e6, param.Max ?? 1e6, whole ? 1 : 0.01, v, param.Summary ?? "");
+                // Parameters are numbers, even when their default happens to be an integer. Keep typed precision
+                // separate from the arrow increment so times such as 1.5 are not rounded back to one.
+                SpinBox spin = PanelUi.Spin(row, param.Min ?? -1e6, param.Max ?? 1e6, 0.000000001, v, param.Summary ?? "");
+                spin.CustomArrowStep = whole ? 1 : 0.01;
                 spin.SizeFlagsHorizontal = SizeFlags.ExpandFill;
                 _paramValues[param.Name] = () => ApiJson.Num(spin.Value);
                 break;

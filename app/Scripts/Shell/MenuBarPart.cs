@@ -33,6 +33,7 @@ public sealed class MenuBarPart : IShellPart
             var popup = new PopupMenu { Name = top };
             _bar.AddChild(popup);
             popup.AboutToPopup += () => Fill(popup, top);
+            PanelUi.CapPopup(popup);
             popup.IdPressed += id => RunItem(popup, (int)id);
             MenuToggles.KeepOpen(popup, () => SyncChecks(popup));
             Fill(popup, top);
@@ -132,6 +133,7 @@ public sealed class MenuBarPart : IShellPart
             {
                 var sub = new PopupMenu { Name = entry.Title };
                 popup.AddChild(sub);
+                PanelUi.CapPopup(sub);
                 sub.IdPressed += id => RunItem(sub, (int)id);
                 MenuToggles.KeepOpen(sub, () => SyncChecks(sub));
                 Fill(sub, subPath);

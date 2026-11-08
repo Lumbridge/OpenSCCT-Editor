@@ -70,6 +70,7 @@ public static class UiTree
     {
         Label l => l.Text,
         Button b => b.Text,
+        SpinBox spin => spin.GetLineEdit().Text,
         LineEdit e => e.Text.Length > 0 ? e.Text : e.PlaceholderText,
         _ => null,
     };
