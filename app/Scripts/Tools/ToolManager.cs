@@ -189,6 +189,7 @@ public sealed class ToolManager : IShellPart
         {
             AppSettings.Set("tools", "place_class", value);
             PlaceFromPalette = false;
+            PaletteWiringTargets = null;
             Changed?.Invoke();
         }
     }
@@ -197,12 +198,14 @@ public sealed class ToolManager : IShellPart
     /// then places by the palette's rule and wires the new actor (<see cref="Gameplay.PlaceableLanding"/>); a class typed
     /// or picked in the tool places the plain way.</summary>
     public bool PlaceFromPalette { get; private set; }
+    public IReadOnlyList<string>? PaletteWiringTargets { get; private set; }
 
     /// <summary>Arms the place tool with a palette class (a tile's click).</summary>
-    public void ArmPalette(string className)
+    public void ArmPalette(string className, IReadOnlyList<string>? wiringTargets = null)
     {
         PlaceClass = className;
         PlaceFromPalette = true;
+        PaletteWiringTargets = wiringTargets?.ToList();
     }
 
     /// <summary>The GE kind the GE tool draws (LG, ZL, PIPE, LADDER, HOH, POLE, FENCE).</summary>
@@ -251,6 +254,7 @@ public sealed class ToolManager : IShellPart
         };
         context.SessionReplaced += () =>
         {
+            PaletteWiringTargets = null;
             // Pending drags, clip and measure points belong to the old map.
             DragInterrupted?.Invoke();
             Active.Cancel();

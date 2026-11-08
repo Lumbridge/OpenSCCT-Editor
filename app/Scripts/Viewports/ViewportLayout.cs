@@ -552,7 +552,7 @@ public sealed partial class ViewportLayout : Node, IShellPart
                 RedrawAll();
             }
         }
-        else if (_ctx.Selection.Count == 0 && Picking.Pick(view.Cam, _ctx.Project, at) is { } hit)
+        else if (Picking.Pick(view.Cam, _ctx.Project, at) is { } hit && !_ctx.Selection.Items.Contains(hit))
         {
             _ctx.Selection.Set([hit]);
         }
@@ -629,6 +629,8 @@ public sealed partial class ViewportLayout : Node, IShellPart
         if (_ctx.Selection.Count > 0)
         {
             Separator();
+            foreach (string kind in new[] { "mission", "objective", "objectives", "devices" })
+                if (_ctx.FindAction("gameplay.link." + kind)?.IsEnabled() == true) Item("gameplay.link." + kind);
             Item("view.frame");
             Item("edit.duplicate");
             Item("edit.copy");

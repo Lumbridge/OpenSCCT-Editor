@@ -371,11 +371,16 @@ public static class PlaceableLanding
     /// selection (<see cref="PlaceableWiring"/>), selects it, and says in the status bar what still needs wiring (else
     /// what was wired) and in the log all of it and where it went.
     /// </summary>
-    public static void Place(EditorContext ctx, Placeable entry, PlaceableSpot spot, ViewKind view)
+    public static void Place(EditorContext ctx, Placeable entry, PlaceableSpot spot, ViewKind view, IReadOnlyList<string>? wiringTargets = null)
     {
-        IReadOnlyList<string> pinned = PinnedIn(ctx.Project);
-        List<string> selected = pinned.Count > 0 ? pinned.ToList()
-            : ctx.Selection.Items.Where(r => r.Kind == ObjectKind.Actor).Select(r => r.Id).ToList();
+        if (wiringTargets is not null && wiringTargets.Any(id => ctx.Project.FindActor(id) is null))
+        {
+            ctx.SetStatus("The placement target was removed. Choose a mission or objective again.");
+            return;
+        }
+        IReadOnlyList<string> pinned = wiringTargets ?? PinnedIn(ctx.Project);
+        List<string> selected = wiringTargets?.ToList() ?? (pinned.Count > 0 ? pinned.ToList()
+            : ctx.Selection.Items.Where(r => r.Kind == ObjectKind.Actor).Select(r => r.Id).ToList());
         PlacedPlaceable placed = PlaceableWiring.Place(ctx.Project, entry, spot.Location, spot.Rotation, selected, EditorServices.Classes);
         ctx.Execute(placed.Command);
         ctx.Selection.Set([ObjectRef.Actor(placed.Id)]);

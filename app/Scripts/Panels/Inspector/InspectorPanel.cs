@@ -173,6 +173,9 @@ public partial class InspectorPanel : EditorPanel
         HFlowContainer tools = PanelUi.Toolbar(_sections);
         PanelUi.Button(tools, "Focus", "Frame the selection in the views", () => Context.Focus(_refs));
         if (!Compact) PanelUi.Button(tools, "Same class", "Select every object of the selected classes", SelectSameClass);
+        if (_refs.Any(r => r.Kind == ObjectKind.Actor && Context.Project.FindActor(r.Id) is { } actor
+            && (MissionLinks.IsObjective(actor) || MissionLinks.IsTrigger(actor))))
+            PanelUi.Button(tools, "Link missions & objectives…", "Open named mission, objective and device links", MissionsPanel.OpenForSelection);
         if (WorkspaceMode.Simple && !(_refs.Count == 1 && Index.Brush(_refs[0])?.Stair is not null)) PanelUi.Button(tools, _moreProperties ? "Fewer properties" : "More properties",
             "Show technical settings for this selection. Changes still use the usual undo history.", () => { _moreProperties = !_moreProperties; _rebuild.Queue(); });
 
@@ -249,7 +252,7 @@ public partial class InspectorPanel : EditorPanel
             string ge = ObjectInfo.GeClass(Index.Ge(r)?.Kind ?? "");
             return r.Kind switch
             {
-                ObjectKind.Actor => (r.Id, cls.Length == 0 ? "" : PanelUi.DisplayName(cls), cls, PanelIcons.TypeIconName(cls)),
+                ObjectKind.Actor => (r.Id, cls.Length == 0 ? "" : OpenScct.Editor.Core.Classes.ClassNames.Title(cls), cls, PanelIcons.TypeIconName(cls)),
                 ObjectKind.Brush or ObjectKind.Stair => (r.Id, brush, brush, Index.Brush(r)?.Oper == CsgOper.Subtract ? "type-brush-subtract" : "type-brush"),
                 _ => (r.Id, ge, ge, "type-ge"),
             };

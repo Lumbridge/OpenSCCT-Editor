@@ -1,4 +1,5 @@
 using Godot;
+using OpenScct.Editor.Core.Classes;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
@@ -21,22 +22,25 @@ public partial class MissionsPanel : EditorPanel
     private Control _empty = null!;
     private Label _draftTitle = null!;
     private DeferredAction _update = null!;
+    private ScrollContainer _headerScroll = null!;
+    private VBoxContainer _headerBody = null!;
+    private readonly Dictionary<ulong, (string Parent, string Property, string Child)> _relationships = [];
 
     protected override void Build()
     {
         _update = new DeferredAction(Rebuild);
+        BuildLinks();
         // One toolbar row: the check, the commands that add on-complete actions, and at its end the commands on the
         // action chosen in the tree.
-        var bar = new HBoxContainer();
-        bar.AddThemeConstantOverride("separation", EditorTheme.SpaceXs);
-        AddChild(bar);
+        var bar = PanelUi.Toolbar(this);
+        _completionBar = bar;
+        bar.Visible = false;
         Button check = PanelUi.Button(bar, "Check missions", "Run Map Check (mission rules included)", () => Context.Run("build.check"));
         check.Icon = Icons.Get("success", EditorTheme.Text);
         bar.AddChild(new VSeparator());
         WorkbenchUi.Action(bar, "Fire selected", "On complete, the selected mission fires the other selected actors, with the delay and type below",
             "gameplay.zone.fireSelected", Context);
         WorkbenchUi.Action(bar, "Add message", "On complete, the selected mission shows the messages below", "gameplay.zone.message", Context);
-        WorkbenchUi.Spacer(bar);
         WorkbenchUi.Guard(PanelUi.Button(bar, "Set timing", "Give the chosen on-complete action the delay and type below", SetTiming), () => ChosenAction is not null);
         WorkbenchUi.Guard(PanelUi.IconButton(bar, "trash", "Remove the chosen on-complete action", RemoveAction, danger: true), () => ChosenAction is not null);
 
@@ -45,17 +49,32 @@ public partial class MissionsPanel : EditorPanel
             HideRoot = true,
             SelectMode = Tree.SelectModeEnum.Row,
             SizeFlagsVertical = SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(0, 50),
         };
         PanelUi.Columns(_tree, ("Mission / Objective", 160, true), ("Detail", 160, true));
         _tree.ItemSelected += () => Pick(focus: false);
         _tree.ItemActivated += () => Pick(focus: true);
-        AddChild(_tree);
+        _tree.AllowRmbSelect = true;
+        _tree.ItemMouseSelected += (_, button) =>
+        {
+            if (button != (long)MouseButton.Right || _tree.GetSelected()?.GetMetadata(0).AsString() is not { Length: > 0 } id) return;
+            MissionLinkGuide.Menu(_tree, Context, id);
+        };
+        _tree.ButtonClicked += (item, _, button, _) => EditRelationship(item, (int)button);
+        var content = new HSplitContainer { SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        AddChild(content);
+        content.AddChild(_tree);
+        _tree.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _tree.SizeFlagsStretchRatio = 3;
+        BuildPalette(content);
         _empty = PanelUi.EmptyState(_tree, "type-objective", "No missions",
-            "The map has no SMission, no objective outside one and no player-count rules. Place a mission and its objectives to see them here.");
+            "Start with New mission above, add objectives, then link the computers, bomb targets or disks that complete them.");
 
         // What a new on-complete action gets, and what Set timing gives the chosen one: pinned under the tree. The
         // timing and the two messages wrap as groups in a narrow dock; the messages share their line.
         var draft = new HFlowContainer();
+        _completionDraft = draft;
+        draft.Visible = false;
         draft.AddThemeConstantOverride("h_separation", EditorTheme.SpaceM);
         draft.AddThemeConstantOverride("v_separation", EditorTheme.SpaceXs);
         AddChild(draft);
@@ -89,6 +108,24 @@ public partial class MissionsPanel : EditorPanel
         _tree.NothingSelected += ShowDraftTitle;
         ShowDraftTitle();
         Context.ProjectChanged += _ => _update.Queue();
+        // Only the controls scroll when the dock is short. The mission tree always fills the remaining height.
+        var header = GetChildren().OfType<Control>().Where(c => c != content).ToList();
+        _headerScroll = new ScrollContainer { Name = "MissionControls", HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
+        _headerBody = new VBoxContainer { Name = "Rows", SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        AddChild(_headerScroll);
+        MoveChild(_headerScroll, 0);
+        _headerScroll.AddChild(_headerBody);
+        foreach (Control control in header) { RemoveChild(control); _headerBody.AddChild(control); }
+        Resized += FitHeader;
+        _headerBody.MinimumSizeChanged += FitHeader;
+        FitHeader();
+    }
+
+    private void FitHeader()
+    {
+        float height = Math.Min(_headerBody.GetCombinedMinimumSize().Y, Math.Max(EditorTheme.RowHeight, Size.Y * 0.5f));
+        if (Math.Abs(_headerScroll.CustomMinimumSize.Y - height) > 0.5f)
+            _headerScroll.CustomMinimumSize = new Vector2(0, height);
     }
 
     public override void Refresh() => _update.Queue();
@@ -96,9 +133,12 @@ public partial class MissionsPanel : EditorPanel
     private void Rebuild()
     {
         _tree.Clear();
+        _relationships.Clear();
         TreeItem root = _tree.CreateItem();
         MissionTree t = GameplayState.Instance.Missions;
-        bool empty = t.Missions.Count == 0 && t.Unlisted.Count == 0 && t.MatchSize.Count == 0;
+        if (_missionId is null && _objectiveId is null && t.Missions.Count == 1) SetMission(t.Missions[0].Id);
+        UpdateLinks();
+        bool empty = t.Missions.Count == 0 && t.Unlisted.Count == 0 && t.MatchSize.Count == 0 && !Context.Project.Actors.Any(MissionLinks.IsTrigger);
         _empty.Visible = empty;
         _tree.ColumnTitlesVisible = !empty;
         if (empty)
@@ -114,7 +154,8 @@ public partial class MissionsPanel : EditorPanel
         foreach (MissionNode m in t.Missions)
         {
             string chained = m.Chained ? ", chained" : "";
-            TreeItem mission = Row(root, m.Id, $"{m.ModeName}: {m.MinimumObjectives} of {PanelUi.Count(m.Completers, "objective")}{chained}", m.Id);
+            string required = m.MinimumObjectives == 0 ? "all" : m.MinimumObjectives.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            TreeItem mission = Row(root, Display(m.Id), $"{(m.GameMode == 5 ? "Story" : m.ModeName)}: {required} of {PanelUi.Count(m.Completers, "objective")}{chained}", m.Id);
             mission.SetIcon(0, PanelIcons.Type(Context.Project.FindActor(m.Id)?.Class ?? "SMission"));
             if (m.MinimumObjectives > m.Completers && m.Completers > 0)
             {
@@ -128,18 +169,25 @@ public partial class MissionsPanel : EditorPanel
 
             foreach (ObjectiveNode o in m.Objectives)
             {
-                TreeItem objective = Row(mission, o.Id, o.Name.Length > 0 ? o.Name : PanelUi.Count(o.Triggers.Count, "trigger"), o.Id);
-                if (o.Triggers.Count == 0)
+                TreeItem objective = Row(mission, Display(o.Id), PanelUi.Count(o.Triggers.Count, "device"), o.Id);
+                Relationship(objective, m.Id, "Objectives", o.Id, reorder: true);
+                if (Context.Project.FindActor(o.Id) is not { } objectiveActor)
+                {
+                    objective.SetIcon(1, PanelIcons.Severity(Severity.Error));
+                    objective.SetText(1, "Missing objective — unlink or replace it");
+                }
+                else if (o.Triggers.Count == 0 && !MatchPlan.IsMission(objectiveActor))
                 {
                     objective.SetIcon(1, PanelIcons.Severity(Severity.Warning));
-                    objective.SetText(1, "No trigger: it can never be completed");
-                    objective.SetTooltipText(1, objective.GetText(1));
+                    objective.SetText(1, "No devices linked");
+                    objective.SetTooltipText(1, "Add a new device, or right-click this objective and choose Link to devices.");
                 }
 
                 foreach (string trigger in o.Triggers)
                 {
                     bool missing = o.Missing.Contains(trigger, StringComparer.OrdinalIgnoreCase);
-                    TreeItem item = Row(objective, trigger, missing ? "Not in the map" : ClassOf(trigger), missing ? "" : trigger);
+                    TreeItem item = Row(objective, Display(trigger), missing ? "Not in the map" : ClassOf(trigger), missing ? "" : trigger);
+                    Relationship(item, o.Id, "Triggers", trigger);
                     if (missing)
                     {
                         item.SetIcon(0, PanelIcons.Severity(Severity.Error));
@@ -151,7 +199,8 @@ public partial class MissionsPanel : EditorPanel
 
             foreach (string trigger in m.Triggers)
             {
-                Row(mission, trigger, "Mission trigger · " + ClassOf(trigger), trigger);
+                TreeItem item = Row(mission, Display(trigger), "Mission device · " + ClassOf(trigger), trigger);
+                Relationship(item, m.Id, "Triggers", trigger);
             }
 
             OnComplete(mission, m.Id);
@@ -163,8 +212,23 @@ public partial class MissionsPanel : EditorPanel
             unlisted.SetIcon(0, PanelIcons.Severity(Severity.Warning));
             foreach (string id in t.Unlisted)
             {
-                Row(unlisted, id, ClassOf(id), id);
+                TreeItem objective = Row(unlisted, Display(id), ClassOf(id), id);
+                foreach (string trigger in MissionTree.Refs(Context.Project.FindActor(id)?.Props["Triggers"]))
+                {
+                    TreeItem item = Row(objective, Display(trigger), ClassOf(trigger), trigger);
+                    Relationship(item, id, "Triggers", trigger);
+                }
             }
+        }
+
+        var linked = Context.Project.Actors.Where(MissionLinks.IsObjective)
+            .SelectMany(a => MissionTree.Refs(a.Props["Triggers"])).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        List<Actor> unlinked = Context.Project.Actors.Where(a => MissionLinks.IsTrigger(a) && !linked.Contains(a.Id)).ToList();
+        if (unlinked.Count > 0)
+        {
+            TreeItem devices = Row(root, "Devices needing an objective", PanelUi.Count(unlinked.Count, "device"), "");
+            devices.SetIcon(0, PanelIcons.Severity(Severity.Warning));
+            foreach (Actor actor in unlinked) Row(devices, Display(actor.Id), ClassOf(actor.Id) + " · right-click to link", actor.Id);
         }
 
         TreeItem rules = Row(root, "Player-count rules", t.MatchSize.Count == 0 ? "None: every match plays the whole map" : "", "");
@@ -259,7 +323,36 @@ public partial class MissionsPanel : EditorPanel
         }
     }
 
-    private string ClassOf(string id) => Context.Project.FindActor(id)?.ShortClass ?? "";
+    private string ClassOf(string id) => Context.Project.FindActor(id) is { } actor ? ClassNames.Title(actor.Class) : "";
+
+    private string Display(string id) => Context.Project.FindActor(id) is { } a ? MissionLinks.Label(a) : id;
+
+    private void Relationship(TreeItem item, string parent, string property, string child, bool reorder = false)
+    {
+        _relationships[item.GetInstanceId()] = (parent, property, child);
+        if (reorder)
+        {
+            List<string> ids = MissionTree.Refs(Context.Project.FindActor(parent)?.Props[property]);
+            int index = ids.FindIndex(id => string.Equals(id, child, StringComparison.OrdinalIgnoreCase));
+            item.AddButton(1, Icons.Get("arrow-up", EditorTheme.TextDim), 1, index <= 0, "Move objective earlier (for chained missions)");
+            item.AddButton(1, Icons.Get("arrow-down", EditorTheme.TextDim), 2, index < 0 || index >= ids.Count - 1, "Move objective later (for chained missions)");
+        }
+        item.AddButton(1, Icons.Get("close", EditorTheme.TextDim), 0, false, "Unlink from this parent. Keeps the actor and its other links.");
+    }
+
+    private void EditRelationship(TreeItem item, int button)
+    {
+        if (!_relationships.TryGetValue(item.GetInstanceId(), out var link)) return;
+        try
+        {
+            var command = button == 0 ? MissionLinks.Remove(Context.Project, link.Parent, link.Property, link.Child)
+                : MissionLinks.Move(Context.Project, link.Parent, link.Child, button == 1 ? -1 : 1);
+            if (command is not null) Context.Execute(command);
+            if (button == 0 && link.Property == "Objectives" && link.Parent == _missionId && link.Child == _objectiveId)
+                SetMission(link.Parent);
+        }
+        catch (ArgumentException ex) { Context.SetStatus(ex.Message); }
+    }
 
     private TreeItem Row(TreeItem parent, string text, string detail, string actorId)
     {

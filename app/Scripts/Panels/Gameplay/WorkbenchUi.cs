@@ -16,6 +16,7 @@ internal static class WorkbenchUi
     public static Button Action(Control parent, string text, string tooltip, string actionId, EditorContext context)
     {
         Button b = PanelUi.Button(parent, text, tooltip, () => context.Run(actionId));
+        b.SetMeta("editor_action", actionId);
         Guard(b, () => context.FindAction(actionId)?.IsEnabled() ?? false);
         return b;
     }

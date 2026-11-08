@@ -30,7 +30,7 @@ public sealed partial class ShortcutRouter : Node, IShellPart
 
     public override void _ShortcutInput(InputEvent @event)
     {
-        if (Suspended || @event is not InputEventKey { Pressed: true } key)
+        if (Suspended || OpenScctEditor.Panels.MissionActorPicker.IsOpen || @event is not InputEventKey { Pressed: true } key)
         {
             return;
         }

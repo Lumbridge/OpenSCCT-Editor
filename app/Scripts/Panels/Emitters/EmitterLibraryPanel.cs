@@ -141,6 +141,7 @@ public partial class EmitterLibraryPanel : EditorPanel
                         _presets.FirstOrDefault(p => p.Id == previous.Id) is { } current &&
                         (ReferenceEquals(_draft, previous) || current.UnavailableReason != previous.UnavailableReason);
                     Fill(select ?? _selected?.Id, replace);
+                    CommandPalette.Instance?.RefreshDiscovery();
                 });
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)

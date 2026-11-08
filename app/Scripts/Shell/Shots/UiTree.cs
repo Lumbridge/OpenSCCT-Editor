@@ -84,7 +84,14 @@ public static class UiTree
             ("rect", RectJson(r)),
             ("text", string.IsNullOrEmpty(text) ? null : ApiJson.Str(text)),
             ("tooltip", string.IsNullOrEmpty(c.TooltipText) ? null : ApiJson.Str(c.TooltipText)),
-            ("action", c is ActionButton ab ? ApiJson.Str(ab.ActionId) : null),
+            ("action", DiscoveryNavigation.ActionId(c) is { } actionId ? ApiJson.Str(actionId) : null),
+            ("highlightTarget", c is NavigationHighlight highlight && highlight.TargetPath is { } target ? ApiJson.Str(target) : null),
+            ("highlightRect", c is NavigationHighlight { Active: true } rectHighlight ? RectJson(rectHighlight.TargetRect) : null),
+            ("tutorial", c is TutorialRunner { LessonId: { } lessonId } ? ApiJson.Str(lessonId) : null),
+            ("tutorialStep", c is TutorialRunner tutorialStep ? SvJsonNode.Integer(tutorialStep.StepIndex) : null),
+            ("paletteSelected", c is CommandPalette { SelectedResultKey: { } selectedKey } ? ApiJson.Str(selectedKey) : null),
+            ("paletteResults", c is CommandPalette palette ? ApiJson.Arr(palette.Results.Select(e => ApiJson.Obj(
+                ("key", ApiJson.Str(e.Key)), ("title", ApiJson.Str(e.Title)), ("kind", ApiJson.Str(e.Kind)), ("enabled", ApiJson.Bool(e.Available))))) : null),
             ("pressed", c is BaseButton { ToggleMode: true } t ? ApiJson.Bool(t.ButtonPressed) : null),
             ("disabled", c is BaseButton { Disabled: true } ? ApiJson.Bool(true) : null),
             ("focused", c.HasFocus() ? ApiJson.Bool(true) : null),
@@ -163,7 +170,7 @@ public static class UiTree
         string value = colon > 0 ? s[(colon + 1)..] : s;
         Rect2? found = kind switch
         {
-            "action" => Visible(root).OfType<ActionButton>().FirstOrDefault(b => b.ActionId == value) is { } b ? RectInRoot(b) : null,
+            "action" => Visible(root).FirstOrDefault(b => DiscoveryNavigation.ActionId(b) == value) is { } b ? RectInRoot(b) : null,
             "tab" => TabRect(root, value),
             "dock" => DockOf(root, value) is { } dock ? RectInRoot(dock) : null,
             "menu" => MenuTitleRect(root, value),
