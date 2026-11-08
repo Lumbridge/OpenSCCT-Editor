@@ -171,8 +171,9 @@ var expanded = WindowGeometry.Expand(gallery); Check(gallery.Brushes.Count == 1 
 Check(WindowGeometry.Expand(expanded).Brushes.Count == expanded.Brushes.Count, "Window lowering is idempotent");
 var windowFindings = new OpenScct.Editor.Core.Validation.MapChecker().Check(gallery, new CheckOptions { Only = ["window."] });
 Check(!windowFindings.Any(f => f.Severity == Severity.Error), "Window Map Check accepts the gallery");
-var native = new OpenScct.Editor.Core.Interop.Sdc.SdcExporter().Export(gallery, Path.Combine(root, "Unsupported.sdc"), new ExportOptions());
-Check(!native.Ok && !File.Exists(Path.Combine(root, "Unsupported.sdc")), "Original export rejects unsupported windows before writing");
+var originalFindings = new OpenScct.Editor.Core.Validation.MapChecker().Check(gallery, new CheckOptions { Only = ["window."], Target = TargetGame.Original });
+Check(!originalFindings.Any(f => f.Severity == Severity.Error) && originalFindings.Count(f => f.Code == "window.originalFallback") == 18,
+    "Original Map Check explains the automatic SDC window fallback without blocking valid windows");
 Console.WriteLine("Building sample map…");
 var compiled = new MapCompiler().Compile(gallery, Path.Combine(root, "WindowTest"), new CompileOptions { FastLighting = true, ProjectFolder = save });
 Check(compiled.Ok, "Compile sample: " + string.Join(';', compiled.Findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));

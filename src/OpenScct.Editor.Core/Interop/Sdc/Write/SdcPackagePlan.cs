@@ -1838,7 +1838,8 @@ internal sealed class SdcPackagePlan
     {
         if (_unresolved.Add(what) && _unresolved.Count <= 50)
         {
-            _findings.Add(Finding.Warning("sdc.unresolved", $"{what} is not in the map or the install: the reference is written as None"));
+            _findings.Add(Finding.Warning("sdc.unresolved", $"{what} is not in the map or the install: the reference is written as None. "
+                + "Use an asset from the selected original-game install, restore the missing source package, or export custom assets through the original-editor export folder."));
         }
 
         return 0;

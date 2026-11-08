@@ -229,6 +229,11 @@ public sealed class Documents : IShellPart
                 _ctx.Log(result.Ok
                     ? $"Exported {exporter.Name}: {(exporter.WritesFolder ? $"{result.Files.Count} files in {path}" : string.Join(", ", result.Files))}"
                     : $"Export {exporter.Name} failed ({result.Findings.Count} findings)", result.Ok ? Severity.Info : Severity.Error);
+                if (exporter.Name == "sdc")
+                {
+                    _ctx.SetStatus(OpenScct.Editor.Core.Interop.Sdc.SdcExportReport.Summary(result));
+                    SdcExportDialog.Show(result, ReferenceEquals(session, _ctx.Session));
+                }
             });
         }
 

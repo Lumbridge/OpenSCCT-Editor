@@ -161,6 +161,8 @@ public partial class MapCheckPanel : EditorPanel
             item.SetIcon(0, PanelIcons.Severity(f.Severity));
             item.SetText(0, f.Code);
             item.SetText(1, PanelUi.Sentence(f.Message));
+            if (OpenScct.Editor.Core.Interop.Sdc.SdcExportReport.RequiresAction(f))
+                item.SetCustomFont(1, EditorTheme.UiFontSemibold);
             // Messages are the point of the list: in a narrow bottom dock they wrap rather than lose their end.
             item.SetAutowrapMode(1, TextServer.AutowrapMode.WordSmart);
             item.SetTooltipText(1, f.Fix is { } fix ? $"{f.Message}\nFix: {fix.Label}" : f.Message);
