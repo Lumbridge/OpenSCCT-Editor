@@ -40,7 +40,7 @@ public static class MoverLegsJson
         return keys;
     }
 
-    /// <summary>Reads the stored keys loosely (a time on key 0 or out of range is dropped, keys past 8 too), so a
+    /// <summary>Reads the stored keys loosely (a time on key 0 or out of range is dropped, keys past the native resource guard too), so a
     /// hand-edited project still opens; null when nothing is set.</summary>
     public static MoverLegs? FromJson(SvJsonNode? node)
     {
@@ -50,7 +50,7 @@ public static class MoverLegsJson
         }
 
         var keys = new List<MoverKeyTiming>();
-        foreach (SvJsonNode item in list.Take(MoverK.MaxKeys))
+        foreach (SvJsonNode item in list.Take(MoverPath.MaxKeys))
         {
             SvJsonObject? o = item as SvJsonObject;
             double seconds = o?["time"] is SvJsonNumber t ? ModelJson.Num(t) : 0;

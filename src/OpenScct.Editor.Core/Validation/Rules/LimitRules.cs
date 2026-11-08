@@ -22,7 +22,7 @@ internal sealed class LimitRules : MapRule
     [
         new(MapName, Severity.Error, $"The map id is not {Limits.MapNameLength} ASCII letters or digits (4 plus the mode letter)") { OriginalOnly = true },
         new(Zones, Severity.Error, $"More than {Limits.MaxZones} zones (ZoneInfo actors plus the default zone)"),
-        new(MoverKeys, Severity.Error, $"A mover with more than {Limits.MaxMoverKeys} keys"),
+        new(MoverKeys, Severity.Error, $"Original-game export supports at most {Limits.MaxMoverKeys} mover stops") { OriginalOnly = true },
         new(TriggerLights, Severity.Warning, $"More than {Limits.TriggerLightWarning} in-game lights (STriggerLight); the raised cap is {Limits.TriggerLightCap}"),
         new(BspPolys, Severity.Error, $"More than {Limits.BspNodes} world polygons after CSG: the BSP cannot index them") { OriginalOnly = true },
         new(Ascii, Severity.Error, "A non-ASCII id, Tag, Event or material name") { OriginalOnly = true },
@@ -45,7 +45,7 @@ internal sealed class LimitRules : MapRule
         foreach (Actor a in p.Actors.Where(a => c.IsA(a, "Engine.Mover")))
         {
             int keys = Math.Max(c.Int(a, "NumKeys"), Math.Max(MaxElement(a.Props["KeyPos"]), MaxElement(a.Props["KeyRot"])) + 1);
-            if (keys > Limits.MaxMoverKeys)
+            if (c.Original && keys > Limits.MaxMoverKeys)
             {
                 c.Report(c.ForTarget(Severity.Warning), MoverKeys, $"{a.Id} has {keys} keys; movers have at most {Limits.MaxMoverKeys}", a.Location,
                     ObjectRef.Actor(a.Id));

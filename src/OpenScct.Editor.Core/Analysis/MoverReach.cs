@@ -84,9 +84,9 @@ public sealed class MapMover
     public string? Lift { get; }
 
     /// <summary>The offset of key <paramref name="k"/> from where the mover starts.</summary>
-    public FVector KeyOffset(int k) => Actor.KeyPos[k] - Actor.KeyPos[Math.Min(Actor.KeyNum, (byte)(Keys - 1))];
+    public FVector KeyOffset(int k) => Actor.KeyPosition(k) - Actor.KeyPosition(Math.Min(Actor.CurrentKey, Keys - 1));
 
-    public int Keys => Math.Clamp((int)Actor.NumKeys, 1, Actor.KeyPos.Length);
+    public int Keys => Actor.KeyCount;
 }
 
 /// <summary>

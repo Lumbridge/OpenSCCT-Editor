@@ -25,7 +25,7 @@ internal static class GameplayWorkbenchCommands
         new("mover", "mover <project> <id> [--keys x,y,z[/p,y,r];...] [--add-key true|x,y,z] [--delete-key n] [--start-key n] [--move-time s] " +
             "[--stay-open-time s] [--delay-time s] [--delay-time-last-key s] [--other-time s] [--eased true|false] [--legs key:time[:ease];...] " +
             "[--state S] [--show-key n] " + Edits,
-            "A mover's keys (offsets from its base, 1 to 8: the game's arrays hold 8), times, glide, start key and state. --legs gives " +
+            "A mover's keys (offsets from its base, up to 65,536 native stops; original-game exports allow eight), times, glide, start key and state. --legs gives " +
             "keys their own timing (OpenSCCT): the leg from the key before in seconds (mover: its MoveTime; empty: unchanged) and the " +
             "easing at the key (smooth, speed, mover: its glide; empty: unchanged), e.g. 1:4:smooth;2:0.5. With no edit options, prints " +
             "its keys, one activation's timeline with the time each key is reached, and what triggers it.",

@@ -75,6 +75,7 @@ public sealed partial class RenderBuild
         }
 
         r.AddMeshActors();
+        r.AddBrushMovers();
         r.AddConveyors();
         r.WriteEmitters(baked);
         r.Finish(baked);

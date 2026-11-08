@@ -79,6 +79,9 @@ public sealed class T3dExporter : IMapExporter
     /// <see cref="ExportResult.Ok"/> is false then.</summary>
     public ExportResult Export(MapProject project, string path, ExportOptions options)
     {
+        if (project.Actors.Any(a => MoverBase.IsMover(a) && OpenScct.Editor.Core.Gameplay.MoverSetup.Read(a).Keys.Count > 8))
+            return new ExportResult(false, [], [Finding.Error("mover.original-limit", "Original-game export supports eight mover stops. Build this map for OpenSCCT to keep the complete paths.")]);
+
         try
         {
             project = GeGeometry.Expand(project);

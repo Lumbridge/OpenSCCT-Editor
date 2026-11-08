@@ -1,0 +1,117 @@
+[
+  {
+    "op": "size",
+    "w": 1600,
+    "h": 1000
+  },
+  {
+    "op": "run",
+    "action": "gameplay.mover.create.platform"
+  },
+  {
+    "op": "select",
+    "class": "Engine.Mover",
+    "frame": true
+  },
+  {
+    "op": "tab",
+    "panel": "Mover"
+  },
+  {
+    "op": "render",
+    "mode": "unlit"
+  },
+  {
+    "op": "wait",
+    "frames": 10
+  },
+  {
+    "op": "click",
+    "at": "text:Edit in view"
+  },
+  {
+    "op": "shot",
+    "name": "platform-workflow",
+    "crop": "tab:Mover",
+    "views": true
+  },
+  {
+    "op": "click",
+    "at": "text:Extend path"
+  },
+  {
+    "op": "shot",
+    "name": "edit-stop",
+    "crop": "tab:Mover"
+  },
+  {
+    "op": "run",
+    "action": "edit.undo"
+  },
+  {
+    "op": "shot",
+    "name": "undo-extension"
+  },
+  {
+    "op": "run",
+    "action": "edit.redo"
+  },
+  {
+    "op": "run",
+    "action": "gameplay.mover.play"
+  },
+  {
+    "op": "wait",
+    "seconds": 1
+  },
+  {
+    "op": "shot",
+    "name": "motion-preview",
+    "crop": "tab:Mover",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "gameplay.mover.stopPreview"
+  },
+  {
+    "op": "open",
+    "path": "local/mover-checks/MoverWorkshop.osmap"
+  },
+  {
+    "op": "select",
+    "ids": [
+      "Platform0"
+    ],
+    "frame": true
+  },
+  {
+    "op": "tab",
+    "panel": "Mover"
+  },
+  {
+    "op": "shot",
+    "name": "long-path",
+    "views": true
+  },
+  {
+    "op": "size",
+    "w": 1280,
+    "h": 720
+  },
+  {
+    "op": "shot",
+    "name": "compact-long-path"
+  },
+  {
+    "op": "scale",
+    "factor": 1.5
+  },
+  {
+    "op": "shot",
+    "name": "scaled-long-path"
+  },
+  {
+    "op": "quit"
+  }
+]

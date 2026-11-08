@@ -61,7 +61,7 @@ public static class MoverBase
         }
 
         int start = a.Props["KeyNum"] is SvJsonNumber n ? (int)PropValues.Num(n) : 0;
-        int count = Math.Clamp(a.Props["NumKeys"] is SvJsonNumber k ? (int)PropValues.Num(k) : 2, 1, 8);
+        int count = Math.Clamp(a.Props["NumKeys"] is SvJsonNumber k ? (int)PropValues.Num(k) : 2, 1, OpenScct.Core.Engine.MoverPath.MaxKeys);
         bool At(int i)
         {
             Vec3 offset = PropValues.TryVector(Element(a.Props["KeyPos"], i), out Vec3 v) ? v : Vec3.Zero;
@@ -70,7 +70,7 @@ public static class MoverBase
                 && a.Rotation.Tidy() == new Rot(baseRot.Pitch + turn.Pitch, baseRot.Yaw + turn.Yaw, baseRot.Roll + turn.Roll).Tidy();
         }
 
-        if (a.Editor.MoverKey is int shown && shown != start && shown < count && At(shown))
+        if (a.Editor.MoverKey is int shown && shown >= 0 && shown < count && At(shown))
         {
             return shown;
         }
@@ -171,7 +171,8 @@ public static class MoverBase
     private static SvJsonObject WithElement(SvJsonNode? node, int i, SvJsonNode value)
     {
         var elements = new SvJsonObject();
-        for (int k = 0; k < 8; k++)
+        int count = Math.Max(i + 1, node is SvJsonArray a ? a.Count : node is SvJsonObject obj && obj["$elements"] is SvJsonObject es ? es.Select(kv => int.TryParse(kv.Key, out int n) ? n + 1 : 0).DefaultIfEmpty(0).Max() : 0);
+        for (int k = 0; k < Math.Min(count, OpenScct.Core.Engine.MoverPath.MaxKeys); k++)
         {
             if ((k == i ? value : Element(node, k)) is { } item)
             {

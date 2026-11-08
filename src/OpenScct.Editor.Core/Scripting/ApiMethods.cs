@@ -59,7 +59,7 @@ public static class ApiMethods
         "id|ids|where, pivot, rotDeg (the way the group faces), title, summary, to: project|library, overwrite, link, as} " +
         "(the file is written when the document commits).\n" +
         "GAMEPLAY WORKBENCHES (queries mover, magic, camnets, propsets, tips, zone, modes show the same): mover {id, keys: " +
-        "[{at: offset from base, rot}] (1 to 8), addKey: true|POINT, deleteKey, startKey, moveTime, stayOpenTime, delayTime, " +
+        "[{at: offset from base, rot}] (up to 65,536 native stops), addKey: true|POINT, deleteKey, startKey, moveTime, stayOpenTime, delayTime, " +
         "delayTimeLastKey, otherTime (seconds), eased, state (InitialState), showKey (draw it at a key: a later move/rotate of " +
         "the mover places that key)}; magic {id (new when absent or a new $symbol: at, " +
         "tag), groups: [{actions: [{event, delay, type: trigger|untrigger|triggerUntrigger|untriggerTrigger, on}], repeat, " +

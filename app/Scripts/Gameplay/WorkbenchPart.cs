@@ -102,7 +102,7 @@ public sealed class WorkbenchPart : IShellPart
             Shortcut = shortcut,
         });
 
-    /// <summary>Runs a workbench edit, reporting a refusal (an invalid value, the 8-key limit...) on the status line.</summary>
+    /// <summary>Runs a workbench edit, reporting a refusal (an invalid value, an invalid path...) on the status line.</summary>
     private bool Run(Func<IEditCommand> edit, string done)
     {
         try
@@ -133,7 +133,7 @@ public sealed class WorkbenchPart : IShellPart
     {
         const string Menu = "Gameplay/Movers";
         Add("gameplay.mover.addKey", "Add Key", Menu, () => Run(() => MoverEdits.AddKey(_ctx.Project, Mover!.Id), $"Added a key to {Mover!.Id}"), 10,
-            "Adds a key one leg further along the selected mover's last leg (8 keys at most: the game's arrays hold 8)",
+            "Adds a key one leg further along the selected mover's last leg (native OpenSCCT paths can exceed eight stops)",
             () => Mover is { } m && MoverSetup.Read(m).Keys.Count < MoverSetup.MaxKeys);
         Add("gameplay.mover.addKeyHere", "Add Key at View Centre", Menu,
             () => Run(() => MoverEdits.AddKey(_ctx.Project, Mover!.Id, _ctx.PlacementPoint?.Invoke()), $"Added a key to {Mover!.Id}"), 20,

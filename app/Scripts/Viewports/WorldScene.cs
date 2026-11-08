@@ -1060,6 +1060,19 @@ public sealed partial class WorldScene : Node3D
             }, () => e.Source is Actor current && Sky?.Contains(current.Location) == true);
         }
 
+        if (MoverBase.IsMover(a) && a.Shape is not null && PropValues.AssetPath(a.Props["StaticMesh"]) is null)
+        {
+            var brush = new Brush(a.Id) { Shape = a.Shape, Oper = CsgOper.Add, Rotation = a.Rotation,
+                PrePivot = a.PrePivot, MainScale = a.DrawScale3D * a.DrawScale };
+            var textured = new TexturedSurfaces();
+            textured.Add(CsgBrush.Prepare(brush, 0).Faces.Select(WorldPreview.ToPreview));
+            if (textured.Build() is { } built)
+            {
+                e.Root.AddChild(TexturedSurfaces.Instance(built.Mesh, built.Materials, false, VisualLayers.Unlit));
+                e.Root.AddChild(TexturedSurfaces.Instance(built.Mesh, built.Materials, true, VisualLayers.Lit));
+            }
+        }
+
         if (ConveyorDesign.Is(a))
         {
             ConveyorLook.Attach(e.Root, a, p);

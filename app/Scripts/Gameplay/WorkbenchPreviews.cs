@@ -95,7 +95,7 @@ public static class MoverGhosts
 
         MoverSetup m = MoverSetup.Read(mover);
         int drawnAt = MoverEdits.ShownKey(mover) ?? m.StartKey;
-        scene.ShowGhosts(mover, Enumerable.Range(0, m.Keys.Count).Where(i => i != drawnAt).Select(i => (m.KeyPose(i).Location, m.KeyPose(i).Rotation)), Ghost);
+        scene.ShowGhosts(mover, Enumerable.Range(0, m.Keys.Count).Where(i => i != drawnAt && (Math.Abs(i - drawnAt) <= 8 || i == m.StartKey || i == m.OpenKey)).Select(i => (m.KeyPose(i).Location, m.KeyPose(i).Rotation)), Ghost);
     }
 }
 

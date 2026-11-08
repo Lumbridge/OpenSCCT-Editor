@@ -17,6 +17,26 @@ public static class MoverLegsBuild
     {
         // A baked source's own file came along with it; the project's movers replace it.
         ctx.Files.Remove(MoversDoc.RelativePath);
+        ctx.Files.Remove(MoverPathsDoc.RelativePath);
+        var paths = new List<(string, MoverPath)>();
+        foreach (Actor a in ctx.Project.Actors.Where(a => MoverBase.IsMover(a) && ctx.GameplayIds.Contains(a.Id)))
+        {
+            double count = Gameplay.ClassDefaults.Number(a, "NumKeys", 2);
+            if (count < 1 || count > MoverSetup.MaxKeys || count != Math.Truncate(count))
+            {
+                ctx.Error("mover.path-size", $"{a.Id}: a mover needs 1 to {MoverSetup.MaxKeys} stops", ObjectRef.Actor(a.Id));
+                continue;
+            }
+            MoverSetup m = MoverSetup.Read(a);
+            if (m.Keys.Count > MoverSetup.OriginalMaxKeys)
+                paths.Add((a.Id, new MoverPath(m.Keys.Select(k => new MoverPathKey(new((float)k.Offset.X, (float)k.Offset.Y, (float)k.Offset.Z),
+                    new(k.Turn.Pitch, k.Turn.Yaw, k.Turn.Roll))).ToArray(), m.StartKey)));
+        }
+        if (paths.Count > 0)
+        {
+            ctx.Files[MoverPathsDoc.RelativePath] = CanonicalJson.ToFileBytes(MoverPathsDoc.ToJson(paths));
+            ctx.Count("movers.paths", paths.Count);
+        }
         var movers = new List<(string, MoverLegs)>();
         foreach (Actor a in ctx.Project.Actors)
         {

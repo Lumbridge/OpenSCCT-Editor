@@ -167,7 +167,7 @@ drawn belts, RE+'s centring push, item offsets and yaw spread, and items turning
 checking the RE+ export by importing it), translating the rest of a map's texts
 (the briefing explanations `ExpliMapInBrief*`, the per-mode strings and the actor strings, which OpenSCCT reads from
 `ui/text` but only the first two of which it applies; a Texts panel with CSV export and import), the EXIF orientation of JPEG photos, more set-pieces (lifts, rotors,
-switches...), Add Mover from the CSG menu, the event preview playing receivers other than relays, movers and trigger
+switches...), the event preview playing receivers other than relays, movers and trigger
 lights (gameplay objects, objectives, sounds and emitters are listed, not played) and playing untriggers and repeat
 triggers on movers (it draws one activation from the latest trigger), and fading the overlays' labels and
 icons of actors a match leaves out (the views fade their drawn shapes).
@@ -269,3 +269,5 @@ Suggested order, smallest useful steps first:
 
 1. Events that change the map in reachability (walls that events break, triggers that switch GEs).
 2. The faithful lit viewport and the rest of M6 (the lightmapper is in).
+
+Mover workflow: see [MOVERS.md](MOVERS.md). Native paths remove the eight-stop authoring cap; the original-game exporters keep their compatibility limit.

@@ -101,6 +101,14 @@ public static class SvMapImport
         AddGes(map, root, p);
         AddMatch(map.Match, p, findings);
         AddMoverLegs(map, p, findings);
+        if (map.MoverPaths is { } paths)
+            foreach (var (moverId, path) in paths)
+                if (p.FindActor(moverId) is { } a)
+                {
+                    var keys = path.Keys.Select(k => new Gameplay.MoverKey(new(k.Offset.X, k.Offset.Y, k.Offset.Z), new(k.Turn.Pitch, k.Turn.Yaw, k.Turn.Roll))).ToList();
+                    Gameplay.MoverEdits.SetKeys(p, moverId, keys, startKey: path.Start).Do(p);
+                }
+
         p.Outfits = SourceOutfits(root, findings);
 
         var extra = new SvJsonObject();

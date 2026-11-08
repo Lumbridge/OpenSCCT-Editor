@@ -24,7 +24,7 @@ public static partial class ChangeApplier
     private static string[] TipKeys => ["id", "at", "spy", "merc", "radius", "height", "marker", "mesh", "endsGame", "onlyWithHelp", "stay", "endGameDelay"];
 
     /// <summary>mover: edits one mover. <c>keys</c> replaces the keys (<c>[{"at":[x,y,z],"rot":[p,y,r]}]</c>, offsets
-    /// from the base, 1 to 8); <c>addKey</c> true or a world point; <c>deleteKey</c> an index; then start key, times
+    /// from the base, up to 65,536 stops); <c>addKey</c> true or a world point; <c>deleteKey</c> an index; then start key, times
     /// (seconds), <c>eased</c>, <c>legs</c> (each key's own timing, <c>[{"key":2,"time":0.5,"smooth":false}]</c>: the
     /// leg from the key before in seconds and the easing at the key, null for the mover's own) and <c>state</c>
     /// (InitialState); last <c>showKey</c> draws it at a key, so a following <c>move</c> or <c>rotate</c> of the mover

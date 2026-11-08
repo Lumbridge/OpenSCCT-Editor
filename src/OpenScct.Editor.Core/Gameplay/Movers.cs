@@ -48,12 +48,13 @@ public enum MoverCycle
 /// each leg taking <c>MoveTime</c>, at constant speed (<c>MV_MoveByTime</c>) or eased with 3a^2 - 2a^3
 /// (<c>MV_GlideByTime</c>), unless the map gives a leg its own time or a key its own easing (<see cref="Legs"/>,
 /// OpenSCCT's spec/additions/mover-legs.md). "Open" is toward the last key (<c>NumKeys - 1</c>), "closed" is key 0, and it starts the
-/// game at <c>KeyNum</c>. The game has room for 8 keys (<c>KeyPos[8]</c>), in OpenSCCT and in the original alike.
+/// game at <c>KeyNum</c>. OpenSCCT paths grow independently of the original game's eight fixed keys.
 /// </summary>
 public sealed class MoverSetup
 {
-    /// <summary>The most keys a mover can have (the size of the game's KeyPos and KeyRot arrays).</summary>
-    public const int MaxKeys = 8;
+    /// <summary>The native path resource guard; original-game exports keep OriginalMaxKeys.</summary>
+    public const int MaxKeys = MoverPath.MaxKeys;
+    public const int OriginalMaxKeys = MoverK.MaxKeys;
 
     public static readonly IReadOnlyList<MoverState> States =
     [
@@ -458,7 +459,7 @@ public sealed record MoverTriggers(IReadOnlyList<GameplayLink> Senders, IReadOnl
 /// </summary>
 public static class MoverEdits
 {
-    /// <summary>Replaces the keys (1 to 8). The start key becomes <paramref name="startKey"/> when given, else it is
+    /// <summary>Replaces the native path stops. The start key becomes <paramref name="startKey"/> when given, else it is
     /// kept, clamped to the new count. The keys' own timing stays with the key numbers unless
     /// <paramref name="legs"/> rearranges it; it is cut to the new count.</summary>
     public static ReplaceObjectsCommand SetKeys(MapProject p, string id, IReadOnlyList<MoverKey> keys, string name = "Edit mover keys", int? startKey = null,
@@ -466,7 +467,7 @@ public static class MoverEdits
     {
         if (keys.Count is < 1 or > MoverSetup.MaxKeys)
         {
-            throw new ArgumentException($"a mover has 1 to {MoverSetup.MaxKeys} keys (the game's KeyPos array holds {MoverSetup.MaxKeys})");
+            throw new ArgumentException($"a mover has 1 to {MoverSetup.MaxKeys} keys (OpenSCCT path resource limit)");
         }
 
         return Edit(p, id, name, a =>
@@ -500,6 +501,19 @@ public static class MoverEdits
                     2 * last.Turn.Yaw - m.Keys[^2].Turn.Yaw, 2 * last.Turn.Roll - m.Keys[^2].Turn.Roll))
                 : new MoverKey(last.Offset + new Vec3(0, 0, 128), last.Turn);
         return SetKeys(p, id, [.. m.Keys, next], $"Add key {m.Keys.Count} to {id}");
+    }
+
+    public static ReplaceObjectsCommand InsertKey(MapProject p, string id, int after, Vec3? at = null)
+    {
+        var m = Read(p, id); CheckIndex(m, after);
+        var keys = m.Keys.ToList();
+        var next = at is { } point ? m.Keys[after] with { Offset = point - m.BasePos } : m.Keys[after];
+        keys.Insert(after + 1, next);
+        return SetKeys(p, id, keys, "Insert mover stop", m.StartKey > after ? m.StartKey + 1 : m.StartKey, legs: timings =>
+        {
+            while (timings.Count < after + 1) timings.Add(default);
+            timings.Insert(after + 1, default); return timings;
+        });
     }
 
     /// <summary>Removes a key; the later keys move down one and the start key stays on the same key (on the key that
@@ -563,7 +577,7 @@ public static class MoverEdits
     public static ReplaceObjectsCommand SetStartKey(MapProject p, string id, int index)
     {
         CheckIndex(Read(p, id), index);
-        return Edit(p, id, $"Start {id} at key {index}", a => WriteStartKey(a, index));
+        return Edit(p, id, $"Start {id} at key {index}", a => WriteStartKey(a, index), keepShown: false);
     }
 
     /// <summary>
@@ -582,6 +596,14 @@ public static class MoverEdits
             a.Rotation = pose.Rotation;
             a.Editor.MoverKey = index == m.StartKey ? null : index;
         }, followBase: false);
+    }
+
+    /// <summary>Explicitly edit any stop in the viewport, including the round's starting stop.</summary>
+    public static ReplaceObjectsCommand EditKey(MapProject p, string id, int index)
+    {
+        var m = Read(p, id); CheckIndex(m, index); var pose = m.KeyPose(index);
+        return ReplaceObjectsCommand.Edit(p, [ObjectRef.Actor(id)], "Edit mover stop " + (index + 1), actor: a =>
+        { a.Location = pose.Location; a.Rotation = pose.Rotation; a.Editor.MoverKey = index; }, followBase: false);
     }
 
     /// <summary>The key a mover is drawn at, when that is not its start key (it is being placed in the views).</summary>
@@ -708,7 +730,7 @@ public static class MoverEdits
     }
 
     /// <summary>An edit of one mover that ends with the mover at its start key's pose (the base never moves).</summary>
-    private static ReplaceObjectsCommand Edit(MapProject p, string id, string name, Action<Actor> edit, string? mergeKey = null)
+    private static ReplaceObjectsCommand Edit(MapProject p, string id, string name, Action<Actor> edit, string? mergeKey = null, bool keepShown = true)
     {
         if (p.FindActor(id) is not { } mover || !MoverBase.IsMover(mover))
         {
@@ -717,12 +739,14 @@ public static class MoverEdits
 
         return ReplaceObjectsCommand.Edit(p, [ObjectRef.Actor(id)], name, actor: a =>
         {
+            int? shown = keepShown ? MoverBase.ShownKey(a) : null;
             edit(a);
             MoverSetup m = MoverSetup.Read(a);
-            MoverPose start = m.KeyPose(m.StartKey);
+            int draw = shown is { } key ? Math.Clamp(key, 0, m.Keys.Count - 1) : m.StartKey;
+            MoverPose start = m.KeyPose(draw);
             a.Location = start.Location;
             a.Rotation = start.Rotation;
-            a.Editor.MoverKey = null;
+            a.Editor.MoverKey = shown is null ? null : draw;
         }, mergeKey: mergeKey, followBase: false);
     }
 
@@ -759,7 +783,7 @@ public static class MoverTiming
     /// <summary>The timing cut to <paramref name="keyCount"/> keys, with no time on key 0.</summary>
     public static MoverLegs? Fit(IReadOnlyList<MoverKeyTiming> keys, int keyCount)
     {
-        List<MoverKeyTiming> kept = [.. keys.Take(Math.Min(keyCount, MoverK.MaxKeys))];
+        List<MoverKeyTiming> kept = [.. keys.Take(Math.Min(keyCount, MoverPath.MaxKeys))];
         if (kept.Count > 0)
         {
             kept[0] = kept[0] with { Time = null };

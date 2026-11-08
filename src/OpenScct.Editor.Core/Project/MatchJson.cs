@@ -12,7 +12,7 @@ namespace OpenScct.Editor.Core.Project;
 public static class MatchJson
 {
     /// <summary>The keys a state may name: a mover has at most 8 (Engine.Mover KeyPos[8]).</summary>
-    public const int MostKeys = OpenScct.Core.Engine.MoverK.MaxKeys;
+    public const int MostKeys = OpenScct.Core.Engine.MoverPath.MaxKeys;
 
     public static SvJsonObject ToJson(ActorMatch m)
     {

@@ -1357,3 +1357,7 @@ Projects containing an actor's typed `window` design use `format: "osmap/3"` and
 The optional record in `world/actors.json` stores shape/dimensions or a detected outline, frame and cut settings,
 finish/tint/materials, and optional source-frame bindings. Generated glass meshes and permanent frame/cut brushes
 are derived for previews and builds. They are not additional authored objects. See [Windows and glass](WINDOWS.md).
+
+### Native mover paths
+
+Mover KeyPos/KeyRot and NumKeys retain the complete native path, up to 65,536 stops. Builds with more than eight stops write `sim/mover-paths.json` (`svm.mover-paths/1`) with all relative poses and the start index; the gameplay UC properties retain only an eight-key compatibility subset. The native path is authoritative on updated OpenSCCT servers and clients. SVMap import restores it. Original-game file exports refuse longer paths before writing. See [MOVERS.md](MOVERS.md).

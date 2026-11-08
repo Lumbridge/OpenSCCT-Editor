@@ -114,10 +114,10 @@ public sealed class MoverOverlay : IViewOverlay
                     batch.Arrow(m.KeyPose(i - 1).Location, at, col, selected ? 2 : 1, dashed: !selected);
                 }
 
-                if (selected)
+                if (selected && (m.Keys.Count <= 64 || i % Math.Max(1, m.Keys.Count / 32) == 0 || i == m.StartKey || i == m.OpenKey || i == a.Editor.MoverKey))
                 {
                     string when = reached[i] is { } t ? $" at {t:0.##} s" : "";
-                    batch.Label(at, $"Key {i}{(i == m.StartKey ? " (start)" : "")}{(i == m.OpenKey ? " (last)" : "")}{when}", col, pinned: true);
+                    batch.Label(at, $"Stop {i + 1}{(i == m.StartKey ? " (start)" : "")}{(i == m.OpenKey ? " (last)" : "")}{when}", col, pinned: true);
                 }
             }
         }

@@ -187,6 +187,20 @@ public static class GameplayBuild
             props.Remove(key);
         }
 
+        if (MoverBase.IsMover(a) && Gameplay.MoverSetup.Read(a).Keys.Count > Gameplay.MoverSetup.OriginalMaxKeys)
+        {
+            var m = Gameplay.MoverSetup.Read(a);
+            props.Set("NumKeys", SvJsonNode.Integer(Gameplay.MoverSetup.OriginalMaxKeys));
+            props.Set("KeyNum", SvJsonNode.Integer(Math.Min(m.StartKey, Gameplay.MoverSetup.OriginalMaxKeys - 1)));
+            foreach (string property in new[] { "KeyPos", "KeyRot" })
+            {
+                var elements = new SvJsonObject();
+                foreach (var pair in Gameplay.MoverSetup.Elements(a.Props[property]).Where(kv => kv.Key < Gameplay.MoverSetup.OriginalMaxKeys))
+                    elements.Add(pair.Key.ToString(System.Globalization.CultureInfo.InvariantCulture), pair.Value);
+                if (elements.Count == 0) props.Remove(property);
+                else { var sparse = new SvJsonObject(); sparse.Add("$elements", elements); props.Set(property, sparse); }
+            }
+        }
         props.Set("Location", PropValues.Vector(a.Location));
         if (a.Rotation != default)
         {
