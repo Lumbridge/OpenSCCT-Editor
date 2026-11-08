@@ -95,7 +95,10 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   mover, SMagicEvent, camera network, property set, zone action and zone tip workbenches; player-count rules, map
   outfits and native conveyors; the map's name, dossier, places, pictures and translations.
   **Link missions & objectives** in Building or Inspector opens the Missions panel in either workspace. Choose a
-  mission by name, use **Add objectives…** to check several existing objectives, then choose an objective and
+  mission while an objective or its device is selected to link that objective; choose an objective while devices
+  are selected to link them. Without a compatible selection, the choosers just change the viewed target. Existing
+  links are preserved and each edit can be undone.
+  Use **Add objectives…** to check several existing objectives for a mission, then choose an objective and
   **Add devices…** to connect its computers, bomb targets or disks. Search keeps checked items when filtered.
   The chain-link icons add selected actors to the named target. **New mission**, **New objective** and **New device…**
   build a chain; the integrated Objectives palette also lets you drag devices into a view, linked to the chosen objective.

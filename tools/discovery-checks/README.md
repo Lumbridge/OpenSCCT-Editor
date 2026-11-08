@@ -1,7 +1,9 @@
 # Command-palette and tutorial checks
 
 `dotnet run --project tools/discovery-checks` checks task-query parsing, matching, aliases, lesson coverage,
-unique IDs and all 130 step routes. Pass `-p:OpenScctRoot=...` if the default pinned dependency checkout is absent.
+unique IDs and all 130 step routes. It also places real computers, bomb targets and disks to verify that guidance
+reuses their generated objectives, recognises automatic mission/drop-zone links and creates no duplicate actors.
+Pass `-p:OpenScctRoot=...` if the default pinned dependency checkout is absent.
 
 Build `app/OpenScctEditor.csproj`, then start a fresh disposable editor through `tools/Start-BackgroundEditor.ps1`
 with a dedicated `-Out` folder and installed game content. Run:

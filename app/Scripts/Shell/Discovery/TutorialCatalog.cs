@@ -15,25 +15,25 @@ public static class TutorialCatalog
             S("Adjust the route", "Drag the endpoint dots to adjust height; the facing dot points toward the side the spy climbs. Grid and neighbour snapping help align it with the wall. Undo removes a placement.", "tool:ge|ladder"),
             S("Check and try climbing", "Run Map Check, then Build and Play. Approach the foot as a spy and test the top exit in both directions; a drawn route still needs a gameplay test.", "action:build.check")]),
         new("laptop", "Set up a laptop objective", "computer hack terminal story mission", [
-            S("Choose a computer", "The Objectives tab is open with Computer highlighted. Drag it onto an accessible floor or table. Search only locates the tile; you decide where to place it.", "placeable:SBase.SComputerObjectiveTrigger"),
-            S("Create or choose its mission", "Open Missions. Choose a named Story mission, or click New mission. A device needs an active objective and mission to take part in the round.", "panel:Missions|New mission"),
-            S("Add an objective", "Choose an existing objective or click New objective to create one already linked to the mission. Use Inspector to name it and tune its settings.", "panel:Missions|New objective"),
-            S("Link the laptop", "Choose that objective, click Add devices…, check your computer, then Link chosen. Existing Building objective-computer prefabs already include their links; inspect these before adding another mission.", "panel:Missions|Add devices…"),
+            S("Place a computer once", "If you already have a computer, select it and use Show me again. Otherwise drag Computer onto a reachable floor or table once. It creates its own objective unless an objective was selected. The Building Objective computer prefab also includes a linked Story mission.", "placeable:SBase.SComputerObjectiveTrigger"),
+            S("Use its existing objective", "Select the placed computer. Its objective was created or linked during placement. Inspect that existing objective in Missions instead of creating a second one.", "setup:objective"),
+            S("Check its mission", "Inspect the existing objective's mission. Keep an existing link; only choose or create a Story mission if this objective has none.", "setup:mission"),
+            S("Check the device link", "The placed computer is already connected to its objective. Check the relationship in Missions. Add devices is only needed for a missing link or an additional device.", "setup:devices"),
             S("Validate and play", "Run Map Check, then play as a spy. Check that the laptop appears, can be reached and completes the intended objective when hacked.", "action:build.check")]),
         new("bomb", "Set up a bomb objective", "target plant defuse explosive story", [
-            S("Place a bomb target", "Drag Bomb target onto its mounting surface. Leave room for a spy to plant and a mercenary to reach the bomb.", "placeable:SBase.SBombTargetObjectiveTrigger"),
-            S("Choose the mission", "Choose or create the mission in Missions. Set its game mode and name in Inspector to match the round you intend to build.", "panel:Missions|New mission"),
-            S("Create the objective", "Choose or create an objective under that mission. Keep objectives named by their location or purpose so link pickers are easy to read.", "panel:Missions|New objective"),
-            S("Connect the target", "With the objective chosen, use Add devices… to check the bomb target and link it. Select the target in the map to edit its timing and other available properties in Inspector.", "panel:Missions|Add devices…"),
+            S("Place a bomb target once", "Reuse a target already placed. Otherwise drag Bomb target onto its mounting surface once. Placement creates an objective or uses the one selected; leave room for planting and defusing.", "placeable:SBase.SBombTargetObjectiveTrigger"),
+            S("Use its existing objective", "The placed bomb target already has an objective. Select the target to inspect that relationship rather than creating another objective for it.", "setup:objective"),
+            S("Check its mission", "Keep an existing mission link. If the generated objective has no mission, select that objective and use Choose mission to add it to the intended Story mission.", "setup:mission"),
+            S("Check the target link", "The bomb target is already connected to its objective after normal placement. Use Add devices only to repair a missing link or add another target.", "setup:devices"),
             S("Test both teams", "Check the map and play the plant, countdown and defuse interactions with both teams. Linking alone does not prove the full round works.", "action:build.check")]),
         new("disk", "Set up a disk and drop-off objective", "disc flag carry extraction dropoff drop zone", [
-            S("Place the disk", "Drag Disk to carry into the map. This is the carry-and-extract disk; Hunt disk is a different game-mode device.", "placeable:SBase.SFlag"),
+            S("Place a carry disk once", "Reuse an existing carry disk, or drag Disk to carry into the map once. It creates an objective or uses the one selected. Hunt disk is a different game-mode device.", "placeable:SBase.SFlag"),
             S("Place its drop zone", "Select the disk first, then drag Disk drop zone to the destination. Placeables use the selected disk as the wiring target. Keep Wiring To Selection helps when placing several zones.", "placeable:SBase.SFlagDropZone"),
-            S("Inspect the disk connection", "Select the disk and inspect its DropZone references. Confirm they point at the intended drop zones; give the disk and destination readable names.", "panel:Inspector"),
-            S("Link the objective", "In Missions, choose a mission and objective (or create them), then use Add devices… to connect the carry disk to the objective.", "panel:Missions|Add devices…"),
+            S("Inspect the disk connection", "Select the disk and inspect its DropZone references. Confirm they point at the intended drop zones; give the disk and destination readable names.", "setup:inspect"),
+            S("Use the existing disk objective", "The carry disk is already connected to the objective made during placement. Keep an existing mission link; choose a mission only when that objective has none.", "setup:mission"),
             S("Try the full carry route", "Check the map and play as a spy: take the disk, carry it to the drop zone, and confirm the intended objective completes. Check that mercenaries can contest the route.", "action:build.check")]),
         new("chain", "Set up chained objectives", "mission sequence order sequential story chain", [
-            S("Choose the mission", "Choose a mission in Missions. Add objectives… lets you check several existing objectives; New objective creates a linked one.", "panel:Missions|Add objectives…"),
+            S("Choose the mission", "Choose a mission in Missions. Reuse the objectives created with your computers, bomb targets or carry disks: Add objectives… links those existing objectives. New objective is only for a separate task that does not have one yet.", "panel:Missions|Add objectives…"),
             S("Enable the chain", "Select the mission actor in the map or mission tree. In Inspector, enable its bChained property. If needed, clear the property filter or switch to the full property view.", "panel:Inspector"),
             S("Set the order", "Return to Missions. Use the up/down arrows beside linked objectives to set their order. Each objective needs its own connected computer, bomb target or disk.", "panel:Missions"),
             S("Check progression", "Use Check to find broken links, then play through the chain from the beginning. Confirm later objectives activate in the intended order.", "panel:Missions|Check")]),
@@ -82,7 +82,7 @@ public static class TutorialCatalog
         new("stairs", "Build stairs between floors", "staircase steps storey height", [
             S("Choose a staircase", "Open Stairs and choose a preset. Place the assembly where the two floor heights need a connection.", "panel:Stairs"),
             S("Fit the assembly", "Select the stairs. Use their handles and Inspector controls to adjust dimensions and landings. Keep sufficient headroom above the route.", "panel:Inspector"),
-            S("Connect the opening", "Use Surface on the floor or ceiling at the connection to open a shaft or connect stairs. Inspect the opening from above and below.", "action:tools.face"),
+            S("Check the opening", "Inspect the connection from above and below first. Keep an opening already made by a surface connector. Only if a slab still blocks the route, use Surface on that floor or ceiling to open a shaft or connect stairs.", "action:tools.face"),
             S("Walk the route", "Check and play the map. Test both directions and both teams so the step and landing geometry is usable.", "action:build.check")]),
         new("lights", "Add and tune lighting", "light fixture brightness radius bake shadows ambient", [
             S("Choose a light", "Lights contains fixtures and raw-light presets. Drag a fixture into a view to place its mesh and editable light together.", "panel:Lights"),
@@ -145,7 +145,7 @@ public static class TutorialCatalog
             S("Use the sound", "For an actor with a sound property, inspect that actor and set its asset reference. Save, build and listen in game to check range and timing.", "panel:Inspector")]),
         new("camnet", "Set up the mercenary camera network", "camnet network camera ring line surveillance", [
             S("Place network cameras", "Use Network camera, which belongs to the mercenaries' CamNet system. It is distinct from the security camera that detects spies.", "placeable:SBase.SCamNetwork"),
-            S("Connect the network", "Select the network cameras in the intended viewing order. In Camera Network, Ring joins the last back to the first; Line creates an open sequence.", "panel:Camera Network|Ring"),
+            S("Check the network already made", "Placement joins the selected network camera's ring, or the map's only network, automatically. Inspect that existing network first. Only for an unlinked or deliberately reordered set, select cameras in viewing order and use Ring or Line.", "panel:Camera Network|Ring"),
             S("Name and aim each camera", "Select a camera to edit its HUD name, turning limits and preview in Camera Network. Check the view from each camera and test with the mercenary CamNet gadget.", "panel:Camera Network")]),
         new("movers", "Set up moving doors and platforms", "mover keyframe keys elevator lift trigger", [
             S("Choose the mover", "Select a mover actor, such as a door or platform. Mover shows the selected actor's movement keys, timing and activation settings.", "panel:Mover"),

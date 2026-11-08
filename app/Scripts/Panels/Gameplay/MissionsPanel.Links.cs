@@ -124,8 +124,62 @@ public partial class MissionsPanel
         return button;
     }
 
-    private void ChooseMission() => MissionActorPicker.Open(_missionPicker, Context.Project.Actors.Where(MatchPlan.IsMission).ToList(),
-        "Choose a mission", false, a => ModeName(a), ids => SetMission(ids[0]));
+    private void ChooseMission()
+    {
+        MapProject project = Context.Project;
+        // Capture the objective before the chooser changes the panel's target.
+        List<Actor> selected = Context.Selection.Items.Where(r => r.Kind == ObjectKind.Actor)
+            .Select(r => project.FindActor(r.Id)).OfType<Actor>().ToList();
+        List<Actor> objectives = selected.Where(a => MissionLinks.IsObjective(a) && !MatchPlan.IsMission(a))
+            .Concat(project.Actors.Where(a => MissionLinks.IsObjective(a) && !MatchPlan.IsMission(a)
+                && selected.Any(d => MissionLinks.IsTrigger(d) && MissionLinks.Contains(a, "Triggers", d.Id))))
+            .DistinctBy(a => a.Id).ToList();
+        if (objectives.Count == 0 && selected.Any(MissionLinks.IsTrigger))
+        {
+            Context.SetStatus("This device has no objective yet. Use Choose objective to link it to an existing objective first.");
+            DiscoveryNavigation.Reveal(_objectivePicker);
+            return;
+        }
+        List<Actor> missions = project.Actors.Where(MatchPlan.IsMission)
+            .Where(m => objectives.All(o => MissionLinks.Refusal(project, m, o) is null)).ToList();
+        string title = objectives.Count == 0 ? "Choose a mission to view"
+            : $"Choose the mission to link {string.Join(", ", objectives.Select(MissionLinks.Name))} to";
+        MissionActorPicker.Open(_missionPicker, missions, title, false, a => ModeName(a), ids =>
+        {
+            if (!ReferenceEquals(project, Context.Project)) { Context.SetStatus("The map changed; choose the mission again."); return; }
+            try
+            {
+                if (objectives.Count > 0)
+                {
+                    var command = MissionLinks.Add(project, ids[0], objectives.Select(o => o.Id));
+                    if (command is not null) Context.Execute(command);
+                    Context.SetStatus(command is null ? "These objectives are already linked to this mission."
+                        : $"Linked {PanelUi.Count(objectives.Count, "objective")} to {MissionLinks.Name(project.FindActor(ids[0])!)}. Undo restores the previous links.");
+                }
+                SetMission(ids[0]);
+                if (objectives.FirstOrDefault() is { } objective) { _objectiveId = objective.Id; UpdateLinks(); }
+            }
+            catch (ArgumentException ex) { Context.SetStatus(ex.Message); }
+        });
+    }
+
+    /// <summary>Guides inspect existing links; they never create actors on the user's behalf.</summary>
+    public static void RevealTutorialObjective(string? objectiveId, string field)
+    {
+        DockTabs.ShowPanel("Missions");
+        if (s_instance is not { } panel) return;
+        if (objectiveId is not null && panel.Context.Project.FindActor(objectiveId) is { } objective)
+        {
+            panel.Context.Selection.Set([ObjectRef.Actor(objective.Id)]);
+            panel.FollowSelection(inferDevices: true);
+        }
+        DiscoveryNavigation.Reveal(field switch
+        {
+            "mission" => panel._missionPicker,
+            "objective" => panel._objectivePicker,
+            _ => panel._tree,
+        }, lesson: true);
+    }
 
     private void SetMission(string id)
     {
@@ -138,12 +192,33 @@ public partial class MissionsPanel
 
     private void ChooseObjective()
     {
+        MapProject project = Context.Project;
+        List<Actor> devices = Context.Selection.Items.Where(r => r.Kind == ObjectKind.Actor)
+            .Select(r => project.FindActor(r.Id)).OfType<Actor>().Where(MissionLinks.IsTrigger).ToList();
         List<Actor> actors = Mission is { } mission
             ? MissionTree.Refs(mission.Props["Objectives"]).Select(Context.Project.FindActor).OfType<Actor>().Where(MissionLinks.IsObjective).ToList()
             : Context.Project.Actors.Where(a => MissionLinks.IsObjective(a) && !MatchPlan.IsMission(a)).ToList();
         if (Mission is { } m) actors.Add(m);
-        MissionActorPicker.Open(_objectivePicker, actors, "Choose the objective whose devices to link", false,
-            a => MatchPlan.IsMission(a) ? "Mission's own devices" : DeviceCount(a), ids => { _objectiveId = ids[0]; UpdateLinks(); });
+        actors.RemoveAll(a => devices.Any(d => MissionLinks.Refusal(project, a, d) is not null));
+        MissionActorPicker.Open(_objectivePicker, actors, devices.Count == 0 ? "Choose the objective whose devices to link"
+                : $"Choose the objective to link {string.Join(", ", devices.Select(MissionLinks.Name))} to", false,
+            a => MatchPlan.IsMission(a) ? "Mission's own devices" : DeviceCount(a), ids =>
+            {
+                if (!ReferenceEquals(project, Context.Project)) { Context.SetStatus("The map changed; choose the objective again."); return; }
+                try
+                {
+                    if (devices.Count > 0)
+                    {
+                        var command = MissionLinks.Add(project, ids[0], devices.Select(d => d.Id));
+                        if (command is not null) Context.Execute(command);
+                        Context.SetStatus(command is null ? "These devices are already linked to this objective."
+                            : $"Linked {PanelUi.Count(devices.Count, "device")} to {MissionLinks.Name(project.FindActor(ids[0])!)}. Undo restores the previous links.");
+                    }
+                    _objectiveId = ids[0];
+                    UpdateLinks();
+                }
+                catch (ArgumentException ex) { Context.SetStatus(ex.Message); }
+            });
     }
 
     private void AddPicker(Control anchor, Actor? parent, bool objectives)
@@ -240,8 +315,10 @@ public partial class MissionsPanel
         if (Objective is null) _objectiveId = null;
         _missionPicker.Text = Mission is { } mission ? MissionLinks.Name(mission) : "Choose mission…";
         _missionPicker.TooltipText = Mission is { } m ? MissionLinks.Label(m) + " · " + ModeName(m) : "Choose a mission by name, or create one";
+        _missionPicker.TooltipText += "\nChoose links selected objectives (or the objectives of selected devices) to this mission. With neither selected, it only changes the viewed mission.";
         _objectivePicker.Text = Objective is { } objective ? MissionLinks.Name(objective) : "Choose objective…";
         _objectivePicker.TooltipText = Objective is { } o ? MissionLinks.Label(o) + " · " + DeviceCount(o) : "Choose the objective whose devices to link";
+        _objectivePicker.TooltipText += "\nWith devices selected in the map, Choose links them to the chosen objective. With no devices selected, it only changes the viewed objective.";
         _linkHint.Text = Objective is { } target ? $"{MissionLinks.Name(target)}: {DeviceCount(target)}. × unlinks; arrows reorder."
             : Mission is { } chosen ? $"{MissionLinks.Name(chosen)}: {MissionTree.Refs(chosen.Props["Objectives"]).Count} objectives. Add existing objectives or create one."
             : "Choose a mission, add its objectives, then connect their devices. Every link can be undone.";
