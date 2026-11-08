@@ -141,7 +141,7 @@ public partial class AnimationStudio : VBoxContainer
         };
         _inspector = PanelUi.Scroll(details); PanelUi.ScrollOf(_inspector).SizeFlagsVertical = SizeFlags.ExpandFill;
         _status = PanelUi.Caption(this, "Import a rig from the library or start an example.");
-        _firstPerson = new FirstPersonStudio(State, _stage, Refresh) { Name = "FirstPersonStudio" }; AddChild(_firstPerson); MoveChild(_firstPerson, 1);
+        _firstPerson = new FirstPersonStudio(State, _stage, Refresh, RevealSelectedClip) { Name = "FirstPersonStudio" }; AddChild(_firstPerson); MoveChild(_firstPerson, 1);
         horizontal.SplitOffsets = [AppSettings.GetInt("animation.layout", "left", 0)];
         right.SplitOffsets = [AppSettings.GetInt("animation.layout", "right", 0)];
         horizontal.DragEnded += () => AppSettings.Set("animation.layout", "left", horizontal.SplitOffsets.FirstOrDefault());
@@ -189,8 +189,12 @@ public partial class AnimationStudio : VBoxContainer
                     if (i == State.Bone) item.Select(0);
                 }
             }
-            foreach (Node child in _inspector.GetChildren()) { _inspector.RemoveChild(child); child.QueueFree(); }
-            BuildInspector();
+            // Pose keying changes values, not the inspector's controls. Keep active spinners alive.
+            if (!State.UpdatingPoseKeys || _page != "Pose")
+            {
+                foreach (Node child in _inspector.GetChildren()) { _inspector.RemoveChild(child); child.QueueFree(); }
+                BuildInspector();
+            }
         }
         finally { _refreshing = false; }
         RefreshTime();
@@ -198,13 +202,17 @@ public partial class AnimationStudio : VBoxContainer
     private void RefreshTime()
     {
         if (!IsNodeReady()) return;
-        _refreshing = true;
-        // Keep range updates separate from the playhead while the user drags the slider.
-        double duration = MathF.Max(.001f, State.Duration);
-        if (!Mathf.IsEqualApprox(_seek.MaxValue, duration)) _seek.MaxValue = duration;
-        _seek.SetValueNoSignal(State.Time);
-        _timeLabel.Text = $"{State.Time:0.000} s · {State.Time * State.Project.FramesPerSecond:0.#} f";
-        _refreshing = false;
+        bool previous = _refreshing; _refreshing = true;
+        try
+        {
+            // Keep range updates separate from the playhead while the user drags the slider.
+            double duration = MathF.Max(.001f, State.Duration);
+            if (!Mathf.IsEqualApprox(_seek.MaxValue, duration)) _seek.MaxValue = duration;
+            _seek.SetValueNoSignal(State.Time);
+            _timeLabel.Text = $"{State.Time:0.000} s · {State.Time * State.Project.FramesPerSecond:0.#} f";
+            _refreshPoseFields?.Invoke();
+        }
+        finally { _refreshing = previous; }
     }
     private void ReloadLibrary() { Run(() => { _stockEntries = OpenScct.Editor.Core.Animation.AnimationLibrary.Index(EditorServices.ContentRoot).ToArray(); FillStock(); }); }
     public void ImportStock(bool spy)
@@ -231,6 +239,11 @@ public partial class AnimationStudio : VBoxContainer
     private void DuplicateClip() { if (State.CurrentClip is { } clip) Run(() => { Clip copy = AnimationEdits.Duplicate(clip); State.Session.Edit("Duplicate clip", p => p.Clips.Add(copy)); State.SelectClip(copy.Id); }); }
     public void ShowInspector(string page) { _page = page; Refresh(); }
     public void ShowLibrary(bool stock) { if (FindChild("AnimationLibraryTabs", true, false) is TabContainer library) library.CurrentTab = stock ? 1 : 0; }
+    private void RevealSelectedClip()
+    {
+        ShowLibrary(false);
+        Callable.From(() => { if (_clips.GetSelected() is { } selected) _clips.ScrollToItem(selected); }).CallDeferred();
+    }
     public void RevealTutorial(string route)
     {
         string[] parts = route.Split('|', 2);
@@ -326,9 +339,9 @@ public partial class AnimationStudio : VBoxContainer
             case Key.I: State.KeyPose([State.Bone]); break;
             case Key.Delete: DeleteKeys(); break;
             case Key.Escape: SelectKeys(false); break;
-            case Key.G: State.TransformTool = "move"; break;
-            case Key.R: State.TransformTool = "rotate"; break;
-            case Key.S: State.TransformTool = "scale"; break;
+            case Key.G: State.SelectTool("move"); break;
+            case Key.R: State.SelectTool("rotate"); break;
+            case Key.S: State.SelectTool("scale"); break;
         }
     }
     private void Run(Action action)

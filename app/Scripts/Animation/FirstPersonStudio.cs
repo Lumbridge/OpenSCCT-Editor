@@ -13,6 +13,8 @@ public partial class FirstPersonStudio : HFlowContainer
     private readonly StudioState _state;
     private readonly AnimationStage _stage;
     private readonly Action _refreshLibrary;
+    private readonly Action _showProject;
+    private Button _newAction = null!, _bindActions = null!;
     private OptionButton _role = null!, _weapon = null!, _action = null!, _part = null!;
     private OptionButton _mode = null!;
     private LineEdit _slot = null!;
@@ -24,7 +26,7 @@ public partial class FirstPersonStudio : HFlowContainer
     public bool Active { get; private set; }
     public FirstPersonProfile? Profile => Active ? _state.Project.FirstPersonProfiles.FirstOrDefault(p => p.Id == _profileId) : null;
     public string? EditingSkeleton => Profile is not { } profile ? null : _state.Project.Scene.FirstOrDefault(r => r.Id == (_part.Selected == 1 ? profile.ArmsRig ?? profile.MainRig : profile.MainRig))?.Skeleton;
-    public FirstPersonStudio(StudioState state, AnimationStage stage, Action refreshLibrary) { _state = state; _stage = stage; _refreshLibrary = refreshLibrary; }
+    public FirstPersonStudio(StudioState state, AnimationStage stage, Action refreshLibrary, Action showProject) { _state = state; _stage = stage; _refreshLibrary = refreshLibrary; _showProject = showProject; }
     public override void _Ready()
     {
         _projectId = _state.Project.Id;
@@ -36,9 +38,11 @@ public partial class FirstPersonStudio : HFlowContainer
         _weapon.ItemSelected += _ => SelectExisting();
         PanelUi.Button(this, "Load setup", "Load the role's real first-person rigs", LoadSetup).Name = "LoadFirstPersonSetup";
         _action = Choice("Action", ["Idle", "Move", "Draw", "Holster", "Fire", "Reload", "Aim", "Gadget"]);
+        _action.Name = "FirstPersonAction";
         _action.ItemSelected += _ => SelectAction();
         _part = Choice("Edit", ["Weapon", "Arms"]); _part.ItemSelected += _ => SelectAction();
-        PanelUi.Button(this, "New action clip", "Duplicate the selected motion into a new first-person action", NewAction);
+        _newAction = PanelUi.Button(this, "New action clip", "Create an editable copy of the selected motion and reveal it in Project", NewAction);
+        _newAction.Name = "NewFirstPersonActionClip";
         PanelUi.Button(this, "Eye view", "Use the game's X-forward eye-view framing", () => { _stage.FirstPersonEye = true; _stage.FirstPerson(); });
         PanelUi.Button(this, "Orbit", "Inspect the first-person rig from outside", () => { _stage.FirstPersonEye = false; _stage.Frame(); });
         var framing = new HBoxContainer(); AddChild(framing); framing.AddChild(new Label { Text = "FOV" });
@@ -46,7 +50,7 @@ public partial class FirstPersonStudio : HFlowContainer
         _fov.ValueChanged += value => { if (!_updating && Profile is { } profile) Edit("First-person field of view", p => p.FirstPersonProfiles.Single(f => f.Id == profile.Id).FieldOfView = (float)value); };
         _slot = new LineEdit { PlaceholderText = "Runtime animation slot", CustomMinimumSize = new(150, 0) }; AddChild(_slot);
         _slot.TextSubmitted += value => { if (Profile is { } profile) Edit("First-person action slot", p => p.FirstPersonProfiles.Single(f => f.Id == profile.Id).Actions[_action.Selected].Slot = value); };
-        PanelUi.Button(this, "Bind actions", "Enable these first-person actions as explicit visual replacements", BindActions);
+        _bindActions = PanelUi.Button(this, "Bind actions", "Enable these first-person actions as explicit visual replacements", BindActions);
         _status = PanelUi.Caption(this, "Load a setup to edit Spy or Merc eye-view animations.");
         _status.CustomMinimumSize = new(180, 0);
         _state.Changed += Refresh; TreeExiting += () => _state.Changed -= Refresh;
@@ -63,9 +67,9 @@ public partial class FirstPersonStudio : HFlowContainer
     }
     private void Weapons()
     {
-        _weapon.Clear(); foreach (string name in _role.Selected == 0 ? new[] { "P190 / Shocker" } : new[] { "Rifle", "Uzi", "Shotgun" }) _weapon.AddItem(name);
+        _weapon.Clear(); foreach (string name in _role.Selected == 0 ? new[] { "P190 / Shocker" } : new[] { "Rifle", "Uzi", "Shotgun", "Desert Eagle" }) _weapon.AddItem(name);
     }
-    private string MainAsset => _role.Selected == 0 ? "SWeaponFirst.p190_fp" : _weapon.Selected switch { 1 => "SWeaponFirst.1DEF_Uzi", 2 => "SWeaponFirst.1DEF_shotgun", _ => "SWeaponFirst.1DEF_01" };
+    private string MainAsset => _role.Selected == 0 ? "SWeaponFirst.p190_fp" : _weapon.Selected switch { 1 => "SWeaponFirst.1DEF_Uzi", 2 => "SWeaponFirst.1DEF_shotgun", 3 => "OpenScctSidearms.desert_eagle_first", _ => "SWeaponFirst.1DEF_01" };
     private void SelectExisting()
     {
         _profileId = _state.Project.FirstPersonProfiles.FirstOrDefault(p => p.Role == (FirstPersonRole)_role.Selected && p.MainAsset == MainAsset)?.Id;
@@ -147,14 +151,22 @@ public partial class FirstPersonStudio : HFlowContainer
     }
     private void NewAction()
     {
-        if (Profile is not { } profile || _state.CurrentClip is not { } source) return;
-        OpenScct.Animation.AnimationClip clip = AnimationEdits.Duplicate(source); clip.Name = profile.Role + " FP " + _action.Text + (_part.Selected == 1 ? " arms" : " weapon");
+        if (_state.CurrentClip is not { } source) { _status.Text = "Select a motion in Project before creating an action clip."; return; }
+        FirstPersonProfile? profile = Profile;
+        OpenScct.Animation.AnimationClip clip = AnimationEdits.Duplicate(source);
+        string name = profile is null ? source.Name + " action" : profile.Role + " FP " + _action.Text + (_part.Selected == 1 && profile.ArmsRig is not null ? " arms" : " weapon");
+        clip.Name = name;
+        for (int suffix = 2; _state.Project.Clips.Any(c => c.Name == clip.Name); suffix++) clip.Name = name + " " + suffix;
         Edit("New first-person action", p =>
         {
-            p.Clips.Add(clip); FirstPersonAction action = p.FirstPersonProfiles.Single(f => f.Id == profile.Id).Actions[_action.Selected];
+            p.Clips.Add(clip);
+            if (profile is null) return;
+            FirstPersonAction action = p.FirstPersonProfiles.Single(f => f.Id == profile.Id).Actions[_action.Selected];
             if (_part.Selected == 1 && profile.ArmsRig is not null) action.ArmsClip = clip.Id; else action.Clip = clip.Id;
         });
         _state.SelectClip(clip.Id);
+        _showProject();
+        _status.Text = profile is null ? "Created " + clip.Name + ". Load a setup to bind it to a first-person action." : "Created " + clip.Name + " for " + _action.Text + ".";
     }
     private void BindActions()
     {
@@ -184,6 +196,11 @@ public partial class FirstPersonStudio : HFlowContainer
         foreach (Control child in GetChildren().OfType<Control>()) if (child != _mode) child.Visible = Active;
         if (_profileId is not null && Profile is null && Active) _profileId = _state.Project.FirstPersonProfiles.FirstOrDefault()?.Id;
         if (Profile is { } profile && _action.Selected >= 0 && _action.Selected < profile.Actions.Count) { _slot.Text = profile.Actions[_action.Selected].Slot; _fov.Value = profile.FieldOfView; }
+        _newAction.Disabled = _state.CurrentClip is null;
+        _newAction.TooltipText = _newAction.Disabled ? "Select or import a motion first" : "Create an editable copy of the selected motion and reveal it in Project";
+        _bindActions.Disabled = Profile is null;
+        _bindActions.TooltipText = Profile is null ? "Load a first-person setup before binding actions" : "Enable these first-person actions as explicit visual replacements";
+        _slot.Editable = Profile is not null; _fov.Editable = Profile is not null;
         _updating = false;
     }
     private void Edit(string name, Action<AnimationProject> action) => _state.Session.Edit(name, action);

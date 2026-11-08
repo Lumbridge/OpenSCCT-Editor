@@ -31,12 +31,15 @@ can play without the source. FBX reimport remembers the original FBX, rather tha
 
 Use **Assets > Animation > Spy First Person / Merc First Person**, or choose **First Person** in the studio's section
 selector. **Load setup** loads the real role-specific rigs. Spy has separate P190/Shocker and arm instances with the
-game's shared two-handed grip solver. Merc supports rifle, Uzi and shotgun rigs, including their arms.
+game's shared two-handed grip solver. Merc supports rifle, Uzi, shotgun and Desert Eagle rigs, including their arms.
 
 The **Action** selector organizes Idle, Move, Draw, Holster, Fire, Reload, Aim and Gadget clips. **Edit** switches
 between weapon and arms. **New action clip** duplicates the selected motion into that action, allowing each action
 to be authored independently. Select a bone and edit its pose or curve, then switch actions to preview the result.
 The default holster is a separate reversed draw clip and can be edited without changing the draw.
+New action clips are selected and revealed in **Project**, even when starting from **Stock**, and receive unique
+names. Without a loaded setup, **New action clip** creates a standalone editable copy of the selected motion;
+load a setup to assign and bind first-person actions. Select or import a motion first if the button is disabled.
 
 **Eye view** uses the game's X-forward camera and reference-aspect FOV conversion; **Orbit** inspects the assembly
 from outside. FOV is stored per setup. Bone overlays, keys, layers and constraints work in both views. The runtime
@@ -57,9 +60,30 @@ Shift snaps. Numeric pose fields are available in the inspector. **Auto key** co
 playhead; turn it off to stage a pose, then **Key pose** or I to record it. Pose presets and mirrored poses are in
 the Pose inspector. Rig presets create matching left/right maps for stock Spy/Merc bones.
 
+Move drags use the camera and the bone's full parent transform, so imported rigs with centimetre-scale bones move
+with the pointer. Position fields display metres in both local and World modes. Their arrows move 1 cm, rotation
+arrows step 1 degree, and scale arrows change the current scale by 5%; precise typed values remain available.
+The Pose inspector follows stepping, scrubbing and playback. A completed pose drag or numeric edit supports Undo
+and Redo with Auto key off, without inserting clip keys. Undo can return to the edited clip and frame after seeking.
+
+For an imported first-person weapon such as `OpenScctSidearms.desert_eagle_first`, **First person** uses its authored
+eye origin and forward direction. **Frame** returns to an orbit view. The standing-character eye height applies to
+third-person character rigs.
+
+To replace a magazine motion with a few controlled poses, add an **Override layer**, select it under **Edit layer**,
+and set **Mask bones** to the magazine bone (the Desert Eagle uses `mag`; press Enter to commit the mask). In Pose,
+scrub to the start, set the pose and press I; do the same at the end. The layer interpolates between the keys,
+instead of competing with the imported base keys. Select the layer's keys in Curves and choose Linear for steady
+movement or Cubic for easing. Key the layer's Weight to zero outside the edited interval when the original motion
+should resume. Check the hand grip and clearance through the magazine well; a third key can shape the approach.
+
 The dope sheet and curve editor support Ctrl/Shift multiselection, dragging, copy/paste, deletion and Step, Linear
-or Cubic interpolation. Ctrl-wheel zooms, Shift-wheel scrolls time and the wheel scrolls tracks. Curve components
-select X/Y/Z/W; incoming/outgoing tangent fields edit selected keys. Rotation values are normalized quaternions.
+or Cubic interpolation. Curves automatically fits the selected bone's keys when changing clips, layers, channels,
+components or panel size. **Frame keys** fits selected keys, or all visible keys when none are selected. The ruler
+shows frames and seconds. Filter **Position / Rotation / Scale**, then select X/Y/Z/W; the key count helps distinguish
+dense imported base tracks from a sparse override layer. Ctrl+A in Curves selects only visible keys.
+Ctrl-wheel zooms time, Shift-wheel scrolls time and the wheel scrolls tracks in the dope sheet or pans values in
+Curves. Alt-wheel zooms curve values. Incoming/outgoing tangent fields edit selected keys. Rotation values are normalized quaternions.
 **Root motion** exposes separate gameplay root tracks; **Key root** adds transform keys there.
 
 The Clip inspector provides trim, split, reverse, retime and loop cleanup. Tangents are adjusted when time changes.

@@ -6,7 +6,12 @@ namespace OpenScct.Editor.Core.Animation;
 /// <summary>Independent animation document, command history and recovery. UI and CLI share every operation.</summary>
 public sealed class AnimationSession
 {
-    private sealed record Change(string Name, byte[] Before, byte[] After, string? Clip, long BeforeRevision, long AfterRevision);
+    private sealed record Change(string Name, byte[] Before, byte[] After, string? Clip, long BeforeRevision, long AfterRevision,
+        Action? UndoPreview = null, Action? RedoPreview = null)
+    {
+        public Action? BeforePreview { get; init; }
+        public Action? AfterPreview { get; set; }
+    }
     private readonly List<Change> _history = [];
     private int _cursor;
     private long _revision, _savedRevision, _nextRevision;
@@ -16,6 +21,7 @@ public sealed class AnimationSession
     public bool CanUndo => _cursor > 0;
     public bool CanRedo => _cursor < _history.Count;
     public event Action? Changed;
+    public Func<Action>? CapturePreviewState { get; set; }
     public AnimationSession(AnimationProject? project = null)
     {
         Project = project ?? new();
@@ -31,17 +37,21 @@ public sealed class AnimationSession
     }
     public void Edit(string name, Action<AnimationProject> edit)
     {
+        Action? preview = CapturePreviewState?.Invoke();
         byte[] before = AnimationJson.Write(Project);
         try { edit(Project); AnimationJson.Validate(Project); }
         catch { Project = AnimationJson.Read(before); throw; }
         byte[] after = AnimationJson.Write(Project);
         if (before.AsSpan().SequenceEqual(after)) return;
         _history.RemoveRange(_cursor, _history.Count - _cursor);
-        _history.Add(new(name, before, after, null, _revision, ++_nextRevision)); _revision = _nextRevision; _cursor++;
+        var change = new Change(name, before, after, null, _revision, ++_nextRevision) { BeforePreview = preview };
+        _history.Add(change); _revision = _nextRevision; _cursor++;
         Changed?.Invoke();
+        change.AfterPreview = CapturePreviewState?.Invoke();
     }
-    public void EditClip(string name, string id, Action<AnimationClip> edit)
+    public void EditClip(string name, string id, Action<AnimationClip> edit, Action? restoreBeforePreview = null)
     {
+        Action? preview = restoreBeforePreview ?? CapturePreviewState?.Invoke();
         AnimationClip clip = Project.Clips.Single(c => c.Id == id);
         byte[] before = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(clip, AnimationJson.Options);
         try { edit(clip); AnimationJson.Validate(Project); }
@@ -49,17 +59,41 @@ public sealed class AnimationSession
         byte[] after = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(clip, AnimationJson.Options);
         if (before.AsSpan().SequenceEqual(after)) return;
         _history.RemoveRange(_cursor, _history.Count - _cursor);
-        _history.Add(new(name, before, after, id, _revision, ++_nextRevision)); _revision = _nextRevision; _cursor++; Changed?.Invoke();
+        var change = new Change(name, before, after, id, _revision, ++_nextRevision) { BeforePreview = preview };
+        _history.Add(change); _revision = _nextRevision; _cursor++; Changed?.Invoke();
+        change.AfterPreview = CapturePreviewState?.Invoke();
     }
     private void Restore(Change change, bool after)
     {
+        if (change.UndoPreview is { } undo)
+        {
+            (after ? change.RedoPreview! : undo)();
+            return;
+        }
         byte[] bytes = after ? change.After : change.Before;
         if (change.Clip is { } id) Project.Clips[Project.Clips.FindIndex(c => c.Id == id)] = System.Text.Json.JsonSerializer.Deserialize<AnimationClip>(bytes, AnimationJson.Options)!;
         else Project = AnimationJson.Read(bytes);
         _revision = after ? change.AfterRevision : change.BeforeRevision;
     }
-    public void Undo() { if (!CanUndo) return; Restore(_history[--_cursor], false); Changed?.Invoke(); }
-    public void Redo() { if (!CanRedo) return; Restore(_history[_cursor++], true); Changed?.Invoke(); }
+    /// <summary>Temporary authoring poses share undo ordering with document edits without changing saved clip keys.</summary>
+    public void RecordPreviewEdit(string name, Action undo, Action redo)
+    {
+        ArgumentNullException.ThrowIfNull(undo); ArgumentNullException.ThrowIfNull(redo);
+        _history.RemoveRange(_cursor, _history.Count - _cursor);
+        _history.Add(new(name, [], [], null, _revision, _revision, undo, redo)); _cursor++;
+    }
+    public void Undo()
+    {
+        if (!CanUndo) return;
+        Change change = _history[--_cursor]; Restore(change, false);
+        if (change.UndoPreview is null) { Changed?.Invoke(); change.BeforePreview?.Invoke(); }
+    }
+    public void Redo()
+    {
+        if (!CanRedo) return;
+        Change change = _history[_cursor++]; Restore(change, true);
+        if (change.RedoPreview is null) { Changed?.Invoke(); change.AfterPreview?.Invoke(); }
+    }
     public void Save(string? folder = null)
     {
         string root = Path.GetFullPath(folder ?? Folder ?? throw new InvalidOperationException("Choose an .osanim folder first."));

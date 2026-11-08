@@ -1,5 +1,31 @@
 # Animation Studio implementation checks
 
+## Imported weapon authoring regressions (2026-11-08)
+
+The Desert Eagle first-person GLB carries a 0.01 ancestor scale. A 30-pixel local move previously displaced its
+magazine about 0.31 pixels. Axis-plane dragging now uses the complete parent transform and moves it 27.5–29.2 pixels
+at two zoom levels in both local and World modes. Scale dragging is relative. Position arrows move one physical
+centimetre, rotation arrows one degree and scale arrows five percent, independently of precise typed values.
+
+Draft poses with Auto key off now share the document's Undo/Redo ordering without adding keys or changing its dirty
+checkpoint. History restores the edited clip/frame and handles keying a draft, keyed gestures and document changes.
+Inspector values follow stepping, scrubbing and playback without recreating active spinners. Imported eye-space
+assets use their calibrated eye origin rather than a standing character's eye height.
+
+Curves fits time and values to the visible bone/layer/component, includes sampled interpolation extrema, labels
+frames and seconds, supports channel filtering and Frame keys, and selects only visible tracks with Ctrl+A.
+New action clip creates and reveals an editable duplicate with or without a loaded first-person profile; Merc
+setups include Desert Eagle. Rendered checks exercise source preservation, selection, scrolling, action assignment,
+unique names and Undo/Redo.
+
+Validation: 71 animation contract/history checks, 506 discovery/lesson checks and 106 rendered interaction checks
+pass with no engine errors. Rendered checks use the actual imported Desert Eagle reload and `mag` bone, verify
+draft/keyed transforms and inspector updates, fit dense base keys and sparse large-value endpoints, resize and pan
+the curve panel, drag keys at the fitted scale and create action clips from Stock. Active spinner lifetime and
+layout are checked; native held-arrow autorepeat remains a manual check because the background window does not
+receive native pointer hover. Screenshots were visually reviewed. These checks do not establish original-game
+visual parity or human gameplay acceptance.
+
 ## Project clip selection regression (2026-11-08)
 
 Editor 0.2.30's Project tree handled selection synchronously. Selecting a different row refreshed and rebuilt that

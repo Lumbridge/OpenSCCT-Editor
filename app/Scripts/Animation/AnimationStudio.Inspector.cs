@@ -14,8 +14,10 @@ namespace OpenScctEditor.Animation;
 public partial class AnimationStudio
 {
     private string _page = "Pose";
+    private Action? _refreshPoseFields;
     private void BuildInspector()
     {
+        _refreshPoseFields = null;
         Choice(_inspector, "Inspector", ["Pose", "Clip", "Layers", "Rig", "Scene", "Bindings", "Retarget"], _page, value => { _page = value; Refresh(); });
         switch (_page)
         {
@@ -35,15 +37,25 @@ public partial class AnimationStudio
         PanelUi.Header(_inspector, skeleton.Bones[bone].Name);
         RigInstance? instance = State.Project.Scene.FirstOrDefault(r => r.Id == State.RigId);
         System.Numerics.Matrix4x4 stage = skeleton.DisplayTransform.Matrix * (instance?.Transform.Matrix ?? System.Numerics.Matrix4x4.Identity);
-        BoneTransform[] pose = State.Pose(); BoneTransform transform = pose[bone];
-        if (State.WorldSpace) transform = BoneTransform.FromMatrix(ClipEvaluator.World(skeleton, pose)[bone] * stage);
-        Vector3 euler = new Quaternion(transform.Rotation.X, transform.Rotation.Y, transform.Rotation.Z, transform.Rotation.W).GetEuler() * (180 / MathF.PI);
+        (BoneTransform[] Pose, BoneTransform Transform, System.Numerics.Matrix4x4 Parent, NVector3 Units) SamplePose()
+        {
+            BoneTransform[] current = State.Pose();
+            var world = ClipEvaluator.World(skeleton, current);
+            var parent = (skeleton.Bones[bone].Parent < 0 ? System.Numerics.Matrix4x4.Identity : world[skeleton.Bones[bone].Parent]) * stage;
+            NVector3 units = State.WorldSpace ? NVector3.One : new(
+                MathF.Max(.000001f, NVector3.TransformNormal(NVector3.UnitX, parent).Length()),
+                MathF.Max(.000001f, NVector3.TransformNormal(NVector3.UnitY, parent).Length()),
+                MathF.Max(.000001f, NVector3.TransformNormal(NVector3.UnitZ, parent).Length()));
+            return (current, State.WorldSpace ? BoneTransform.FromMatrix(world[bone] * stage) : current[bone], parent, units);
+        }
+        static Vector3 Angles(BoneTransform value) => new Quaternion(value.Rotation.X, value.Rotation.Y, value.Rotation.Z, value.Rotation.W).GetEuler() * (180 / MathF.PI);
+        var sample = SamplePose(); BoneTransform transform = sample.Transform; NVector3 positionUnits = sample.Units;
+        Vector3 euler = Angles(transform);
         void Change(string kind, int axis, float value)
         {
-            BoneTransform[] current = State.Pose(); BoneTransform next = current[bone];
-            if (State.WorldSpace) next = BoneTransform.FromMatrix(ClipEvaluator.World(skeleton, current)[bone] * stage);
+            var current = SamplePose(); BoneTransform next = current.Transform;
             NVector3 Update(NVector3 vector) => axis switch { 0 => vector with { X = value }, 1 => vector with { Y = value }, _ => vector with { Z = value } };
-            if (kind == "Position") next = next with { Position = Update(next.Position) };
+            if (kind == "Position") next = next with { Position = SetComponent(next.Position, axis, value / Component(current.Units, axis)) };
             else if (kind == "Scale") next = next with { Scale = Update(next.Scale) };
             else
             {
@@ -53,22 +65,42 @@ public partial class AnimationStudio
             }
             if (State.WorldSpace)
             {
-                System.Numerics.Matrix4x4 parent = (skeleton.Bones[bone].Parent < 0 ? System.Numerics.Matrix4x4.Identity : ClipEvaluator.World(skeleton, current)[skeleton.Bones[bone].Parent]) * stage;
-                if (!System.Numerics.Matrix4x4.Invert(parent, out var inverse)) return;
+                if (!System.Numerics.Matrix4x4.Invert(current.Parent, out var inverse)) return;
                 next = BoneTransform.FromMatrix(next.Matrix * inverse);
             }
             State.SetPose(bone, next, true);
         }
+        var fields = new List<(string Kind, int Axis, SpinBox Field)>();
+        var typing = new HashSet<SpinBox>();
         foreach (string kind in new[] { "Position", "Rotation", "Scale" })
         {
             PanelUi.Caption(_inspector, kind + (kind == "Position" ? " (m)" : kind == "Rotation" ? " (degrees)" : ""));
             for (int axis = 0; axis < 3; axis++)
             {
                 int index = axis; string property = kind;
-                float value = kind == "Position" ? Component(transform.Position, axis) : kind == "Scale" ? Component(transform.Scale, axis) : axis == 0 ? euler.X : axis == 1 ? euler.Y : euler.Z;
-                Number(_inspector, "XYZ"[axis].ToString(), value, kind == "Scale" ? .001f : -100000, 100000, kind == "Rotation" ? 1 : .01f, v => Change(property, index, v));
+                float value = kind == "Position" ? Component(transform.Position * positionUnits, axis) : kind == "Scale" ? Component(transform.Scale, axis) : axis == 0 ? euler.X : axis == 1 ? euler.Y : euler.Z;
+                SpinBox field = Number(_inspector, "XYZ"[axis].ToString(), value, kind == "Scale" ? .000001f : -100000, 100000, kind == "Rotation" ? 1 : kind == "Scale" ? MathF.Max(.000001f, MathF.Abs(value) * .05f) : .01f, v => Change(property, index, v));
+                field.Name = "Pose_" + kind + "_" + "XYZ"[axis];
+                field.TooltipText = kind + " " + "XYZ"[axis] + " · arrow step: " + (kind == "Position" ? "1 cm" : kind == "Rotation" ? "1 degree" : "5%");
+                fields.Add((kind, axis, field));
+                field.GetLineEdit().TextChanged += _ => { if (!_refreshing) typing.Add(field); };
+                field.GetLineEdit().TextSubmitted += _ => typing.Remove(field);
+                field.GetLineEdit().FocusExited += () => typing.Remove(field);
             }
         }
+        _refreshPoseFields = () =>
+        {
+            if (State.Skeleton?.Id != skeleton.Id || State.Bone != bone) return;
+            var current = SamplePose(); Vector3 angles = Angles(current.Transform);
+            foreach (var (kind, axis, field) in fields)
+            {
+                if (typing.Contains(field)) continue;
+                float value = kind == "Position" ? Component(current.Transform.Position * current.Units, axis)
+                    : kind == "Scale" ? Component(current.Transform.Scale, axis) : axis == 0 ? angles.X : axis == 1 ? angles.Y : angles.Z;
+                if (kind == "Scale") field.CustomArrowStep = MathF.Max(.000001f, MathF.Abs(value) * .05f);
+                field.SetValueNoSignal(value);
+            }
+        };
         PanelUi.Button(_inspector, "Key selected bone", "Insert position, rotation and scale keys", () => State.KeyPose([bone]));
         PanelUi.Button(_inspector, "Reset selected bone", "Restore the bone's reference pose", () => State.SetPose(bone, skeleton.Bones[bone].Rest, true));
         PanelUi.Button(_inspector, "Save pose", "Save the current whole-body pose", () => Edit("Save pose", p => p.Poses.Add(new() { Name = "Pose " + (p.Poses.Count + 1), Skeleton = skeleton.Id, Bones = State.Pose().ToList() })));
@@ -263,11 +295,14 @@ public partial class AnimationStudio
     private void Edit(string name, Action<AnimationProject> edit) => Run(() => State.Session.Edit(name, edit));
     private void EditClip(string name, Action<OpenScct.Animation.AnimationClip> edit)
     { if (State.ClipId is { } id) Run(() => State.Session.EditClip(name, id, edit)); }
-    private void Number(Control parent, string label, float value, float min, float max, float step, Action<float> change)
+    private SpinBox Number(Control parent, string label, float value, float min, float max, float step, Action<float> change)
     {
         HBoxContainer row = PanelUi.Row(parent, label, label);
-        SpinBox spin = PanelUi.Spin(row, min, max, step, Math.Clamp(value, min, max), label);
+        SpinBox spin = PanelUi.Spin(row, min, max, .000001, Math.Clamp(value, min, max), label);
+        spin.CustomArrowStep = step;
+        spin.UpdateOnTextChanged = false;
         spin.ValueChanged += v => { if (!_refreshing) change((float)v); };
+        return spin;
     }
     private void Text(Control parent, string label, string value, Action<string> change)
     {
