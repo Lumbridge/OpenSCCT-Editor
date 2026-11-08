@@ -50,7 +50,7 @@ supports up to **65,536 stops**, a resource guard rather than the original gamep
 editing fields; ghosts show nearby stops and endpoints, and long paths sample their text labels.
 
 The project retains the full path in its normal mover properties. Build writes paths longer than eight stops to
-`sim/mover-paths.json`; per-stop timing remains in `sim/movers.json`. Server and clients load the same poses before
+`sim/mover-paths.json`; per-stop timing remains in `sim/movers.json`. Builds normalize geometry and actor poses to the configured starting stop without changing the stop shown in the editor. Server and clients load the same poses before
 BeginPlay and replicate integer stop indices. Use a game build containing this native path support on both sides;
 previous game releases do not implement it. Importing the SVMap restores the complete path and timing.
 

@@ -77,9 +77,16 @@ foreach (var exporter in new IMapExporter[] { new OriginalExporter(), new SdcExp
     Check(!exporter.Export(p, destination, new ExportOptions()).Ok && File.ReadAllText(destination) == "keep", "Legacy " + exporter.Name + " refuses without touching its destination");
 }
 string maps = Path.Combine(root, "maps"); string folder = Path.Combine(maps, p.Id);
+MoverEdits.EditKey(p, id, 280).Do(p);
+Vec3 editingPose = p.FindActor(id)!.Location;
 var result = new MapCompiler().Compile(p, folder, new CompileOptions { FastLighting = true });
 Check(result.Ok, "Compile: " + string.Join(';', result.Findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));
+Check(p.FindActor(id)!.Location == editingPose && p.FindActor(id)!.Editor.MoverKey == 280, "Build preserves the editor's chosen stop");
 var map = SvMap.Load(folder); Check(map.MoverPaths![id].Keys.Count == 300, "Native path compiled intact");
+var clientWorld = new World(1, ENetMode.NM_Client);
+var clientLoaded = new MapLoader().Load(clientWorld, map);
+var clientStart = clientLoaded.PlacedActors().Select(a => a.Item1).OfType<Mover>().Single();
+Check(clientStart.Location == clientStart.BasePos + clientStart.KeyPosition(0), "Client starts at the round pose while the editor shows a later stop");
 var instances = OpenScct.Editor.Core.Compile.Output.Glb.Load(File.ReadAllBytes(Path.Combine(folder, "render", "world.glb"))).Json["extras"]!["svmap"]!["instances"]!;
 Check(instances.ToJsonString().Contains("mover"), "Brush mover has a rendered instance");
 var imported = new SvMapImporter().Import(folder, new ImportOptions()).Project!;

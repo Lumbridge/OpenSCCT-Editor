@@ -13,6 +13,24 @@ namespace OpenScct.Editor.Core.Compile;
 /// </summary>
 public static class MoverLegsBuild
 {
+    /// <summary>Editing another stop is editor state. All compiled systems must agree on the round's start pose.</summary>
+    public static MapProject AtStart(MapProject project)
+    {
+        var poses = project.Actors.Where(MoverBase.IsMover).Select(a => (Actor: a, Setup: MoverSetup.Read(a)))
+            .Select(m => (m.Actor.Id, Pose: m.Setup.KeyPose(m.Setup.StartKey), Actor: m.Actor))
+            .Where(m => m.Actor.Location != m.Pose.Location || m.Actor.Rotation != m.Pose.Rotation).ToList();
+        if (poses.Count == 0) return project;
+        var copy = Session.ProjectSnapshot.Take(project);
+        foreach (var (id, pose, _) in poses)
+        {
+            Actor a = copy.FindActor(id)!;
+            a.Location = pose.Location;
+            a.Rotation = pose.Rotation;
+            a.Editor.MoverKey = null;
+        }
+        return copy;
+    }
+
     public static void Write(CompileContext ctx)
     {
         // A baked source's own file came along with it; the project's movers replace it.

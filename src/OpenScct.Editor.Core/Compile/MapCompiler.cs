@@ -24,7 +24,7 @@ public sealed class MapCompiler : IMapCompiler
         ArgumentNullException.ThrowIfNull(outputFolder);
         ArgumentNullException.ThrowIfNull(options);
         var clock = Stopwatch.StartNew();
-        var ctx = new CompileContext(project, options, EditorServices.Classes);
+        var ctx = new CompileContext(MoverLegsBuild.AtStart(project), options, EditorServices.Classes);
         string folder = Path.GetFullPath(outputFolder);
         try
         {
