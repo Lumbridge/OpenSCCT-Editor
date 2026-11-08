@@ -1,4 +1,5 @@
 using Godot;
+using OpenScct.Editor.Core.Classes;
 using OpenScctEditor.Panels;
 using OpenScctEditor.Shell;
 
@@ -109,7 +110,7 @@ public sealed partial class ClassPicker : Control
         string[] words = TextMatch.Words(filter);
         TreeItem? package = null;
         string? packageName = null;
-        foreach (string name in _classes.Where(c => TextMatch.AllWords(words, c)).OrderBy(c => c, StringComparer.OrdinalIgnoreCase))
+        foreach (string name in _classes.Where(c => TextMatch.AllWords(words, ClassNames.SearchText(c))).OrderBy(c => c, StringComparer.OrdinalIgnoreCase))
         {
             int dot = name.IndexOf('.', StringComparison.Ordinal);
             string pkg = dot > 0 ? name[..dot] : "";
@@ -123,7 +124,7 @@ public sealed partial class ClassPicker : Control
             }
 
             TreeItem item = _tree.CreateItem(package);
-            item.SetText(0, dot > 0 ? name[(dot + 1)..] : name);
+            item.SetText(0, ClassNames.Title(name));
             item.SetTooltipText(0, name);
             item.SetMetadata(0, name);
             item.SetIcon(0, PanelIcons.Type(name));

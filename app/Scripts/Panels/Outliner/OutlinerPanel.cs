@@ -4,6 +4,7 @@ using OpenScct.Editor.Core.Geometry.Builders;
 using OpenScct.Editor.Core.Model;
 using OpenScctEditor.Core;
 using OpenScctEditor.Shell;
+using OpenScctEditor.Gameplay;
 
 namespace OpenScctEditor.Panels;
 
@@ -28,6 +29,7 @@ public partial class OutlinerPanel : EditorPanel
     private LineEdit _search = null!;
     private Label _status = null!;
     private PopupMenu _menu = null!;
+    private PopupMenu _missionMenu = null!;
     private PopupMenu _layerMenu = null!;
     private DeferredAction _update = null!;
     private DeferredAction _pushSelection = null!;
@@ -323,7 +325,9 @@ public partial class OutlinerPanel : EditorPanel
         foreach (IGrouping<string, ObjectRow> group in groups)
         {
             var node = new OutlinerNode(NodeKind.Group, $"G{(int)_grouping}|{layer}|{folder}|{group.Key}", layer, folder, group.Select(m => m.Ref).ToList());
-            TreeItem item = AddNode(parent, node, group.Key, defaultCollapsed: node.Members.Count > 25);
+            string title = _grouping == Grouping.Type ? OpenScct.Editor.Core.Classes.ClassNames.Title(group.Key) : group.Key;
+            TreeItem item = AddNode(parent, node, title, defaultCollapsed: node.Members.Count > 25);
+            item.SetTooltipText(0, group.Key);
             item.SetCustomColor(0, EditorTheme.TextDim);
             item.SetIcon(0, _grouping == Grouping.Type ? PanelIcons.Type(group.Key) : Icons.Get("type-group", EditorTheme.TextDim));
             foreach (ObjectRow r in group)
@@ -399,11 +403,12 @@ public partial class OutlinerPanel : EditorPanel
     }
 
     /// <summary>A layer, folder or class row's name, without its count.</summary>
-    private static string NodeName(OutlinerNode node) => node.Kind switch
+    private string NodeName(OutlinerNode node) => node.Kind switch
     {
         NodeKind.Layer => node.Layer,
         NodeKind.Folder => node.Folder[(node.Folder.LastIndexOf('/') + 1)..],
-        _ => node.Key[(node.Key.LastIndexOf('|') + 1)..],
+        _ => _grouping == Grouping.Type ? OpenScct.Editor.Core.Classes.ClassNames.Title(node.Key[(node.Key.LastIndexOf('|') + 1)..])
+            : node.Key[(node.Key.LastIndexOf('|') + 1)..],
     };
 
     private void SetButtons(TreeItem item, bool hidden, bool locked)
@@ -819,6 +824,14 @@ public partial class OutlinerPanel : EditorPanel
     private void BuildMenu()
     {
         _menu = new PopupMenu();
+        _missionMenu = new PopupMenu { Name = "MissionLinks" };
+        _menu.AddChild(_missionMenu);
+        _menu.AddSubmenuNodeItem("Link to…", _missionMenu);
+        _missionMenu.IdPressed += index =>
+        {
+            if (MissionLinkGuide.Selected(Context) is { } actor)
+                MissionLinkGuide.Open(_tree, Context, actor.Id, _missionMenu.GetItemMetadata((int)index).AsString());
+        };
         _layerMenu = new PopupMenu { Name = "Layers" };
         _menu.AddChild(_layerMenu);
         void Item(string text, MenuId id, Key key = Key.None) => _menu.AddItem(text, (int)id, key);
@@ -852,6 +865,8 @@ public partial class OutlinerPanel : EditorPanel
 
     private void ShowMenu()
     {
+        PushSelection();
+        _menu.SetItemDisabled(0, !MissionLinkGuide.Fill(_missionMenu, _tree, Context, MissionLinkGuide.Selected(Context)?.Id));
         _layerMenu.Clear();
         MapProject p = Context.Project;
         foreach (string layer in ObjectInfo.LayerNames(p))

@@ -138,7 +138,7 @@ public sealed class PlaceActorTool : IViewportTool
             (PlaceableSpot? spot, string why) = PlaceableLanding.Find(view, screen, entry, wait: true);
             if (spot is { } at)
             {
-                PlaceableLanding.Place(_tools.Context, entry, at, view.Kind);
+                PlaceableLanding.Place(_tools.Context, entry, at, view.Kind, _tools.PaletteWiringTargets);
             }
             else
             {

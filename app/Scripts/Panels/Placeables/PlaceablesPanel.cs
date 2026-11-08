@@ -311,6 +311,8 @@ public sealed partial class PlaceableTile : PanelContainer
     private const int TooltipLine = 80;
 
     private readonly PlaceablesPanel? _panel;
+    private readonly Action<Placeable>? _activate;
+    private readonly Func<Placeable, IReadOnlyList<string>>? _targets;
     private readonly TextureRect _picture = null!;
     private readonly Label _caption = null!;
     private readonly bool _favourite;
@@ -329,11 +331,13 @@ public sealed partial class PlaceableTile : PanelContainer
         Entry = Placeables.Stock[0];
     }
 
-    public PlaceableTile(Placeable entry, bool favourite, PlaceablesPanel panel)
+    public PlaceableTile(Placeable entry, bool favourite, PlaceablesPanel? panel, Action<Placeable>? activate = null, Func<Placeable, IReadOnlyList<string>>? targets = null)
     {
         Entry = entry;
         _favourite = favourite;
         _panel = panel;
+        _activate = activate;
+        _targets = targets;
         MouseFilter = MouseFilterEnum.Stop;
         MouseDefaultCursorShape = CursorShape.PointingHand;
         CustomMinimumSize = new Vector2(Width, 0);
@@ -399,7 +403,7 @@ public sealed partial class PlaceableTile : PanelContainer
         _pressed = false;
         // The collision world the drop lands on starts building now, while the pointer travels to a view.
         Gameplay.GameplayState.Instance.Prewarm();
-        return AssetDragData.StartPlaceable(this, Entry, _picture.Texture);
+        return AssetDragData.StartPlaceable(this, Entry, _picture.Texture, _targets?.Invoke(Entry));
     }
 
     public override void _GuiInput(InputEvent e)
@@ -416,7 +420,7 @@ public sealed partial class PlaceableTile : PanelContainer
                 if (click)
                 {
                     AcceptEvent();
-                    _panel?.Arm(Entry);
+                    if (_activate is { } activate) activate(Entry); else _panel?.Arm(Entry);
                 }
 
                 break;

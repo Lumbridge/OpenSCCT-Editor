@@ -41,6 +41,7 @@ public sealed partial class AssetDragData : RefCounted
 
     /// <summary>The palette placeable being dragged, or null for an asset.</summary>
     public Placeable? Placeable { get; }
+    public IReadOnlyList<string>? WiringTargets { get; private init; }
 
     /// <summary>The payload of <paramref name="drag"/>, and the drag preview <paramref name="from"/> shows under the
     /// pointer: the asset's thumbnail (when it has one) over its name.</summary>
@@ -52,10 +53,10 @@ public sealed partial class AssetDragData : RefCounted
 
     /// <summary>The payload of a palette tile, and the drag preview <paramref name="from"/> shows: its picture over its
     /// name.</summary>
-    public static Variant StartPlaceable(Control from, Placeable placeable, Texture2D? picture)
+    public static Variant StartPlaceable(Control from, Placeable placeable, Texture2D? picture, IReadOnlyList<string>? wiringTargets = null)
     {
         from.SetDragPreview(Preview(placeable.Title, picture));
-        return Variant.From(new AssetDragData(placeable));
+        return Variant.From(new AssetDragData(placeable) { WiringTargets = wiringTargets?.ToList() });
     }
 
     /// <summary>The asset in a drag's data, or null for any other drag.</summary>
@@ -65,6 +66,9 @@ public sealed partial class AssetDragData : RefCounted
     /// <summary>The palette placeable in a drag's data, or null for any other drag.</summary>
     public static Placeable? ReadPlaceable(Variant data) =>
         data.VariantType == Variant.Type.Object && data.AsGodotObject() is AssetDragData { Placeable: { } placeable } ? placeable : null;
+
+    public static IReadOnlyList<string>? ReadWiringTargets(Variant data) =>
+        data.VariantType == Variant.Type.Object && data.AsGodotObject() is AssetDragData drag ? drag.WiringTargets : null;
 
     private static Control Preview(AssetDrag drag, Texture2D? thumbnail) => Preview(drag.Name, thumbnail);
 

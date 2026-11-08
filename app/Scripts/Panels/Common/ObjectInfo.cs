@@ -11,7 +11,7 @@ internal readonly record struct ObjectRow(ObjectRef Ref, EditorMeta Meta, string
     public string PrimaryGroup => Group.Length == 0 ? "" : Group.Split(',')[0];
 
     /// <summary>What the search filters look in: id, class, tag, event, group, layer and folder.</summary>
-    public string SearchText => $"{Ref.Id} {Class} {Tag} {Event} {Group} {Meta.Layer} {Meta.Folder}";
+    public string SearchText => $"{Ref.Id} {Class} {OpenScct.Editor.Core.Classes.ClassNames.Title(Class)} {Tag} {Event} {Group} {Meta.Layer} {Meta.Folder}";
 }
 
 /// <summary>Names and groupings of placed objects, shared by the outliner, layers, Map Check and the palette.</summary>

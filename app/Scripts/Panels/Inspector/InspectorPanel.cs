@@ -252,7 +252,7 @@ public partial class InspectorPanel : EditorPanel
             string ge = ObjectInfo.GeClass(Index.Ge(r)?.Kind ?? "");
             return r.Kind switch
             {
-                ObjectKind.Actor => (r.Id, cls.Length == 0 ? "" : PanelUi.DisplayName(cls), cls, PanelIcons.TypeIconName(cls)),
+                ObjectKind.Actor => (r.Id, cls.Length == 0 ? "" : OpenScct.Editor.Core.Classes.ClassNames.Title(cls), cls, PanelIcons.TypeIconName(cls)),
                 ObjectKind.Brush or ObjectKind.Stair => (r.Id, brush, brush, Index.Brush(r)?.Oper == CsgOper.Subtract ? "type-brush-subtract" : "type-brush"),
                 _ => (r.Id, ge, ge, "type-ge"),
             };

@@ -1,10 +1,12 @@
 using Godot;
 using OpenScct.Editor.Core.Commands;
+using OpenScct.Editor.Core.Classes;
 using OpenScct.Editor.Core.Geometry;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
 using OpenScctEditor.Core;
+using OpenScctEditor.Assets;
 using OpenScctEditor.Shell;
 using OpenScctEditor.Viewports;
 
@@ -36,7 +38,7 @@ public partial class ClassBrowserPanel : EditorPanel
         _place = PanelUi.Button(bar, "Place", "Place the selected class at the view centre", Place);
         _place.Disabled = true;
         _source = PanelUi.Caption(this, "", wrap: false);
-        _tree = new Tree { HideRoot = true, SizeFlagsVertical = SizeFlags.ExpandFill, SelectMode = Tree.SelectModeEnum.Single };
+        _tree = new ClassDragTree { HideRoot = true, SizeFlagsVertical = SizeFlags.ExpandFill, SelectMode = Tree.SelectModeEnum.Single, BeginDrag = DragClass };
         _tree.ItemSelected += () =>
         {
             _selected = _tree.GetSelected()?.GetMetadata(0).AsString();
@@ -81,12 +83,12 @@ public partial class ClassBrowserPanel : EditorPanel
 
         var placeable = catalog.All.Where(c => c.Placeable && !c.Abstract).ToList();
         // Where the catalog came from is a long path: it goes in the tooltip, so it never sets the dock's width.
-        _source.Text = $"{placeable.Count} placeable classes";
+        _source.Text = $"{placeable.Count} classes · drag into a view to place";
         _source.TooltipText = catalog.SourceDescription;
         if (query.Length > 0)
         {
             foreach ((ClassInfo c, int _) in placeable
-                         .Select(c => (Class: c, Score: TextMatch.FuzzyWords(query, c.Name)))
+                         .Select(c => (Class: c, Score: TextMatch.FuzzyWords(query, ClassNames.SearchText(c.Name))))
                          .Where(x => x.Score is not null)
                          .Select(x => (x.Class, x.Score!.Value))
                          .OrderByDescending(x => x.Value).ThenBy(x => x.Class.Name, StringComparer.OrdinalIgnoreCase)
@@ -134,7 +136,7 @@ public partial class ClassBrowserPanel : EditorPanel
     private TreeItem AddClass(TreeItem parent, ClassInfo c, bool placeable)
     {
         TreeItem item = _tree.CreateItem(parent);
-        item.SetText(0, c.ShortName);
+        item.SetText(0, ClassNames.Title(c.Name));
         item.SetIcon(0, PanelIcons.Type(c.Name));
         if (!placeable)
         {
@@ -160,14 +162,14 @@ public partial class ClassBrowserPanel : EditorPanel
     private void BuildFallback(TreeItem root, string query)
     {
         var used = Context.Project.Actors.Select(a => a.Class).Distinct(StringComparer.OrdinalIgnoreCase)
-            .Where(c => query.Length == 0 || TextMatch.FuzzyWords(query, c) is not null)
+            .Where(c => query.Length == 0 || TextMatch.FuzzyWords(query, ClassNames.SearchText(c)) is not null)
             .Order(StringComparer.OrdinalIgnoreCase).ToList();
         _source.Text = "No class catalog: classes this map uses";
         _source.TooltipText = "";
         foreach (string cls in used)
         {
             TreeItem item = _tree.CreateItem(root);
-            item.SetText(0, cls[(cls.LastIndexOf('.') + 1)..]);
+            item.SetText(0, ClassNames.Title(cls));
             item.SetIcon(0, PanelIcons.Type(cls));
             item.SetMetadata(0, cls);
             item.SetTooltipText(0, cls);
@@ -199,7 +201,7 @@ public partial class ClassBrowserPanel : EditorPanel
             return;
         }
 
-        string chain = string.Join(" → ", catalog.Chain(c.Name).Select(x => x.ShortName));
+        string chain = string.Join(" → ", catalog.Chain(c.Name).Select(x => ClassNames.Title(x.Name)));
         int editable = catalog.AllProperties(c.Name).Count(p => p.Editable);
         _info.Text = $"{c.Name}\n{chain}\n{editable} editable properties";
     }
@@ -215,6 +217,37 @@ public partial class ClassBrowserPanel : EditorPanel
             return;
         }
 
+        PlaceClass(cls, PlacementPoint(Context.Project));
+    }
+
+    private Variant DragClass(string cls)
+    {
+        if (EditorServices.Classes?.Find(cls) is { Placeable: false } or { Abstract: true }) return default;
+        if (Placeables.Find(cls, EditorServices.Classes) is { } entry)
+            return AssetDragData.StartPlaceable(_tree, entry, PanelIcons.Type(cls));
+
+        // Capture the class and map at drag start; selection changes cannot change the payload.
+        MapProject project = Context.Project;
+        var preview = new Label { Text = ClassNames.Title(cls) };
+        _tree.SetDragPreview(preview);
+        var sample = MakeActor(cls);
+        return Variant.From(new PrefabDragData(ClassNames.Title(cls), point =>
+        {
+            if (ReferenceEquals(project, Context.Project)) PlaceClass(cls, point, surfacePoint: false);
+        }, -ObjectGeometry.ActorBounds(sample).Min.Z));
+    }
+
+    private Actor MakeActor(string cls)
+    {
+        IClassCatalog? catalog = EditorServices.Classes;
+        string full = catalog?.Find(cls)?.Name ?? cls;
+        var actor = new Actor(Context.Project.NewId(full[(full.LastIndexOf('.') + 1)..]), full);
+        if (catalog?.IsA(full, "Engine.Brush") == true) actor.Shape = Box.Shape(new Vec3(256, 256, 256));
+        return actor;
+    }
+
+    private void PlaceClass(string cls, Vec3 point, bool surfacePoint = true)
+    {
         MapProject p = Context.Project;
         IClassCatalog? catalog = EditorServices.Classes;
         ClassInfo? info = catalog?.Find(cls);
@@ -226,23 +259,20 @@ public partial class ClassBrowserPanel : EditorPanel
 
         string full = info?.Name ?? cls;
         string shortName = full[(full.LastIndexOf('.') + 1)..];
-        var actor = new Actor(p.NewId(shortName), full);
-        if (catalog is not null && info is not null && catalog.IsA(full, "Engine.Brush"))
-        {
-            actor.Shape = Box.Shape(new Vec3(256, 256, 256));
-        }
+        Actor actor = MakeActor(full);
 
         // Snap across the floor only and lift the actor by its extent below its origin, so it stands on the surface.
-        Vec3 point = PlacementPoint(p);
         double below = -ObjectGeometry.ActorBounds(actor).Min.Z;
-        Vec3 at = point.Snap(p.Workspace.GridSize).With(2, point.Z + below);
+        Vec3 at = point.Snap(p.Workspace.GridSize).With(2, point.Z + (surfacePoint ? below : 0));
         actor.Location = at;
         MoverBase.Place(actor);
         NewLights.Place(actor);
 
         Context.Execute(new AddObjectsCommand($"Place {shortName}", actors: [actor]));
         Context.Selection.Set([ObjectRef.Actor(actor.Id)]);
-        Context.Log($"Placed {actor.Id} at {at}.");
+        string message = $"Placed {ClassNames.Title(full)} ({actor.Id}) at {at}.";
+        Context.Log(message);
+        Context.SetStatus(message);
     }
 
     private Vec3 PlacementPoint(MapProject p)

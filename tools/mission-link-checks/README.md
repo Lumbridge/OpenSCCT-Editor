@@ -1,15 +1,25 @@
-# Mission linking checks
+# Mission workflow checks
 
-Run `dotnet run --project tools/mission-link-checks`, with `-p:OpenScctRoot=...` when the pinned game checkout is
-not in the default location. An optional argument after `--` chooses the output directory.
+Generate a disposable map and run the 37 relationship, undo, persistence, compilation and game activation checks:
 
-Checks batch linking, case-insensitive duplicates, invalid links, direct and indirect mission cycles, unlinking
-without deleting actors, chained ordering, imported single/missing references, atomic creation, undo/redo and
-save/reopen. Compiles the resulting map, loads it with the game's own map loader and verifies the first linked
-computer becomes usable while the second chained objective stays inactive.
+```powershell
+dotnet run --project tools/mission-link-checks -- local/mission-workflow
+```
 
-The run also writes `Ui.osmap` with unlinked objectives and computers. Pass it to `tools/Invoke-EditorShots.ps1`
-with `-Script tools/mission-link-checks/ui-shots.json` to exercise checkbox linking across search filters,
-selection-based linking, creation, undo/redo, completion controls and small/high-DPI layouts. The script uses
-checkbox coordinates at its explicitly set 1600×900 size. Afterward run the checker with the same output directory
-and `--verify-ui` as its second argument to verify the map saved by the UI.
+Use the editor's pinned OpenSCCT dependencies (`openscct.ref`). When building against a separate checkout, pass
+`-p:OpenScctRoot=<checkout>/` to `dotnet` and `-OpenScctRoot <checkout>/` to the background editor script.
+
+Run `workflow-ui-shots.json` against the generated `local/mission-workflow/Ui.osmap` using
+`tools/Start-BackgroundEditor.ps1 -Map <map> -EditorArgs @('--shots=<absolute-script-path>') -Wait`.
+It exercises all four guided link directions, search-preserved batch checks, review/back, undo/redo, repeated device
+placement, dragging a device from Missions, dragging translated and generic Classes entries, cancelling a drag, and saving.
+Then verify the saved result:
+
+```powershell
+dotnet run --project tools/mission-link-checks -- local/mission-workflow --verify-workflow
+```
+
+The ten saved-result checks require a fresh generated map for each workflow run. `workflow-context-shots.json`
+runs afterward against the edited map: mission, objective and device context menus, Outliner linking, viewport linking,
+an empty compatible-target list, the small-window layout, completion controls and 150% text size. These scripts use
+1600×1000 and 1280×720 windows and write screenshot manifests with any failed steps and layout findings.

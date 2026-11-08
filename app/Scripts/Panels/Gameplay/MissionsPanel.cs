@@ -1,4 +1,5 @@
 using Godot;
+using OpenScct.Editor.Core.Classes;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
@@ -21,6 +22,8 @@ public partial class MissionsPanel : EditorPanel
     private Control _empty = null!;
     private Label _draftTitle = null!;
     private DeferredAction _update = null!;
+    private ScrollContainer _headerScroll = null!;
+    private VBoxContainer _headerBody = null!;
     private readonly Dictionary<ulong, (string Parent, string Property, string Child)> _relationships = [];
 
     protected override void Build()
@@ -46,13 +49,24 @@ public partial class MissionsPanel : EditorPanel
             HideRoot = true,
             SelectMode = Tree.SelectModeEnum.Row,
             SizeFlagsVertical = SizeFlags.ExpandFill,
-            CustomMinimumSize = new Vector2(0, 110),
+            CustomMinimumSize = new Vector2(0, 50),
         };
         PanelUi.Columns(_tree, ("Mission / Objective", 160, true), ("Detail", 160, true));
         _tree.ItemSelected += () => Pick(focus: false);
         _tree.ItemActivated += () => Pick(focus: true);
+        _tree.AllowRmbSelect = true;
+        _tree.ItemMouseSelected += (_, button) =>
+        {
+            if (button != (long)MouseButton.Right || _tree.GetSelected()?.GetMetadata(0).AsString() is not { Length: > 0 } id) return;
+            MissionLinkGuide.Menu(_tree, Context, id);
+        };
         _tree.ButtonClicked += (item, _, button, _) => EditRelationship(item, (int)button);
-        AddChild(_tree);
+        var content = new HSplitContainer { SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        AddChild(content);
+        content.AddChild(_tree);
+        _tree.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _tree.SizeFlagsStretchRatio = 3;
+        BuildPalette(content);
         _empty = PanelUi.EmptyState(_tree, "type-objective", "No missions",
             "Start with New mission above, add objectives, then link the computers, bomb targets or disks that complete them.");
 
@@ -94,11 +108,24 @@ public partial class MissionsPanel : EditorPanel
         _tree.NothingSelected += ShowDraftTitle;
         ShowDraftTitle();
         Context.ProjectChanged += _ => _update.Queue();
-        // Short docks can scroll the whole workflow instead of clipping its lower rows out of the window.
-        var controls = GetChildren().OfType<Control>().ToList();
-        VBoxContainer body = PanelUi.Scroll(this);
-        body.SizeFlagsVertical = SizeFlags.ExpandFill;
-        foreach (Control control in controls) { RemoveChild(control); body.AddChild(control); }
+        // Only the controls scroll when the dock is short. The mission tree always fills the remaining height.
+        var header = GetChildren().OfType<Control>().Where(c => c != content).ToList();
+        _headerScroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled, VerticalScrollMode = ScrollContainer.ScrollMode.Auto };
+        _headerBody = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        AddChild(_headerScroll);
+        MoveChild(_headerScroll, 0);
+        _headerScroll.AddChild(_headerBody);
+        foreach (Control control in header) { RemoveChild(control); _headerBody.AddChild(control); }
+        Resized += FitHeader;
+        _headerBody.MinimumSizeChanged += FitHeader;
+        FitHeader();
+    }
+
+    private void FitHeader()
+    {
+        float height = Math.Min(_headerBody.GetCombinedMinimumSize().Y, Math.Max(EditorTheme.RowHeight, Size.Y * 0.5f));
+        if (Math.Abs(_headerScroll.CustomMinimumSize.Y - height) > 0.5f)
+            _headerScroll.CustomMinimumSize = new Vector2(0, height);
     }
 
     public override void Refresh() => _update.Queue();
@@ -111,7 +138,7 @@ public partial class MissionsPanel : EditorPanel
         MissionTree t = GameplayState.Instance.Missions;
         if (_missionId is null && _objectiveId is null && t.Missions.Count == 1) SetMission(t.Missions[0].Id);
         UpdateLinks();
-        bool empty = t.Missions.Count == 0 && t.Unlisted.Count == 0 && t.MatchSize.Count == 0;
+        bool empty = t.Missions.Count == 0 && t.Unlisted.Count == 0 && t.MatchSize.Count == 0 && !Context.Project.Actors.Any(MissionLinks.IsTrigger);
         _empty.Visible = empty;
         _tree.ColumnTitlesVisible = !empty;
         if (empty)
@@ -152,8 +179,8 @@ public partial class MissionsPanel : EditorPanel
                 else if (o.Triggers.Count == 0 && !MatchPlan.IsMission(objectiveActor))
                 {
                     objective.SetIcon(1, PanelIcons.Severity(Severity.Warning));
-                    objective.SetText(1, "No trigger: it can never be completed");
-                    objective.SetTooltipText(1, objective.GetText(1));
+                    objective.SetText(1, "No devices linked");
+                    objective.SetTooltipText(1, "Add a new device, or right-click this objective and choose Link to devices.");
                 }
 
                 foreach (string trigger in o.Triggers)
@@ -192,6 +219,16 @@ public partial class MissionsPanel : EditorPanel
                     Relationship(item, id, "Triggers", trigger);
                 }
             }
+        }
+
+        var linked = Context.Project.Actors.Where(MissionLinks.IsObjective)
+            .SelectMany(a => MissionTree.Refs(a.Props["Triggers"])).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        List<Actor> unlinked = Context.Project.Actors.Where(a => MissionLinks.IsTrigger(a) && !linked.Contains(a.Id)).ToList();
+        if (unlinked.Count > 0)
+        {
+            TreeItem devices = Row(root, "Devices needing an objective", PanelUi.Count(unlinked.Count, "device"), "");
+            devices.SetIcon(0, PanelIcons.Severity(Severity.Warning));
+            foreach (Actor actor in unlinked) Row(devices, Display(actor.Id), ClassOf(actor.Id) + " · right-click to link", actor.Id);
         }
 
         TreeItem rules = Row(root, "Player-count rules", t.MatchSize.Count == 0 ? "None: every match plays the whole map" : "", "");
@@ -286,7 +323,7 @@ public partial class MissionsPanel : EditorPanel
         }
     }
 
-    private string ClassOf(string id) => Context.Project.FindActor(id)?.ShortClass ?? "";
+    private string ClassOf(string id) => Context.Project.FindActor(id) is { } actor ? ClassNames.Title(actor.Class) : "";
 
     private string Display(string id) => Context.Project.FindActor(id) is { } a ? MissionLinks.Label(a) : id;
 

@@ -4,6 +4,9 @@ using OpenScct.Editor.Core.Commands;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Model;
 using OpenScctEditor.Shell;
+using OpenScctEditor.Tools;
+using OpenScctEditor.Gameplay;
+using OpenScct.Editor.Core.Services;
 
 namespace OpenScctEditor.Panels;
 
@@ -15,6 +18,7 @@ public partial class MissionsPanel
     private Button _missionPicker = null!;
     private Button _objectivePicker = null!;
     private Label _linkHint = null!;
+    private Label _paletteTarget = null!;
     private Control _completionBar = null!;
     private Control _completionDraft = null!;
     private Actor? Mission => _missionId is { } id ? Context.Project.FindActor(id) : null;
@@ -23,22 +27,25 @@ public partial class MissionsPanel
     private void BuildLinks()
     {
         s_instance = this;
-        var missions = PanelUi.Toolbar(this);
+        var missions = new HBoxContainer();
+        AddChild(missions);
         missions.AddChild(new Label { Text = "1. Mission", MouseFilter = MouseFilterEnum.Pass });
         _missionPicker = Picker(missions, "Choose mission", ChooseMission);
         PanelUi.Button(missions, "New mission", "Create a Story mission, then add its objectives below", NewMission);
         WorkbenchUi.Guard(PanelUi.Button(missions, "Add objectives…", "Search and check existing objectives or sub-missions to add", () =>
             AddPicker(_missionPicker, Mission, objectives: true)), () => Mission is not null);
-        WorkbenchUi.Guard(PanelUi.Button(missions, "Link selection", "Add the selected objectives to the chosen mission; selection order does not matter", () =>
+        WorkbenchUi.Guard(PanelUi.IconButton(missions, "link", "Link selected objectives to the chosen mission", () =>
             LinkSelected(Mission, objectives: true)), () => CanLinkSelection(Mission, true));
 
-        var objectives = PanelUi.Toolbar(this);
+        var objectives = new HBoxContainer();
+        AddChild(objectives);
         objectives.AddChild(new Label { Text = "2. Objective", MouseFilter = MouseFilterEnum.Pass });
         _objectivePicker = Picker(objectives, "Choose objective", ChooseObjective);
         WorkbenchUi.Guard(PanelUi.Button(objectives, "New objective", "Create an objective already linked to the chosen mission", NewObjective), () => Mission is not null);
+        WorkbenchUi.Guard(PanelUi.Button(objectives, "New device…", "Choose a device, then click in a view to place it and link it to this objective", NewDevice), () => Objective is not null);
         WorkbenchUi.Guard(PanelUi.Button(objectives, "Add devices…", "Link computers, bomb targets or disks that complete this objective", () =>
             AddPicker(_objectivePicker, Objective, objectives: false)), () => Objective is not null);
-        WorkbenchUi.Guard(PanelUi.Button(objectives, "Link selection", "Add all selected objective devices to the chosen objective", () =>
+        WorkbenchUi.Guard(PanelUi.IconButton(objectives, "link", "Link selected devices to the chosen objective", () =>
             LinkSelected(Objective, objectives: false)), () => CanLinkSelection(Objective, false));
         var hints = new HBoxContainer();
         AddChild(hints);
@@ -50,6 +57,50 @@ public partial class MissionsPanel
         Context.SessionReplaced += () => { _missionId = null; _objectiveId = null; UpdateLinks(); };
     }
 
+    private void BuildPalette(Control parent)
+    {
+        var palette = new VBoxContainer { Name = "MissionPlaceables", CustomMinimumSize = new Vector2(240, 0), SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        parent.AddChild(palette);
+        PanelUi.Caption(palette, "Objectives palette · drag into a view", wrap: false);
+        _paletteTarget = PanelUi.Caption(palette, "", wrap: false);
+        VBoxContainer scroll = PanelUi.Scroll(palette);
+        var flow = new HFlowContainer();
+        scroll.AddChild(flow);
+        foreach (Placeable entry in Placeables.Available(EditorServices.Classes).Where(p => p.Group == PlaceableGroup.Objectives))
+        {
+            var tile = new PlaceableTile(entry, false, null, ArmPlaceable, PlacementTargets);
+            flow.AddChild(tile);
+            tile.Retip(Context.Project.Actors.Count(a => a.Class == entry.Class));
+        }
+    }
+
+    private IReadOnlyList<string> PlacementTargets(Placeable entry)
+    {
+        Actor? target = entry.ShortClass == "SMission" ? null : entry.ShortClass == "SObjective" ? Mission : Objective ?? Mission;
+        return target is not null ? [target.Id] : [];
+    }
+
+    private void ArmPlaceable(Placeable entry)
+    {
+        IReadOnlyList<string> targets = PlacementTargets(entry);
+        if (ToolManager.Instance is not { } tools) return;
+        tools.ArmPalette(entry.Class, targets);
+        tools.Activate("place");
+        tools.RefreshOptions();
+        Context.SetStatus($"Click in a view to place {entry.InSentence}. " + (targets.Count > 0
+            ? $"New placements link to {string.Join(", ", targets)}. W returns to Move." : "Right-click the placed actor to link it."));
+    }
+
+    private void NewDevice()
+    {
+        List<string> classes = Placeables.Available(EditorServices.Classes)
+            .Where(p => MissionLinks.IsTrigger(new Actor("candidate", p.Class))).Select(p => p.Class).ToList();
+        ClassPicker.Open(_objectivePicker, classes, "", cls =>
+        {
+            if (Placeables.Find(cls, EditorServices.Classes) is { } entry) ArmPlaceable(entry);
+        });
+    }
+
     public static void OpenForSelection()
     {
         DockTabs.ShowPanel("Missions");
@@ -59,7 +110,7 @@ public partial class MissionsPanel
     private static Button Picker(Control row, string text, Action picked)
     {
         Button button = PanelUi.Button(row, text, "Choose by name; this target stays chosen while you select actors in the map", picked);
-        button.CustomMinimumSize = new Vector2(170, 0);
+        button.CustomMinimumSize = new Vector2(80, 0);
         button.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         button.SizeFlagsHorizontal = SizeFlags.ExpandFill;
         return button;
@@ -187,6 +238,12 @@ public partial class MissionsPanel
             : Mission is { } chosen ? $"{MissionLinks.Name(chosen)}: {MissionTree.Refs(chosen.Props["Objectives"]).Count} objectives. Add existing objectives or create one."
             : "Choose a mission, add its objectives, then connect their devices. Every link can be undone.";
         _linkHint.TooltipText = _linkHint.Text;
+        if (_paletteTarget is not null)
+        {
+            _paletteTarget.Text = Objective is { } into ? $"Devices link to {MissionLinks.Name(into)}"
+                : Mission is { } intoMission ? $"Objectives join {MissionLinks.Name(intoMission)}" : "Choose a mission to link new placements";
+            _paletteTarget.TooltipText = _paletteTarget.Text;
+        }
     }
 
     private static string DeviceCount(Actor a) => PanelUi.Count(MissionTree.Refs(a.Props["Triggers"]).Count, "device");

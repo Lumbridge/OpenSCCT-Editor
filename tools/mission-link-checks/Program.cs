@@ -24,6 +24,27 @@ void Refuses(Action action, string message)
     Check(refused, message);
 }
 string root = Path.GetFullPath(args.FirstOrDefault() ?? Path.Combine(Path.GetTempPath(), "ose-mission-links-" + Guid.NewGuid().ToString("N")));
+if (args.Length > 1 && args[1] == "--verify-workflow")
+{
+    MapProject edited = ProjectStore.Load(Path.Combine(root, "Ui.osmap"));
+    Actor linkedMission = edited.FindActor("Mission0")!;
+    Actor objective = edited.FindActor("Objective0")!;
+    Check(MissionLinks.Contains(objective, "Triggers", "ExtraComputer0"), "Device-to-objective review, undo and redo persist");
+    Check(MissionLinks.Contains(linkedMission, "Objectives", "ExtraObjective0"), "Objective-to-mission guide persists");
+    Check(MissionLinks.Contains(linkedMission, "Objectives", "ExtraObjective1"), "Mission-to-objectives guide persists");
+    Check(MissionLinks.Contains(objective, "Triggers", "ExtraComputer1") && MissionLinks.Contains(objective, "Triggers", "Computer1"),
+        "Objective-to-devices guide keeps checks across searches and applies the batch");
+    Check(MissionLinks.Contains(edited.FindActor("Objective1")!, "Triggers", "Computer1"), "Adding a shared device preserves its existing owner");
+    Check(linkedMission.Props.GetString("Event") == "KeepThisEvent", "Guided links preserve event wiring");
+    var devices = edited.Actors.Where(a => a.Id.StartsWith("SComputerObjectiveTrigger", StringComparison.Ordinal)).ToList();
+    Check(devices.Count == 3 && devices.All(a => MissionLinks.Contains(objective, "Triggers", a.Id)),
+        "Two New device placements and a palette drag stay linked to the chosen objective as selection changes");
+    Check(edited.Actors.Count(a => a.Class == "SBase.SExtincteur") == 1, "Translated Classes row drags the original class into the map");
+    Check(edited.Actors.Count(a => a.Class == "Engine.Light") == 2, "Generic class drag places one light; cancelling the next drag adds none");
+    Check(ClassNames.Title("SBase.SInterrupteur") == "Switch" && ClassNames.Title("SBase.SProjoFixe") == "Searchlight", "French gameplay classes have English names");
+    Console.WriteLine($"Passed {checks} saved workflow checks.");
+    return;
+}
 if (args.Length > 1 && args[1] == "--verify-ui")
 {
     MapProject edited = ProjectStore.Load(Path.Combine(root, "Ui.osmap"));

@@ -131,7 +131,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
             }
             else if (AssetDragData.ReadPlaceable(data) is { } placeable)
             {
-                PlacePlaceable(view, Pointer(view, position), placeable);
+                PlacePlaceable(view, Pointer(view, position), placeable, AssetDragData.ReadWiringTargets(data));
             }
             else if (drag is { IsMesh: true })
             {
@@ -315,7 +315,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
     /// <summary>Places a palette placeable where it was dropped (waiting for the collision world if it is still being
     /// built), as one undo step with its wiring; where it cannot go, the status bar says why.</summary>
-    private void PlacePlaceable(EditorViewport view, Vector2 at, Placeable entry)
+    private void PlacePlaceable(EditorViewport view, Vector2 at, Placeable entry, IReadOnlyList<string>? wiringTargets = null)
     {
         (PlaceableSpot? spot, string why) = PlaceableLanding.Find(view, at, entry, wait: true, yaw: _dragYaw);
         if (spot is not { } s)
@@ -325,7 +325,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         }
 
         _refused = null;
-        PlaceableLanding.Place(_ctx, entry, s, view.Kind);
+        PlaceableLanding.Place(_ctx, entry, s, view.Kind, wiringTargets);
     }
 
     // ---- where a mesh lands -----------------------------------------------------------------------------------------
