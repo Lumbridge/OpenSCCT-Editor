@@ -36,7 +36,7 @@ public static class InteropCommands
             + "[--only Kind:Id,...] [--content <.content>] [--json]",
             "Exports a project for the original game after the round-trip lint: T3D for the stock editor's File > Import, a "
             + "map package (.sdc) written natively, or a folder for RE+. An .sdc is the editor copy for Packages\\MapsEd "
-            + "(--layout editor, the default) or the cooked copy the game loads from Packages\\Maps (--layout cooked); it is "
+            + "(--layout editor) or the cooked copy the game loads from Packages\\Maps (--layout cooked, the default); it is "
             + "read back and checked, and a map imported from an .sdc keeps that file's objects it does not edit. --game is the "
             + "install new materials and meshes are looked up in. --format original writes the folder for RE+ to <out> instead: "
             + "the T3D, the actors of the map's own classes and their sources, the map's own textures, meshes and sounds with a "

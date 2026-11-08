@@ -139,7 +139,7 @@ public static class ApiMethods
             + "a folder for RE+: the T3D, the actors of the map's own classes and their sources, the map's own textures, meshes and sounds with a "
             + "script that imports them, the map's texts (.int) and a README of the steps in RE+. format t3d writes the T3D alone (for the stock "
             + "editor's File > Import); with only, just those objects in the Edit > Copy form. format sdc writes a map package natively: layout "
-            + "editor, the copy for Packages\\MapsEd with brushes, the default; or cooked, the copy the game loads from Packages\\Maps. An .sdc is "
+            + "cooked, the copy the game loads from Packages\\Maps (the default); or editor, the copy for Packages\\MapsEd with brushes. An .sdc is "
             + "read back and checked; a map imported from an .sdc keeps that file's objects it does not edit, and the findings say what differs "
             + "from it. ok is false when the lint found errors (the files are written anyway).",
             """{"type":"object","properties":{"format":{"type":"string","enum":["original","t3d","sdc"]},"out":{"type":"string","description":"the folder (original) or file (t3d, sdc) to write; default export/<id>, export/<id>.t3d or export/<id>.sdc next to the project"},"only":{"type":"array","items":{"type":"string"},"description":"t3d only: the object ids to write"},"layout":{"type":"string","enum":["editor","cooked"],"description":"sdc only"},"game":{"type":"string","description":"sdc: the original install new materials and meshes are looked up in"}}}"""),

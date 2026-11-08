@@ -24,7 +24,7 @@ public sealed class SdcExporter : IMapExporter
 
     public IReadOnlyList<ExportChoice> Choices { get; } =
     [
-        new(LayoutChoice, "Layout", ["editor", "cooked"], "editor", ["Editor copy (Packages\\MapsEd)", "Cooked copy (Packages\\Maps)"]),
+        new(LayoutChoice, "Export for", ["cooked", "editor"], "cooked", ["Play in Reloaded (Packages\\Maps)", "Edit in RE+ (Packages\\MapsEd)"]),
     ];
 
     public static SdcLayout ParseLayout(string value) => value.ToLowerInvariant() switch
@@ -48,6 +48,13 @@ public sealed class SdcExporter : IMapExporter
             return new ExportResult(false, [], [Finding.Error("ge.geometry", ex.Message)]);
         }
         SdcLayout layout = ParseLayout(options.Choice(this, LayoutChoice));
+        var destination = new DirectoryInfo(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        if (layout == SdcLayout.Editor && destination.Name.Equals("Maps", StringComparison.OrdinalIgnoreCase)
+            && destination.Parent?.Name.Equals("Packages", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return new ExportResult(false, [], [Finding.Error("sdc.editorInMaps",
+                "An editor copy cannot be played by Reloaded. Choose Play in Reloaded (cooked), or save the editor copy in Packages\\MapsEd.")]);
+        }
         UeSchema? schema = UeSchema.Load(options.ContentRoot ?? EditorServices.ContentRoot);
         options.Progress?.Invoke("checking round-trip compatibility");
         var findings = new List<Finding>();

@@ -1,3 +1,4 @@
+using OpenScct.Content.Json;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Services;
@@ -33,6 +34,17 @@ public static class SdcRoundTripLint
         {
             f.Add(Finding.Error("sdc.readBack", $"the written file does not read back: {e.Message}"));
             return f;
+        }
+
+        string? levelInfo = map.Actors.FirstOrDefault(a => a.Position == 0)?.Name;
+        var unowned = map.Actors.Where(a => a.Position >= 0 &&
+            (a.Props["Level"] is not SvJsonObject owner || owner["$actor"] is not SvJsonString name
+             || !name.Value.Equals(levelInfo, StringComparison.OrdinalIgnoreCase))).ToList();
+        if (unowned.Count > 0)
+        {
+            f.Add(Finding.Error("sdc.actorLevel",
+                $"{unowned.Count} actors have no reference to the map's LevelInfo; Reloaded cannot run them",
+                unowned.Take(50).Select(a => ObjectRef.Actor(a.Name)).ToArray()));
         }
 
         var names = new HashSet<string>(map.Actors.Select(a => a.Name), StringComparer.OrdinalIgnoreCase);

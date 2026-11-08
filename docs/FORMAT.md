@@ -1195,9 +1195,13 @@ The project exports straight to an original map package (`ose export --format sd
 with a Layout choice in the save dialog, the `export` API method), written by the editor itself with no stock
 editor:
 
-- `--layout editor` (the default) writes the editor copy for `Packages\MapsEd`: every brush with its Model and Polys
-  in CSG order, the actors, volumes, movers and GEs, and the world. `--layout cooked` writes the copy the game loads
-  from `Packages\Maps`, without what the cook leaves out (SDC-FORMAT.md section 13).
+- `--layout cooked` (the default, **Play in Reloaded** in the save dialog) writes the copy the game loads from
+  `Packages\Maps`, without what the cook leaves out (SDC-FORMAT.md section 13). `--layout editor` writes the editor
+  copy for `Packages\MapsEd`: every brush with its Model and Polys in CSG order, the actors, volumes, movers and GEs,
+  and the world. Editor copies are refused in `Packages\Maps`: the game cannot read that layout.
+- Newly written actors store their `Level` reference to this map's LevelInfo (including the LevelInfo's reference
+  to itself). Reloaded requires it during startup; it does not initialize missing references. The export's read-back
+  check rejects actors without this reference.
 - A map imported from an `.sdc` is written back over that file's tables: what the project does not edit (the baked
   world, StaticMeshInstances, map textures and meshes, script classes, emitters) is copied unchanged, and an unedited
   map writes back the same file. Objects keep their source names; one the edit adds is written under a free name

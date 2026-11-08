@@ -494,7 +494,7 @@ public sealed class UPropertyWriter
 
     private static string ShortName(string? structName) => structName is null ? "" : structName[(structName.LastIndexOf('.') + 1)..];
 
-    private static bool IsRef(SvJsonNode v) => v is SvJsonObject o && (o.ContainsKey("$actor") || o.ContainsKey("$asset") || o.ContainsKey("$class"));
+    private static bool IsRef(SvJsonNode v) => v is SvJsonObject o && (o.ContainsKey("$actor") || o.ContainsKey("$asset") || o.ContainsKey("$class") || o.ContainsKey("\u0001item"));
 
     private long EnumOrInt(SvJsonNode value, string? enumName)
     {

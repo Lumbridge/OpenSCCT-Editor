@@ -1085,7 +1085,12 @@ internal sealed class SdcPackagePlan
         it.Write = w =>
         {
             UPropertyWriter.StateFrame(w, classRef());
-            _props.WriteObject(w, typing, cls, WithoutDefaults(props(), typing ?? cls, null), id);
+            List<KeyValuePair<string, SvJsonNode>> actorProps = props();
+            // Actor::Level is a serialized LevelInfo reference, not something the game fills on load.
+            // Fresh actors have no imported engine state; leaving it null crashes IsNetRelevantFor.
+            actorProps.RemoveAll(kv => kv.Key.Equals("Level", StringComparison.OrdinalIgnoreCase));
+            actorProps.Add(new("Level", ItemRef(_levelInfo.Name)));
+            _props.WriteObject(w, typing, cls, WithoutDefaults(actorProps, typing ?? cls, null), id);
         };
         return it;
     }
