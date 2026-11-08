@@ -164,7 +164,7 @@ public partial class MissionsPanel
     }
 
     /// <summary>Guides inspect existing links; they never create actors on the user's behalf.</summary>
-    public static void RevealTutorialObjective(string? objectiveId, string field)
+    public static void RevealTutorialObjective(string? objectiveId, string field, string? deviceId = null)
     {
         DockTabs.ShowPanel("Missions");
         if (s_instance is not { } panel) return;
@@ -172,6 +172,13 @@ public partial class MissionsPanel
         {
             panel.Context.Selection.Set([ObjectRef.Actor(objective.Id)]);
             panel.FollowSelection(inferDevices: true);
+        }
+        else if (deviceId is not null && panel.Context.Project.FindActor(deviceId) is { } device)
+        {
+            // An imported, unlinked device must not inherit a different task pinned in this panel.
+            panel._missionId = panel._objectiveId = null;
+            panel.Context.Selection.Set([ObjectRef.Actor(device.Id)]);
+            panel.UpdateLinks();
         }
         DiscoveryNavigation.Reveal(field switch
         {

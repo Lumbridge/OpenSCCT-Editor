@@ -1,8 +1,9 @@
 # Command-palette and tutorial checks
 
 `dotnet run --project tools/discovery-checks` checks task-query parsing, matching, aliases, lesson coverage,
-unique IDs and all 130 step routes. It also places real computers, bomb targets and disks to verify that guidance
-reuses their generated objectives, recognises automatic mission/drop-zone links and creates no duplicate actors.
+unique IDs and step routes. It also places real computers, bomb targets and disks to verify that guidance
+reuses their generated objectives, follows explicit selections and nested zones, recognises automatic mission/drop-zone
+links, handles unlinked and shared devices, refreshes after undo, and creates no duplicate actors.
 Pass `-p:OpenScctRoot=...` if the default pinned dependency checkout is absent.
 
 Build `app/OpenScctEditor.csproj`, then start a fresh disposable editor through `tools/Start-BackgroundEditor.ps1`
@@ -19,6 +20,12 @@ and every step of every lesson. It verifies map object counts remain unchanged a
 run's `shots` folder. The caller owns stopping the disposable editor after the test.
 
 Add `--navigation-only` for focused Simple-workspace, collapsed mission-controls and keyboard-cancel checks.
+
+`python tools/discovery-checks/check_objective_ui.py <background-run-folder>` adds a disposable multi-zone fixture
+and tests real tutorial navigation between existing tasks, repairing an imported computer's link and undoing it,
+disk selection before drop-zone placement, and the mission/objective/chain/zone diagram viewer. It checks that the
+fixture's actor properties stay unchanged after navigation and undo, and captures the diagrams for visual review.
+`objective-ui-shots.json` also captures the chain/zone lessons and scrolling diagrams at 150% UI scale.
 
 `ui-shots.json` exercises the palette and lesson cards at normal and 150% UI scale. Run it with
 `--shots=<absolute-script-path> --shots-out=<output-folder>` through the background-editor helper. The app enforces

@@ -20,6 +20,7 @@ public partial class TutorialRunner : PanelContainer, IShellPart
     private ScrollContainer _instructions = null!;
     private HFlowContainer _buttons = null!;
     private Button _fold = null!;
+    private Button _diagram = null!;
     private bool _collapsed;
     private string? _subjectId;
     private readonly DeferredAction _refreshGuidance = new(() => Instance?.RefreshGuidance());
@@ -52,6 +53,7 @@ public partial class TutorialRunner : PanelContainer, IShellPart
         box.AddChild(_instructions);
         _body = PanelUi.Caption(_instructions, "");
         _body.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+        _diagram = PanelUi.Button(box, "Mission / objective diagram", "See devices, objectives, chains and zone missions", () => MissionTutorialDiagram.Open(this, ShowTarget));
         var buttons = new HFlowContainer(); _buttons = buttons; box.AddChild(buttons);
         _back = PanelUi.Button(buttons, "Back", "Return to the previous step", () => Move(-1));
         PanelUi.Button(buttons, "Show me again", "Reveal and highlight this step's control again", ShowTarget);
@@ -105,6 +107,7 @@ public partial class TutorialRunner : PanelContainer, IShellPart
     {
         _collapsed = !_collapsed;
         _progress.Visible = _stepTitle.Visible = _instructions.Visible = _buttons.Visible = !_collapsed;
+        _diagram.Visible = !_collapsed && _lesson?.Id is "laptop" or "bomb" or "disk" or "chain" or "zones";
         _fold.Text = _collapsed ? "+" : "−";
         Size = new Vector2(Size.X, 0);
     }
@@ -159,7 +162,7 @@ public partial class TutorialRunner : PanelContainer, IShellPart
                 else
                 {
                     Actor? objective = TutorialMapGuidance.Objective(_ctx.Project, subject);
-                    MissionsPanel.RevealTutorialObjective(objective?.Id, detail[0]);
+                    MissionsPanel.RevealTutorialObjective(objective?.Id, detail[0], subject?.Id);
                     if (detail[0] == "new-mission") DiscoveryNavigation.ShowPanel("Missions", "New mission", lesson: true);
                 }
                 break;
@@ -168,7 +171,10 @@ public partial class TutorialRunner : PanelContainer, IShellPart
                 PrefabsPanel.ShowPrefab(detail[0]);
                 DiscoveryNavigation.ShowPanel("Prefabs", detail.Length > 1 ? detail[1] : null, lesson: true);
                 break;
-            case "placeable": PlaceablesPanel.Instance?.RevealClass(detail[0], lesson: true); break;
+            case "placeable":
+                if (detail[0] == "SBase.SFlagDropZone" && _subjectId is { } disk) _ctx.Selection.Set([ObjectRef.Actor(disk)]);
+                PlaceablesPanel.Instance?.RevealClass(detail[0], lesson: true);
+                break;
             case "assetkind": AssetBrowserPanel.Instance?.RevealKind(Enum.Parse<AssetKind>(detail[0]), lesson: true); break;
             case "action":
                 if (_ctx.FindAction(detail[0]) is { } action) DiscoveryNavigation.ShowAction(action, lesson: true);

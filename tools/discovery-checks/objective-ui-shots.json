@@ -1,0 +1,14 @@
+[
+  {"op":"size","w":1280,"h":720},
+  {"op":"scale","factor":1.5},
+  {"op":"run","action":"tutorial.chain"},
+  {"op":"shot","name":"small-chain-lesson"},
+  {"op":"click","at":"text:Mission / objective diagram"},
+  {"op":"shot","name":"small-mission-diagram"},
+  {"op":"scroll","at":[520,300],"clicks":-20},
+  {"op":"shot","name":"small-zone-diagram"},
+  {"op":"key","key":"Escape"},
+  {"op":"run","action":"help.cancelTutorial"},
+  {"op":"run","action":"tutorial.zones"},
+  {"op":"shot","name":"small-zone-lesson"}
+]

@@ -42,6 +42,15 @@ internal static class TutorialGuidanceChecks
             check(TutorialMapGuidance.Resolve(lesson, missionStep, p, secondDevice).Title == "The mission link is already complete",
                 id + " auto-linked mission is recognised without a manual linking step");
             check(TutorialMapGuidance.Subject(p, id, []) is null, id + " does not guess between several devices");
+            Actor secondObjective = TutorialMapGuidance.Objective(p, secondDevice)!;
+            check(TutorialMapGuidance.Subject(p, id, [ObjectRef.Actor(secondObjective.Id)], device.Id)?.Id == secondDevice.Id,
+                id + " explicitly selected objective replaces the previous device");
+            check(TutorialMapGuidance.Subject(p, id, [ObjectRef.Actor(device.Id), ObjectRef.Actor(secondDevice.Id)], device.Id) is null,
+                id + " multiple selected devices require an explicit choice");
+            var emptyObjective = new Actor("EmptyTask", "SBase.SObjective");
+            p.Actors.Add(emptyObjective);
+            check(TutorialMapGuidance.Subject(p, id, [ObjectRef.Actor(emptyObjective.Id)], device.Id) is null,
+                id + " empty selected task never falls back to an unrelated device");
             check(TutorialMapGuidance.Resolve(lesson, 0, p, null).Target == "panel:Outliner", id + " asks to select an existing device instead of placing another");
             int objectiveCount = p.Actors.Count(a => MissionLinks.IsObjective(a) && !MatchPlan.IsMission(a));
             var reused = PlaceableWiring.Place(p, Placeables.Stock.Single(e => e.Class == type), Vec3.One, Rot.Zero, [objective.Id]);
@@ -55,15 +64,47 @@ internal static class TutorialGuidanceChecks
                 session.Execute(zone.Command);
                 check(TutorialMapGuidance.DropZones(p, device).Count == 1, "Read the actual indexed DropZone reference");
                 check(TutorialMapGuidance.Resolve(lesson, 1, p, device).Title == "Use the existing drop zone", "Do not ask to duplicate a connected drop zone");
+                check(TutorialMapGuidance.Subject(p, id, [ObjectRef.Actor(zone.Id)], secondDevice.Id)?.Id == device.Id,
+                    "Selecting a destination follows its actual disk instead of the previously inspected one");
             }
+
+            var zoneMission = new Actor("ZoneMission", "SBase.SMission");
+            p.Actors.Add(zoneMission); // Undefined: must be activated through its parent.
+            session.Execute(MissionLinks.Remove(p, mission.Id, "Objectives", secondObjective.Id)!);
+            session.Execute(MissionLinks.Add(p, zoneMission.Id, [secondObjective.Id])!);
+            check(TutorialMapGuidance.Resolve(lesson, missionStep, p, secondDevice).Title == "Connect the zone to a game-mode mission",
+                id + " an orphan zone is not reported as playable");
+            session.Execute(MissionLinks.Add(p, mission.Id, [zoneMission.Id])!);
+            check(TutorialMapGuidance.Subject(p, id, [ObjectRef.Actor(zoneMission.Id)], device.Id)?.Id == secondDevice.Id,
+                id + " recursively follows a selected zone to its device");
+            check(TutorialMapGuidance.Resolve(lesson, missionStep, p, secondDevice).Title == "The mission link is already complete",
+                id + " recognises a zone activated by its Story parent");
+            session.Execute(MissionLinks.Add(p, mission.Id, [secondObjective.Id])!);
+            check(TutorialMapGuidance.Resolve(lesson, missionStep, p, secondDevice).Title == "Review the objective's shared mission links",
+                id + " flags a task accidentally listed by its zone and top mission");
+            session.Execute(MissionLinks.Add(p, emptyObjective.Id, [secondDevice.Id])!);
+            check(TutorialMapGuidance.Objective(p, secondDevice) is null
+                && TutorialMapGuidance.Resolve(lesson, 1, p, secondDevice).Title == "Review the device's shared links",
+                id + " never guesses between multiple device owners");
+            session.Execute(MissionLinks.Remove(p, emptyObjective.Id, "Triggers", secondDevice.Id)!);
+            session.Execute(MissionLinks.Remove(p, secondObjective.Id, "Triggers", secondDevice.Id)!);
+            check(TutorialMapGuidance.Resolve(lesson, missionStep, p, secondDevice).Title == "Connect the device to an objective",
+                id + " repairs an unlinked imported device without replacing it");
+            session.Commands.Undo();
+            check(TutorialMapGuidance.Objective(p, secondDevice)?.Id == secondObjective.Id, id + " undo immediately restores existing guidance");
         }
         var direct = EditorSession.New("DirectGuide", "Direct mission device");
         var directMission = new Actor("DirectMission", "SBase.SMission");
+        directMission.Props.Set("GameMode", SvJsonNode.Integer(5));
         var directComputer = new Actor("DirectComputer", "SBase.SComputerObjectiveTrigger");
         directMission.Props.Set("Triggers", PropValues.Array([PropValues.ActorRef(directComputer.Id)]));
         direct.Project.Actors.AddRange([directMission, directComputer]);
         var laptop = TutorialCatalog.All.Single(t => t.Id == "laptop");
         check(TutorialMapGuidance.Resolve(laptop, 1, direct.Project, directComputer).Title == "Use the mission's existing device link", "Recognise a mission's directly connected device");
         check(TutorialMapGuidance.Resolve(laptop, 2, direct.Project, directComputer).Title == "The mission link is already complete", "Do not ask to nest a direct-device mission inside another mission");
+        directMission.Props.Set("GameMode", SvJsonNode.Integer(0));
+        check(TutorialMapGuidance.Resolve(laptop, 2, direct.Project, directComputer).Title == "Connect the zone to a game-mode mission", "A direct-device zone still needs an active parent");
+        directMission.Props.Set("Objectives", PropValues.Array([PropValues.ActorRef(directMission.Id)]));
+        check(TutorialMapGuidance.Resolve(laptop, 2, direct.Project, directComputer).Title == "Connect the zone to a game-mode mission", "Malformed imported mission cycles do not recurse forever");
     }
 }
