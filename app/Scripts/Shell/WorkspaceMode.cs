@@ -29,9 +29,9 @@ public sealed class WorkspaceMode : IShellPart
     {
         context.AddAction(new EditorAction("workspace.simple", "Simple Workspace", "View/Workspace", () => Set(true))
         { IsChecked = () => Simple, RadioGroup = "workspace", Order = 100 });
-        context.AddAction(new EditorAction("workspace.advanced", "Advanced Workspace", "View/Workspace", () => Set(false))
+        context.AddAction(new EditorAction("workspace.advanced", "Full Workspace", "View/Workspace", () => Set(false))
         { IsChecked = () => !Simple, RadioGroup = "workspace", Order = 110 });
-        var mode = PanelUi.Toggle(window.StatusRow, "Advanced", "Show all tools and panels. Your map stays the same.", !Simple, advanced => Set(!advanced));
+        var mode = PanelUi.Toggle(window.StatusRow, "Full Workspace", "Show all editor tools and panels", !Simple, full => Set(!full));
         Changed += () => mode.SetPressedNoSignal(!Simple);
         Documents.BeforeSave += () => window.SaveWorkspaceLayout(Simple ? "simple" : "advanced");
         window.CloseRequested += () => window.SaveWorkspaceLayout(Simple ? "simple" : "advanced");

@@ -5,9 +5,9 @@ with a status per row, is [PARITY.md](PARITY.md).
 
 ## Done so far
 
-- Beginner workflow: Simple/Advanced workspaces with separate layouts, an in-map first-map checklist, the Building
+- Beginner workflow: Simple/Full workspaces with separate layouts, an in-map first-map checklist, the Building
   palette over the eight starter prefabs, dependency explanations and plain-language property tooltips. New profiles
-  start simple; existing profiles keep Advanced and their shortcuts. The 15-minute learning target still needs
+  start simple; existing profiles keep Full Workspace and their shortcuts. The 15-minute learning target still needs
   observation with three first-time users.
 
 M0 to M2 are done and M3 and M4 mostly. Delivered so far:
