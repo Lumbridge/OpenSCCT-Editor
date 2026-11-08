@@ -309,7 +309,7 @@ public sealed class ToolManager : IShellPart
 
     public void Activate(string id)
     {
-        if (id is "stairs" or "windows") DockTabs.ShowPanel(id == "stairs" ? "Stairs" : "Windows");
+        if (id is "stairs" or "windows" or "doors") DockTabs.ShowPanel(id == "stairs" ? "Stairs" : id == "doors" ? "Doors" : "Windows");
         if (id is "vertex" or "clip" or "face" && _ctx.Selection.Items.Any(r => _ctx.Project.FindBrush(r.Id)?.Stair is not null))
         { _ctx.SetStatus("Use Break Apart before editing individual stair faces/vertices or clipping a staircase"); return; }
         IViewportTool? tool = _tools.Find(t => t.Id == id);

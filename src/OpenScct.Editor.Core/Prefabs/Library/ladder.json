@@ -3,14 +3,62 @@
   "name": "ladder",
   "title": "Ladder",
   "category": "traversal",
-  "summary": "A climbable ladder line (LADDER GE) up a wall, with an optional mesh. Pivot: the floor at the foot of the wall; the climber stands on the +X side (place it with wall:\"nearest\").",
+  "summary": "A visible ladder with rungs and a climbable LADDER route. Pivot: floor at the wall foot, climber on +X. Optional custom mesh replaces generated rungs.",
   "params": {
-    "height": { "default": 384, "min": 64, "max": 4096, "summary": "Height of the climb" },
-    "offset": { "default": 16, "min": 0, "max": 128, "summary": "Distance of the climb line from the wall" },
-    "mesh": { "default": "", "summary": "A ladder static mesh to show (none by default: ladder meshes come with map packages)" }
+    "height": {
+      "default": 384,
+      "min": 64,
+      "max": 4096,
+      "summary": "Height of the climb"
+    },
+    "offset": {
+      "default": 16,
+      "min": 0,
+      "max": 128,
+      "summary": "Distance of the climb line from the wall"
+    },
+    "mesh": {
+      "default": "",
+      "summary": "Optional custom ladder model; empty uses generated rails and rungs"
+    }
   },
   "ops": [
-    { "op": "create", "id": "$climb", "ge": "LADDER", "points": [["${offset}", 0, 0], ["${offset}", 0, "${height}"], ["${offset + 10}", 0, 0]] },
-    { "if": "${mesh != ''}", "op": "create", "id": "$mesh", "class": "StaticMeshActor", "at": [0, 0, 0], "props": { "StaticMesh": "${mesh}" } }
+    {
+      "op": "create",
+      "id": "$climb",
+      "ge": "LADDER",
+      "points": [
+        [
+          "${offset}",
+          0,
+          0
+        ],
+        [
+          "${offset}",
+          0,
+          "${height}"
+        ],
+        [
+          "${offset + 10}",
+          0,
+          0
+        ]
+      ],
+      "appearance": "${mesh == ''}"
+    },
+    {
+      "if": "${mesh != ''}",
+      "op": "create",
+      "id": "$mesh",
+      "class": "StaticMeshActor",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "props": {
+        "StaticMesh": "${mesh}"
+      }
+    }
   ]
 }

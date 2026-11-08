@@ -1,0 +1,323 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "server_rack",
+  "title": "Server rack",
+  "category": "technology",
+  "summary": "Eight server trays with indicator strips in a rack cabinet. Pivot: floor at the centre. Dimensions are in Unreal units; all parts are one linked, undoable instance.",
+  "params": {
+    "height": {
+      "default": 224,
+      "summary": "Rack height",
+      "min": 128,
+      "max": 512
+    }
+  },
+  "ops": [
+    {
+      "op": "create",
+      "id": "$cabinet",
+      "brush": {
+        "size": [
+          80,
+          96,
+          "${height}"
+        ]
+      },
+      "at": [
+        0,
+        0,
+        "${height / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Dark"
+    },
+    {
+      "op": "create",
+      "id": "$server0",
+      "brush": {
+        "size": [
+          6,
+          84,
+          "${height / 10}"
+        ]
+      },
+      "at": [
+        43,
+        0,
+        "${height * (0 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$server1",
+      "brush": {
+        "size": [
+          6,
+          84,
+          "${height / 10}"
+        ]
+      },
+      "at": [
+        43,
+        0,
+        "${height * (1 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$server2",
+      "brush": {
+        "size": [
+          6,
+          84,
+          "${height / 10}"
+        ]
+      },
+      "at": [
+        43,
+        0,
+        "${height * (2 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$server3",
+      "brush": {
+        "size": [
+          6,
+          84,
+          "${height / 10}"
+        ]
+      },
+      "at": [
+        43,
+        0,
+        "${height * (3 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$server4",
+      "brush": {
+        "size": [
+          6,
+          84,
+          "${height / 10}"
+        ]
+      },
+      "at": [
+        43,
+        0,
+        "${height * (4 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$server5",
+      "brush": {
+        "size": [
+          6,
+          84,
+          "${height / 10}"
+        ]
+      },
+      "at": [
+        43,
+        0,
+        "${height * (5 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$server6",
+      "brush": {
+        "size": [
+          6,
+          84,
+          "${height / 10}"
+        ]
+      },
+      "at": [
+        43,
+        0,
+        "${height * (6 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$server7",
+      "brush": {
+        "size": [
+          6,
+          84,
+          "${height / 10}"
+        ]
+      },
+      "at": [
+        43,
+        0,
+        "${height * (7 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$led0",
+      "brush": {
+        "size": [
+          7,
+          8,
+          3
+        ]
+      },
+      "at": [
+        47,
+        -28,
+        "${height * (0 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Screen"
+    },
+    {
+      "op": "create",
+      "id": "$led1",
+      "brush": {
+        "size": [
+          7,
+          8,
+          3
+        ]
+      },
+      "at": [
+        47,
+        -28,
+        "${height * (1 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Screen"
+    },
+    {
+      "op": "create",
+      "id": "$led2",
+      "brush": {
+        "size": [
+          7,
+          8,
+          3
+        ]
+      },
+      "at": [
+        47,
+        -28,
+        "${height * (2 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Screen"
+    },
+    {
+      "op": "create",
+      "id": "$led3",
+      "brush": {
+        "size": [
+          7,
+          8,
+          3
+        ]
+      },
+      "at": [
+        47,
+        -28,
+        "${height * (3 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Screen"
+    },
+    {
+      "op": "create",
+      "id": "$led4",
+      "brush": {
+        "size": [
+          7,
+          8,
+          3
+        ]
+      },
+      "at": [
+        47,
+        -28,
+        "${height * (4 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Screen"
+    },
+    {
+      "op": "create",
+      "id": "$led5",
+      "brush": {
+        "size": [
+          7,
+          8,
+          3
+        ]
+      },
+      "at": [
+        47,
+        -28,
+        "${height * (5 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Screen"
+    },
+    {
+      "op": "create",
+      "id": "$led6",
+      "brush": {
+        "size": [
+          7,
+          8,
+          3
+        ]
+      },
+      "at": [
+        47,
+        -28,
+        "${height * (6 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Screen"
+    },
+    {
+      "op": "create",
+      "id": "$led7",
+      "brush": {
+        "size": [
+          7,
+          8,
+          3
+        ]
+      },
+      "at": [
+        47,
+        -28,
+        "${height * (7 + .5) / 8}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Screen"
+    }
+  ]
+}

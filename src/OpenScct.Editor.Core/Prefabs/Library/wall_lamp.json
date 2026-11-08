@@ -1,0 +1,73 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "wall_lamp",
+  "title": "Wall lamp with light",
+  "category": "lighting",
+  "summary": "A wall-mounted fixture and a working editable light. Pivot: floor at the centre. Dimensions are in Unreal units; all parts are one linked, undoable instance.",
+  "params": {
+    "height": {
+      "default": 192,
+      "summary": "Mounting height",
+      "min": 96,
+      "max": 1024
+    },
+    "brightness": {
+      "default": 160,
+      "summary": "Light brightness",
+      "min": 0,
+      "max": 255
+    }
+  },
+  "ops": [
+    {
+      "op": "create",
+      "id": "$mount",
+      "brush": {
+        "size": [
+          8,
+          32,
+          56
+        ]
+      },
+      "at": [
+        0,
+        0,
+        "${height}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Dark"
+    },
+    {
+      "op": "create",
+      "id": "$diffuser",
+      "brush": {
+        "size": [
+          16,
+          24,
+          40
+        ]
+      },
+      "at": [
+        10,
+        0,
+        "${height}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.White"
+    },
+    {
+      "op": "create",
+      "id": "$light",
+      "class": "Light",
+      "at": [
+        40,
+        0,
+        "${height}"
+      ],
+      "props": {
+        "LightBrightness": "${brightness}",
+        "LightRadius": 24
+      }
+    }
+  ]
+}

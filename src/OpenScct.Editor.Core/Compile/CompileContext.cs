@@ -20,6 +20,7 @@ public sealed class CompileContext
         try
         {
             Project = Windows.WindowGeometry.Expand(GeGeometry.Expand(project), AssetResolver.For(options.ContentRoot ?? EditorServices.ContentRoot, options.ProjectFolder));
+            Project = Doors.DoorGeometry.Expand(Project, AssetResolver.For(options.ContentRoot ?? EditorServices.ContentRoot, options.ProjectFolder));
             if (Project.Brushes.Any(b => b.Stair is not null))
             {
                 Project = Session.ProjectSnapshot.Take(Project);

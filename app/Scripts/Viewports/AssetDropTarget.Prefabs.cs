@@ -12,9 +12,19 @@ public sealed partial class AssetDropTarget
     private Vec3? _stairGhostAt;
     private string? _stairPlacementProblem;
     private Actor? _windowGhost;
+    private Actor? _doorGhost;
 
     private bool ShowPrefab(EditorViewport view, Vector2 at, PrefabDragData prefab)
     {
+        if (prefab.DoorPreview is { } door)
+        {
+            var (actor, why) = Tools.DoorTool.Preview(view, at, door, prefab.DoorYaw);
+            _doorGhost = actor; _stairPlacementProblem = why; prefab.DoorPlacement = why is null ? actor : null;
+            _prefabTarget = (view, actor?.Location ?? Vec3.Zero); _over = view;
+            _pointer = EditorPointer.Global(view); _frame = Engine.GetProcessFrames();
+            _ctx.SetStatus(why ?? "Drop to place door · R rotates / flips wall facing");
+            view.Redraw(); return actor is not null && why is null;
+        }
         if (prefab.WindowPreview is { } window)
         {
             var (actor, why) = Tools.WindowTool.Preview(view, at, window, prefab.WindowYaw);

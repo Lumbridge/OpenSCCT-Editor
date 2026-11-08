@@ -1,0 +1,119 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "dining_table",
+  "title": "Dining table",
+  "category": "furniture",
+  "summary": "A dining table with a detailed top and separate supports. Pivot: floor at the centre. Dimensions are in Unreal units; all parts are one linked, undoable instance.",
+  "params": {
+    "length": {
+      "default": 224,
+      "summary": "Length",
+      "min": 48,
+      "max": 1024
+    },
+    "width": {
+      "default": 112,
+      "summary": "Width",
+      "min": 48,
+      "max": 1024
+    },
+    "height": {
+      "default": 96,
+      "summary": "Height",
+      "min": 64,
+      "max": 1024
+    }
+  },
+  "ops": [
+    {
+      "op": "create",
+      "id": "$top",
+      "brush": {
+        "size": [
+          "${length}",
+          "${width}",
+          8
+        ]
+      },
+      "at": [
+        0,
+        0,
+        "${height - 4}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Wood"
+    },
+    {
+      "op": "create",
+      "id": "$leg0",
+      "brush": {
+        "size": [
+          8,
+          8,
+          "${height - 8}"
+        ]
+      },
+      "at": [
+        "${-1 * (length / 2 - 10)}",
+        "${-1 * (width / 2 - 10)}",
+        "${(height - 8) / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$leg1",
+      "brush": {
+        "size": [
+          8,
+          8,
+          "${height - 8}"
+        ]
+      },
+      "at": [
+        "${-1 * (length / 2 - 10)}",
+        "${1 * (width / 2 - 10)}",
+        "${(height - 8) / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$leg2",
+      "brush": {
+        "size": [
+          8,
+          8,
+          "${height - 8}"
+        ]
+      },
+      "at": [
+        "${1 * (length / 2 - 10)}",
+        "${-1 * (width / 2 - 10)}",
+        "${(height - 8) / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$leg3",
+      "brush": {
+        "size": [
+          8,
+          8,
+          "${height - 8}"
+        ]
+      },
+      "at": [
+        "${1 * (length / 2 - 10)}",
+        "${1 * (width / 2 - 10)}",
+        "${(height - 8) / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    }
+  ]
+}

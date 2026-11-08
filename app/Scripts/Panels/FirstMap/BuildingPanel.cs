@@ -50,6 +50,8 @@ public partial class BuildingPanel : PrefabsPanel
                 ("class", ApiJson.Str("Light")), ("at", ApiJson.Vec(Context.PlacementPoint?.Invoke() ?? Vec3.Zero)))]);
             DockTabs.ShowPanel("Inspector");
         });
+        PanelUi.Button(actions, "Doors", "Create and place editable doors", () => DockTabs.ShowPanel("Doors"));
+        PanelUi.Button(actions, "Windows", "Place framed windows or fit glass", () => DockTabs.ShowPanel("Windows"));
         PanelUi.Button(actions, "First-map guide", "Open your map's checklist", () => Context.Run("help.firstMap"));
         PanelUi.Header(this, "Gameplay pieces");
         PanelUi.Button(this, "Link missions & objectives…", "Choose missions, objectives and their devices by name", MissionsPanel.OpenForSelection);

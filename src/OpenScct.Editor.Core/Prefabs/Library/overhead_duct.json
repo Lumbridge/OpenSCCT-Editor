@@ -1,0 +1,89 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "overhead_duct",
+  "title": "Overhead duct",
+  "category": "industrial",
+  "summary": "A rectangular ventilation duct with three reinforcing bands. Raise it into the ceiling after placement. Pivot: floor at the centre. Dimensions are in Unreal units; all parts are one linked, undoable instance.",
+  "params": {
+    "length": {
+      "default": 512,
+      "summary": "Length",
+      "min": 128,
+      "max": 4096
+    }
+  },
+  "ops": [
+    {
+      "op": "create",
+      "id": "$duct",
+      "brush": {
+        "size": [
+          "${length}",
+          80,
+          64
+        ]
+      },
+      "at": [
+        0,
+        0,
+        32
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$band0",
+      "brush": {
+        "size": [
+          8,
+          84,
+          68
+        ]
+      },
+      "at": [
+        "${length * -0.4}",
+        0,
+        32
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Dark"
+    },
+    {
+      "op": "create",
+      "id": "$band1",
+      "brush": {
+        "size": [
+          8,
+          84,
+          68
+        ]
+      },
+      "at": [
+        "${length * 0}",
+        0,
+        32
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Dark"
+    },
+    {
+      "op": "create",
+      "id": "$band2",
+      "brush": {
+        "size": [
+          8,
+          84,
+          68
+        ]
+      },
+      "at": [
+        "${length * 0.4}",
+        0,
+        32
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Dark"
+    }
+  ]
+}

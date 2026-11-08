@@ -3,26 +3,157 @@
   "name": "door_switch",
   "title": "Door with a switch",
   "category": "doors",
-  "summary": "A mover door in a carved doorway, opened by a wall switch beside it. Pivot: the floor in the middle of the doorway; the wall runs along Y, the switch is on the +X side. The door slides up by its height. The default mesh is the fire door of the Steel map's package.",
+  "summary": "A generated framed sliding door in a carved doorway, already wired to its switch. No map-specific door mesh is needed. Pivot: floor at the doorway centre; switch on the +X side.",
   "params": {
-    "width": { "default": 128, "min": 72, "max": 1024, "summary": "Doorway width" },
-    "height": { "default": 224, "min": 128, "max": 1024, "summary": "Doorway height (the door slides up this far)" },
-    "depth": { "default": 32, "min": 8, "max": 512, "summary": "Wall thickness the doorway carves through" },
-    "opening": { "default": true, "summary": "Carve the doorway (false: the wall already has an opening)" },
-    "mesh": { "default": "SQU13_STM.STM_old02.squ_porte_coupe_feu1", "summary": "The door's static mesh" },
-    "state": { "default": "TriggerToggle", "options": ["TriggerToggle", "TriggerOpenTimed", "TriggerControl"], "summary": "How the switch drives the door (InitialState)" },
-    "moveTime": { "default": 2, "min": 0.1, "max": 30, "summary": "Seconds to open" },
-    "stayOpen": { "default": 4, "min": 0, "max": 120, "summary": "Seconds a timed door stays open" },
-    "switchHeight": { "default": 128, "min": 0, "max": 512, "summary": "Height of the switch on the wall" },
-    "label": { "default": "Door", "summary": "What the switch says" }
+    "width": {
+      "default": 128,
+      "min": 72,
+      "max": 1024,
+      "summary": "Doorway width"
+    },
+    "height": {
+      "default": 224,
+      "min": 128,
+      "max": 1024,
+      "summary": "Doorway height (the door slides up this far)"
+    },
+    "depth": {
+      "default": 32,
+      "min": 8,
+      "max": 512,
+      "summary": "Wall thickness the doorway carves through"
+    },
+    "opening": {
+      "default": true,
+      "summary": "Carve the doorway (false: the wall already has an opening)"
+    },
+    "mesh": {
+      "default": "",
+      "summary": "Optional original door mesh override; empty uses an editable built-in door"
+    },
+    "state": {
+      "default": "TriggerToggle",
+      "options": [
+        "TriggerToggle",
+        "TriggerOpenTimed",
+        "TriggerControl"
+      ],
+      "summary": "How the switch drives the door (InitialState)"
+    },
+    "moveTime": {
+      "default": 2,
+      "min": 0.1,
+      "max": 30,
+      "summary": "Seconds to open"
+    },
+    "stayOpen": {
+      "default": 4,
+      "min": 0,
+      "max": 120,
+      "summary": "Seconds a timed door stays open"
+    },
+    "switchHeight": {
+      "default": 128,
+      "min": 0,
+      "max": 512,
+      "summary": "Height of the switch on the wall"
+    },
+    "label": {
+      "default": "Door",
+      "summary": "What the switch says"
+    }
   },
   "ops": [
-    { "if": "${opening}", "op": "create", "id": "$opening", "brush": { "kind": "doorway", "width": "${width}", "height": "${height}", "depth": "${depth}" }, "at": [0, 0, 0] },
-    { "op": "create", "id": "$door", "class": "Mover", "at": [0, 0, 0],
-      "props": { "Tag": "Door", "DrawType": "DT_StaticMesh", "StaticMesh": "${mesh}", "InitialState": "${state}", "MoveTime": "${moveTime}", "StayOpenTime": "${stayOpen}",
-        "KeyPos": { "1": [0, 0, "${height}"] } } },
-    { "op": "create", "id": "$switch", "class": "SInterrupteur", "at": ["${depth / 2}", "${width / 2 + 48}", "${switchHeight}"],
-      "props": { "Event": "Door", "StaticMesh": "SGameplayObjects.SGPO_SM.trigger_urgence", "UsableBy": 3, "sDescriptionText": "${label}",
-        "fInteractionRadius": 50, "bInteractInFront": true, "UseRelativeLocation": [39.5, 0, 0], "bBlockActors": true, "bBlockPlayers": true } }
+    {
+      "if": "${opening}",
+      "op": "create",
+      "id": "$opening",
+      "brush": {
+        "kind": "doorway",
+        "width": "${width}",
+        "height": "${height}",
+        "depth": "${depth}"
+      },
+      "at": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "if": "${mesh == ''}",
+      "op": "create",
+      "id": "$generatedDoor",
+      "class": "Engine.Mover",
+      "at": [
+        0,
+        0,
+        "${height / 2}"
+      ],
+      "door": {
+        "style": "industrial",
+        "motion": "raise",
+        "width": "${width}",
+        "height": "${height}",
+        "frameDepth": "${depth + 4}",
+        "behaviour": "${state}",
+        "moveTime": "${moveTime}",
+        "stayOpen": "${stayOpen}"
+      },
+      "props": {
+        "Tag": "Door"
+      }
+    },
+    {
+      "op": "create",
+      "id": "$door",
+      "class": "Mover",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "props": {
+        "Tag": "Door",
+        "DrawType": "DT_StaticMesh",
+        "StaticMesh": "${mesh}",
+        "InitialState": "${state}",
+        "MoveTime": "${moveTime}",
+        "StayOpenTime": "${stayOpen}",
+        "KeyPos": {
+          "1": [
+            0,
+            0,
+            "${height}"
+          ]
+        }
+      },
+      "if": "${mesh != ''}"
+    },
+    {
+      "op": "create",
+      "id": "$switch",
+      "class": "SInterrupteur",
+      "at": [
+        "${depth / 2}",
+        "${width / 2 + 48}",
+        "${switchHeight}"
+      ],
+      "props": {
+        "Event": "Door",
+        "StaticMesh": "SGameplayObjects.SGPO_SM.trigger_urgence",
+        "UsableBy": 3,
+        "sDescriptionText": "${label}",
+        "fInteractionRadius": 50,
+        "bInteractInFront": true,
+        "UseRelativeLocation": [
+          39.5,
+          0,
+          0
+        ],
+        "bBlockActors": true,
+        "bBlockPlayers": true
+      }
+    }
   ]
 }

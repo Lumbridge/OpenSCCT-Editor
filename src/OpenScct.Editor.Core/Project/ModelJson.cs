@@ -24,6 +24,7 @@ public static class ModelJson
         o.Add("id", SvJsonNode.String(a.Id));
         o.Add("class", SvJsonNode.String(a.Class));
         if (a.Window is not null) o.Add("window", Scripting.ApiJson.Parse(a.Window.ToJson(), "window"));
+        if (a.Door is not null) o.Add("door", Scripting.ApiJson.Parse(a.Door.ToJson(), "door"));
         o.Add("loc", Vec(a.Location));
         if (a.Rotation != Rot.Zero)
         {
@@ -348,10 +349,12 @@ public static class ModelJson
             Match = MatchJson.FromJson(o["match"]),
             Legs = MoverLegsJson.FromJson(o["legs"]),
             Window = o["window"] is SvJsonObject window ? Windows.WindowDesign.FromJson(Scripting.ApiJson.Write(window)) : null,
+            Door = o["door"] is SvJsonObject door ? Doors.DoorDesign.FromJson(Scripting.ApiJson.Write(door)) : null,
             Editor = MetaFromJson(o["editor"]),
             Source = Str(o, "src"),
         };
         if (a.Window is not null) Windows.WindowAssets.Prepare(a);
+        if (a.Door is not null) { a.Door.Validate(); Doors.DoorAssets.Prepare(a); }
         return a;
     }
 

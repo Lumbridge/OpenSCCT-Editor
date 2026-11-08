@@ -66,6 +66,8 @@ public sealed class SdcExporter : IMapExporter
 
     private ExportResult ExportChecked(MapProject project, string path, ExportOptions options)
     {
+        if (project.Actors.Any(a => a.Door is not null))
+            return new ExportResult(false, [], [Finding.Error("door.originalUnsupported", "Editable doors currently require an OpenSCCT build")]);
         if (project.Actors.Any(a => MoverBase.IsMover(a) && OpenScct.Editor.Core.Gameplay.MoverSetup.Read(a).Keys.Count > 8))
             return new ExportResult(false, [], [Finding.Error("mover.original-limit", "This map uses mover paths longer than eight stops. Build for OpenSCCT, or shorten those paths before exporting to the original game.")]);
 

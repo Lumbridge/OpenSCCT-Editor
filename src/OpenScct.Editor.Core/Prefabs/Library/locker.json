@@ -1,0 +1,149 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "locker",
+  "title": "Metal locker",
+  "category": "storage",
+  "summary": "A vented steel locker with an inset front and handle. Pivot: floor at the centre. Dimensions are in Unreal units; all parts are one linked, undoable instance.",
+  "params": {
+    "width": {
+      "default": 64,
+      "summary": "Width",
+      "min": 48,
+      "max": 256
+    },
+    "height": {
+      "default": 208,
+      "summary": "Height",
+      "min": 128,
+      "max": 512
+    }
+  },
+  "ops": [
+    {
+      "op": "create",
+      "id": "$body",
+      "brush": {
+        "size": [
+          56,
+          "${width}",
+          "${height}"
+        ]
+      },
+      "at": [
+        0,
+        0,
+        "${height / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$door",
+      "brush": {
+        "size": [
+          4,
+          "${width - 6}",
+          "${height - 8}"
+        ]
+      },
+      "at": [
+        30,
+        0,
+        "${height / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Dark"
+    },
+    {
+      "op": "create",
+      "id": "$handle",
+      "brush": {
+        "size": [
+          5,
+          4,
+          16
+        ]
+      },
+      "at": [
+        34,
+        "${width * .32}",
+        "${height * .5}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.White"
+    },
+    {
+      "op": "create",
+      "id": "$vent0",
+      "brush": {
+        "size": [
+          5,
+          "${width * .6}",
+          3
+        ]
+      },
+      "at": [
+        33,
+        0,
+        "${height * .85 - 0 * 7}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$vent1",
+      "brush": {
+        "size": [
+          5,
+          "${width * .6}",
+          3
+        ]
+      },
+      "at": [
+        33,
+        0,
+        "${height * .85 - 1 * 7}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$vent2",
+      "brush": {
+        "size": [
+          5,
+          "${width * .6}",
+          3
+        ]
+      },
+      "at": [
+        33,
+        0,
+        "${height * .85 - 2 * 7}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$vent3",
+      "brush": {
+        "size": [
+          5,
+          "${width * .6}",
+          3
+        ]
+      },
+      "at": [
+        33,
+        0,
+        "${height * .85 - 3 * 7}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    }
+  ]
+}

@@ -35,6 +35,8 @@ public static partial class T3dExport
     public static T3dDocument FromProject(MapProject p, UeSchema? schema, IReadOnlyCollection<ObjectRef>? only = null, Func<Actor, bool>? leaveOut = null,
         string? projectFolder = null, IReadOnlyList<Actor>? added = null)
     {
+        if (p.Actors.Any(a => a.Door is not null && (only is null || only.Contains(ObjectRef.Actor(a.Id)))))
+            throw new ArgumentException("Editable doors currently require an OpenSCCT build");
         if (p.Actors.Any(a => a.Window is not null && (only is null || only.Contains(ObjectRef.Actor(a.Id)))))
             throw new ArgumentException("Editable shaped windows currently require an OpenSCCT build; original-game window export is not supported");
         if (only is not null && p.Brushes.Any(b => b.Stair is not null))

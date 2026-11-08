@@ -230,7 +230,7 @@ public sealed partial class WorldScene : Node3D
         }
 
         int namesKey = names.ToHashCode();
-        var windows = p.Actors.Where(a => a.Window is not null).ToList();
+        var windows = p.Actors.Where(a => a.Window is not null || a.Door is not null).ToList();
         if (!geLooks.SequenceEqual(_drawnGeLooks) || namesKey != _geNamesKey || !windows.SequenceEqual(_drawnWindows))
         {
             bool hadLook = _geBrushes.Count > 0;
@@ -241,7 +241,7 @@ public sealed partial class WorldScene : Node3D
             {
                 try
                 {
-                    foreach (var part in OpenScct.Editor.Core.Windows.WindowGeometry.Parts(window))
+                    foreach (var part in (window.Door is not null ? OpenScct.Editor.Core.Doors.DoorGeometry.Parts(window) : OpenScct.Editor.Core.Windows.WindowGeometry.Parts(window)))
                     {
                         string stem = part.Id;
                         for (int suffix = 1; !usedPartIds.Add(part.Id); suffix++) part.Id = stem + "_" + suffix;

@@ -91,6 +91,7 @@ public sealed class Actor
 
     /// <summary>Parametric glass and its optional permanent frame, lowered at build time.</summary>
     public Windows.WindowDesign? Window { get; set; }
+    public Doors.DoorDesign? Door { get; set; }
 
     public EditorMeta Editor { get; set; } = new();
 
@@ -114,6 +115,7 @@ public sealed class Actor
         Match = Match,
         Legs = Legs,
         Window = Window?.Clone(),
+        Door = Door?.Clone(),
         Editor = Editor.Clone(),
         Source = Source,
     };

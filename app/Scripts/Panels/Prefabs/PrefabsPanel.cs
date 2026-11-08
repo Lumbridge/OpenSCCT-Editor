@@ -39,6 +39,13 @@ public partial class PrefabsPanel : EditorPanel
     private DeferredAction _refill = null!;
     private DeferredAction _refreshInstance = null!;
     private string _filter = "";
+    private LineEdit _search = null!;
+    private OptionButton _source = null!;
+    private CheckBox _favourites = null!;
+    private Label _results = null!;
+    private PrefabDefinition? _detailsFor;
+    private bool _resetParameters;
+    private readonly Dictionary<string, SvJsonObject> _remembered = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>A prefab to pick once the list is read (<c>-- --prefab=name</c>, so scripts can place it with --run).</summary>
     private string? _argPrefab = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--prefab=", StringComparison.Ordinal))?["--prefab=".Length..];
@@ -49,7 +56,7 @@ public partial class PrefabsPanel : EditorPanel
         _refill = new DeferredAction(Fill);
         _refreshInstance = new DeferredAction(RefreshInstance);
         HFlowContainer bar = PanelUi.Toolbar(this);
-        PanelUi.Search(bar, "Search prefabs", t =>
+        _search = PanelUi.Search(bar, "Search prefabs", t =>
         {
             _filter = t.Trim();
             Fill();
@@ -58,6 +65,14 @@ public partial class PrefabsPanel : EditorPanel
         _category.CustomMinimumSize = new Vector2(EditorTheme.NumberFieldWidth, 0);
         _category.ItemSelected += _ => Fill();
         PanelUi.IconButton(bar, "refresh", "Read the prefab folders again", () => _rebuild.Queue());
+        var filters = PanelUi.Toolbar(this);
+        _source = PanelUi.Options(filters, "Filter by prefab library");
+        _source.CustomMinimumSize = new Vector2(136, 0);
+        foreach (string source in new[] { "All libraries", "Built in", "This map", "My library" }) _source.AddItem(source);
+        _source.ItemSelected += _ => Fill();
+        _favourites = new CheckBox { Text = "Favourites", TooltipText = "Show only your starred prefabs" };
+        filters.AddChild(_favourites); _favourites.Toggled += _ => Fill();
+        _results = PanelUi.Caption(this, "Choose a prefab, or drag one into a view.");
 
         // The grid takes the room; the details of the picked prefab scroll below it, and the save form stays at the
         // bottom of the panel.
@@ -103,10 +118,10 @@ public partial class PrefabsPanel : EditorPanel
 
     /// <summary>The width a grid column aims at: the picture and a little room on each side for its caption. The
     /// columns are then stretched to fill the grid (see <see cref="FitTiles"/>).</summary>
-    private const int TileWidth = PrefabThumbnails.Size + EditorTheme.SpaceXl;
+    private const int TileWidth = PrefabThumbnails.Size + EditorTheme.SpaceS;
 
     /// <summary>The height of the picked prefab's details under the grid (drag the divider for more).</summary>
-    private const int DetailsHeight = 96;
+    private const int DetailsHeight = 220;
 
     /// <summary>The least height of the grid: two rows of tiles, each a picture and two caption lines.</summary>
     private const int GridMinHeight = 2 * (PrefabThumbnails.Size + 2 * EditorTheme.RowHeight);
@@ -156,12 +171,17 @@ public partial class PrefabsPanel : EditorPanel
 
     private void Fill()
     {
+        RememberParameters();
         string? selected = Selected?.Name;
         string? category = _category.Selected > 0 ? _category.GetItemText(_category.Selected) : null;
+        string[] stars = AppSettings.GetStrings("prefabs", "favourites");
         _shown.Clear();
         _shown.AddRange(_all.Where(p =>
+            (_source.Selected == 0 || p.Source == (_source.Selected == 1 ? PrefabSource.Builtin : _source.Selected == 2 ? PrefabSource.Project : PrefabSource.Library)) &&
+            (!_favourites.ButtonPressed || stars.Contains(p.Name, StringComparer.OrdinalIgnoreCase)) &&
             (category is null || string.Equals(p.Category, category, StringComparison.OrdinalIgnoreCase)) &&
-            (_filter.Length == 0 || TextMatch.FuzzyWords(_filter, $"{p.Name} {p.Title} {p.Category} {p.Summary}") is not null)));
+            _filter.Split(' ', StringSplitOptions.RemoveEmptyEntries).All(word =>
+                $"{p.Name} {p.Title} {p.Category} {p.Summary}".Contains(word, StringComparison.OrdinalIgnoreCase))));
         _list.Clear();
         foreach (PrefabDefinition p in _shown)
         {
@@ -173,6 +193,7 @@ public partial class PrefabsPanel : EditorPanel
             }
         }
 
+        _results.Text = _shown.Count == 0 ? "No prefabs match. Clear the search or change the filters." : $"{_shown.Count} of {_all.Count} prefabs · drag to place, double-click for view centre";
         ShowDetails();
     }
 
@@ -200,7 +221,7 @@ public partial class PrefabsPanel : EditorPanel
         // item's width and two separations.
         float gap = 2 * _list.GetThemeConstant("h_separation");
         float room = _list.Size.X - _list.GetThemeStylebox("panel").GetMinimumSize().X - _list.GetVScrollBar().GetCombinedMinimumSize().X;
-        int columns = Math.Max(2, (int)Math.Round(room / (TileWidth + gap)));
+        int columns = Math.Max(1, (int)Math.Floor(room / (TileWidth + gap)));
         int width = Math.Max(1, (int)(room / columns - gap) - 1);
         if (width == _list.FixedColumnWidth)
         {
@@ -230,8 +251,10 @@ public partial class PrefabsPanel : EditorPanel
 
     private void ShowDetails()
     {
+        RememberParameters();
         Clear(_details);
         _paramValues.Clear();
+        _detailsFor = Selected;
         // The details get room only while a prefab is picked (how to place one is the grid's tooltip).
         _detailsScroll.CustomMinimumSize = new Vector2(0, Selected is null ? 0 : Friendly ? Math.Clamp(Size.Y * .45f, DetailsHeight, EditorTheme.RowHeight * 12) : DetailsHeight);
         _detailsScroll.VerticalScrollMode = Selected is null ? ScrollContainer.ScrollMode.Disabled : ScrollContainer.ScrollMode.Reserve;
@@ -241,6 +264,18 @@ public partial class PrefabsPanel : EditorPanel
         }
 
         PanelUi.Header(_details, def.Title ?? def.Name);
+        if (!Friendly)
+        {
+            string source = def.Source == PrefabSource.Builtin ? "Built in" : def.Source == PrefabSource.Project ? "This map" : "My library";
+            PanelUi.Caption(_details, $"{def.Category ?? "Uncategorised"} · {source} · {Instances(def.Name).Count()} placed");
+            bool starred = AppSettings.GetStrings("prefabs", "favourites").Contains(def.Name, StringComparer.OrdinalIgnoreCase);
+            PanelUi.Button(_details, starred ? "★ Remove favourite" : "☆ Add favourite", "Keep frequently used prefabs in Favourites", () =>
+            {
+                var names = AppSettings.GetStrings("prefabs", "favourites").ToHashSet(StringComparer.OrdinalIgnoreCase);
+                if (!names.Add(def.Name)) names.Remove(def.Name);
+                AppSettings.Set("prefabs", "favourites", names.Order(StringComparer.OrdinalIgnoreCase).ToArray()); Fill();
+            });
+        }
         if (Friendly) PanelUi.Primary(_details, "Place", "Place this piece at the view centre with the settings below, or drag its tile into the view.", () => PlaceSelected(null));
         string? description = Friendly && FeaturedGameplay.Descriptions.TryGetValue(def.Name, out string? plain) ? plain : def.Summary;
         if (description is { } summary)
@@ -249,14 +284,17 @@ public partial class PrefabsPanel : EditorPanel
         }
         if (FeaturedGameplay.Conditions.TryGetValue(def.Name, out string? conditions)) PanelUi.Caption(_details, conditions);
 
-        PrefabInstance? instance = SelectedInstances().FirstOrDefault(i => i.Prefab == def.Name);
+        PrefabInstance? instance = _resetParameters ? null : SelectedInstances().FirstOrDefault(i => i.Prefab == def.Name);
+        _resetParameters = false;
         foreach (PrefabParam param in def.Params)
         {
-            SvJsonNode value = instance?.Params.GetValueOrDefault(param.Name) ?? param.Default;
+            SvJsonNode value = instance?.Params.GetValueOrDefault(param.Name) ?? _remembered.GetValueOrDefault(def.Name + def.Hash)?[param.Name] ?? param.Default;
             ParamRow(param, value);
         }
 
         HFlowContainer row = PanelUi.Toolbar(_details);
+        if (def.Params.Count > 0) PanelUi.Button(row, "Reset settings", "Restore this prefab's default parameters for new placements", () =>
+        { _paramValues.Clear(); _remembered.Remove(def.Name + def.Hash); _resetParameters = true; ShowDetails(); });
         if (!Friendly) PanelUi.Button(row, "Place", "Place it at the view centre with these parameters", () => PlaceSelected(null)).Icon = Icons.Get("plus", EditorTheme.Text);
         if (FeaturedGameplay.Conditions.ContainsKey(def.Name))
         {
@@ -334,6 +372,11 @@ public partial class PrefabsPanel : EditorPanel
         }
 
         return o;
+    }
+
+    private void RememberParameters()
+    {
+        if (_detailsFor is { } def && _paramValues.Count > 0) _remembered[def.Name + def.Hash] = Params(def);
     }
 
     /// <summary>Places the selected prefab at a point (the view centre when null) and selects what it made.</summary>
@@ -447,7 +490,10 @@ public partial class PrefabsPanel : EditorPanel
     protected void Reveal(string prefab)
     {
         _filter = "";
+        _search.Text = "";
         _category.Select(0);
+        _source.Select(0);
+        _favourites.ButtonPressed = false;
         Fill();
         int index = _shown.FindIndex(p => string.Equals(p.Name, prefab, StringComparison.OrdinalIgnoreCase));
         if (index >= 0)

@@ -1,0 +1,104 @@
+[
+  {
+    "op": "size",
+    "w": 1600,
+    "h": 1000
+  },
+  {
+    "op": "run",
+    "action": "workspace.advanced"
+  },
+  {
+    "op": "tab",
+    "panel": "Prefabs"
+  },
+  {
+    "op": "wait",
+    "seconds": 5
+  },
+  {
+    "op": "shot",
+    "name": "prefabs-panel",
+    "caption": "Expanded library and shaded geometry previews"
+  },
+  {
+    "op": "tab",
+    "panel": "Doors"
+  },
+  {
+    "op": "shot",
+    "name": "doors-panel"
+  },
+  {
+    "op": "select",
+    "ids": [
+      "Door0"
+    ],
+    "frame": true
+  },
+  {
+    "op": "tool",
+    "id": "scale"
+  },
+  {
+    "op": "tab",
+    "panel": "Inspector"
+  },
+  {
+    "op": "wait",
+    "seconds": 1
+  },
+  {
+    "op": "shot",
+    "name": "door-inspector",
+    "views": true
+  },
+  {
+    "op": "run",
+    "action": "tutorial.doors"
+  },
+  {
+    "op": "shot",
+    "name": "door-tutorial"
+  },
+  {
+    "op": "click",
+    "at": "text:Next"
+  },
+  {
+    "op": "shot",
+    "name": "door-tutorial-placement"
+  },
+  {
+    "op": "run",
+    "action": "help.cancelTutorial"
+  },
+  {
+    "op": "size",
+    "w": 1280,
+    "h": 800
+  },
+  {
+    "op": "scale",
+    "factor": 1.5
+  },
+  {
+    "op": "tab",
+    "panel": "Doors"
+  },
+  {
+    "op": "shot",
+    "name": "doors-small-150"
+  },
+  {
+    "op": "tab",
+    "panel": "Prefabs"
+  },
+  {
+    "op": "shot",
+    "name": "prefabs-small-150"
+  },
+  {
+    "op": "quit"
+  }
+]

@@ -5,18 +5,121 @@
   "category": "security",
   "summary": "A wall camera that sets off its own alarm when it sees an intruder. Pivot: the floor at the foot of the wall; the camera looks out along +X (place it with wall:\"nearest\").",
   "params": {
-    "height": { "default": 256, "min": 64, "max": 2048, "summary": "Height of the camera on the wall" },
-    "tilt": { "default": 20, "min": 0, "max": 80, "summary": "Degrees the camera looks down" },
-    "patrol": { "default": 90, "min": 0, "max": 360, "summary": "Patrol sweep (PatrolAngle, degrees)" },
-    "range": { "default": 1000, "min": 100, "max": 8000, "summary": "How far it sees (VisibilityMaxDistance)" },
-    "delay": { "default": 2, "min": 0, "max": 30, "summary": "Seconds in view before it reacts (DetectionDelay)" },
-    "alarmName": { "default": "Camera", "summary": "The alarm's name on the HUD" },
-    "duration": { "default": 20, "min": 1, "max": 600, "summary": "Seconds the alarm lasts" }
+    "height": {
+      "default": 256,
+      "min": 64,
+      "max": 2048,
+      "summary": "Height of the camera on the wall"
+    },
+    "tilt": {
+      "default": 20,
+      "min": 0,
+      "max": 80,
+      "summary": "Degrees the camera looks down"
+    },
+    "patrol": {
+      "default": 90,
+      "min": 0,
+      "max": 360,
+      "summary": "Patrol sweep (PatrolAngle, degrees)"
+    },
+    "range": {
+      "default": 1000,
+      "min": 100,
+      "max": 8000,
+      "summary": "How far it sees (VisibilityMaxDistance)"
+    },
+    "delay": {
+      "default": 2,
+      "min": 0,
+      "max": 30,
+      "summary": "Seconds in view before it reacts (DetectionDelay)"
+    },
+    "alarmName": {
+      "default": "Camera",
+      "summary": "The alarm's name on the HUD"
+    },
+    "duration": {
+      "default": 20,
+      "min": 1,
+      "max": 600,
+      "summary": "Seconds the alarm lasts"
+    }
   },
   "ops": [
-    { "op": "create", "id": "$camera", "class": "SCamera", "at": [8, 0, "${height}"], "rotDeg": ["${-tilt}", 0, 0],
-      "props": { "Event": "Alarm", "PatrolAngle": "${patrol}", "VisibilityMaxDistance": "${range}", "DetectionDelay": "${delay}" } },
-    { "op": "create", "id": "$alarm", "class": "SAlarm", "at": [8, 0, "${height + 64}"],
-      "props": { "Tag": "Alarm", "AlarmName": "${alarmName}", "AlarmDescription": "${alarmName}", "AlarmDescriptionSpy": "${alarmName}", "Duration": "${duration}" } }
+    {
+      "op": "create",
+      "id": "$camera",
+      "class": "SCamera",
+      "at": [
+        8,
+        0,
+        "${height}"
+      ],
+      "rotDeg": [
+        "${-tilt}",
+        0,
+        0
+      ],
+      "props": {
+        "Event": "Alarm",
+        "PatrolAngle": "${patrol}",
+        "VisibilityMaxDistance": "${range}",
+        "DetectionDelay": "${delay}"
+      }
+    },
+    {
+      "op": "create",
+      "id": "$alarm",
+      "class": "SAlarm",
+      "at": [
+        8,
+        0,
+        "${height + 64}"
+      ],
+      "props": {
+        "Tag": "Alarm",
+        "AlarmName": "${alarmName}",
+        "AlarmDescription": "${alarmName}",
+        "AlarmDescriptionSpy": "${alarmName}",
+        "Duration": "${duration}"
+      }
+    },
+    {
+      "op": "create",
+      "id": "$mount",
+      "brush": {
+        "size": [
+          8,
+          32,
+          40
+        ]
+      },
+      "at": [
+        0,
+        0,
+        "${height}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Dark"
+    },
+    {
+      "op": "create",
+      "id": "$arm",
+      "brush": {
+        "size": [
+          32,
+          8,
+          8
+        ]
+      },
+      "at": [
+        12,
+        0,
+        "${height - 12}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    }
   ]
 }

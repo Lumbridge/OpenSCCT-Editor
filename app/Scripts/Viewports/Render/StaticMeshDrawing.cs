@@ -40,6 +40,7 @@ public static class StaticMeshDrawing
     /// <summary>The static mesh path an actor draws with, or null.</summary>
     public static string? MeshPath(Actor a)
     {
+        if (a.Door is not null) return OpenScct.Editor.Core.Doors.DoorAssets.Prepare(a, AssetService.Instance.Resolver);
         if (a.Window is not null) return OpenScct.Editor.Core.Windows.WindowAssets.Preview(a, AssetService.Instance.Resolver);
         if (a.Shape is not null)
         {

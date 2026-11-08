@@ -1,0 +1,46 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "roller_door",
+  "title": "Raised security door",
+  "category": "doors",
+  "summary": "An editable framed raised security door. Opens when bumped. Use the Doors palette to cut a new wall opening; this prefab fits an existing opening. Pivot: floor at the centre. Dimensions are in Unreal units; all parts are one linked, undoable instance.",
+  "params": {
+    "width": {
+      "default": 256,
+      "summary": "Clear opening width",
+      "min": 72,
+      "max": 1024
+    },
+    "height": {
+      "default": 224,
+      "summary": "Clear opening height",
+      "min": 128,
+      "max": 1024
+    },
+    "moveTime": {
+      "default": 1,
+      "summary": "Seconds to open",
+      "min": 0.1,
+      "max": 30
+    }
+  },
+  "ops": [
+    {
+      "op": "create",
+      "id": "$door",
+      "class": "Engine.Mover",
+      "at": [
+        0,
+        0,
+        "${height / 2}"
+      ],
+      "door": {
+        "style": "security",
+        "motion": "raise",
+        "width": "${width}",
+        "height": "${height}",
+        "moveTime": "${moveTime}"
+      }
+    }
+  ]
+}

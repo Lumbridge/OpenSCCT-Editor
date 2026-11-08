@@ -3,13 +3,47 @@
   "name": "zipline",
   "title": "Zip line",
   "category": "traversal",
-  "summary": "A zip line (ZL GE) from a high start down along +X. Pivot: the floor under the start.",
+  "summary": "A visible cable and a working spy zip-line route. Pivot: floor under the high start; descends along +X. Leave both landings clear.",
   "params": {
-    "length": { "default": 1024, "min": 128, "max": 16384, "summary": "Horizontal length along X" },
-    "startHeight": { "default": 384, "min": 64, "max": 8192, "summary": "Height of the start over the pivot" },
-    "drop": { "default": 256, "min": 16, "max": 8192, "summary": "How much lower the end is" }
+    "length": {
+      "default": 1024,
+      "min": 128,
+      "max": 16384,
+      "summary": "Horizontal length along X"
+    },
+    "startHeight": {
+      "default": 384,
+      "min": 64,
+      "max": 8192,
+      "summary": "Height of the start over the pivot"
+    },
+    "drop": {
+      "default": 256,
+      "min": 16,
+      "max": 8192,
+      "summary": "How much lower the end is"
+    }
   },
   "ops": [
-    { "op": "create", "id": "$line", "ge": "ZL", "points": [["${length}", 0, "${startHeight - drop}"], [0, 0, "${startHeight}"]] }
+    {
+      "op": "create",
+      "id": "$line",
+      "ge": "ZL",
+      "points": [
+        [
+          "${length}",
+          0,
+          "${startHeight - drop}"
+        ],
+        [
+          0,
+          0,
+          "${startHeight}"
+        ]
+      ],
+      "appearance": {
+        "material": "Editor.Kit.Metal"
+      }
+    }
   ]
 }

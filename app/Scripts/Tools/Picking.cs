@@ -181,7 +181,7 @@ public static class Picking
             if (ScreenRect(cam, min, max) is { } r)
             {
                 double d = r.HasPoint(mouse) ? 0 : DistanceToRect(r, mouse);
-                if (d == 0 && (a.Window is not null
+                if (d == 0 && (a.Door is not null ? !RayDoor(o, dir, a, double.NegativeInfinity, out _) : a.Window is not null
                     ? !RayWindow(o, dir, a, double.NegativeInfinity, out _)
                     : StaticMeshDrawing.Loaded(a) is { } mesh && !RayMesh(o, dir, a, mesh, double.NegativeInfinity, out _)))
                 {
@@ -262,6 +262,12 @@ public static class Picking
                 var r = ObjectRef.Actor(a.Id);
                 // Use the same shaped pane and frame as the renderer, even before its mesh has loaded. The
                 // assembly's subtractive opening is empty space and must never become a selection target.
+                if (a.Door is not null)
+                {
+                    if (RayDoor(o, d, a, 0, out double td))
+                    { solidT = Math.Min(solidT, td); if (td < bestT) { bestT = td - 1; best = r; } }
+                    continue;
+                }
                 if (a.Window is not null)
                 {
                     if (RayWindow(o, d, a, 0, out double tw))
@@ -476,6 +482,20 @@ public static class Picking
             }
         }
         catch (ArgumentException) { } // Invalid designs keep their last valid drawing until the user fixes them.
+        return t < double.MaxValue;
+    }
+
+    public static bool RayDoor(Vec3 o, Vec3 d, Actor a, double minT, out double t)
+    {
+        t = double.MaxValue;
+        if (a.Door is not { } design) return false;
+        foreach (var part in OpenScct.Editor.Core.Doors.DoorGeometry.Leaf(design)) foreach (var face in part.Shape.Faces)
+        {
+            var vertices = face.Vertices.Select(a.LocalToWorld).ToArray();
+            if (RayPolygon(o, d, vertices, Poly.Normal(vertices), out double hit) && hit > minT && hit < t) t = hit;
+        }
+        foreach (var part in OpenScct.Editor.Core.Doors.DoorGeometry.Parts(a).Where(b => b.Oper == CsgOper.Add)) foreach (var face in part.WorldFaces())
+            if (RayPolygon(o, d, face.Vertices, face.Normal(), out double hit) && hit > minT && hit < t) t = hit;
         return t < double.MaxValue;
     }
 

@@ -8,6 +8,11 @@ SVMap is not the source format. It is compiled: it has no CSG brushes, decoratio
 properties, and its collision, BSP and indexes are derived. The project keeps everything, so nothing is lost
 between saves.
 
+Maps with editable doors use `osmap/4`; maps with windows use `osmap/3`, stairs `osmap/2`, and other maps retain
+their existing format. The optional actor `door` object carries style, dimensions, frame, movement, activation,
+timing, materials and managed wall-cut settings. It accompanies ordinary mover properties and survives clipboard
+and prefab serialization. See [Doors](DOORS.md) for authoring and build behaviour.
+
 This page describes what the code writes today: `src/OpenScct.Editor.Core/Project/ProjectStore.cs`,
 `Project/ModelJson.cs`, `Model/*.cs`, `Prefabs/` and `Assets/ProjectAssets.cs`. Parts that are planned are marked with
 their milestone.

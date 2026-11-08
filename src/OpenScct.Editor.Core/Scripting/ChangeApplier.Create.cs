@@ -96,8 +96,15 @@ public static partial class ChangeApplier
         {
             Actor a = actor.Clone(id);
             a.Location += delta;
+            if (op["door"] is SvJsonObject door)
+            {
+                if (!MoverBase.IsMover(a)) throw new ApiException("A door needs class Engine.Mover", "door");
+                a.Door = Doors.DoorDesign.FromJson(ApiJson.Write(door));
+                Doors.DoorCommands.Configure(a, a.Location, a.Rotation);
+                a.Props["Tag"] ??= SvJsonNode.String(id);
+            }
             // A mover starts the game at BasePos (+ its first key), so a new one starts where it was put.
-            MoverBase.Shift(a, delta);
+            if (a.Door is null) MoverBase.Shift(a, delta);
             MoverBase.Place(a);
 
             ctx.Add($"Create {id}", actors: [a]);

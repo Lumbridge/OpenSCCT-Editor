@@ -181,9 +181,12 @@ public sealed class ReplaceObjectsCommand : IEditCommand
                     Actor na = a.Clone();
                     actor(na);
                     if (followScale) Windows.WindowTransforms.Follow(a, na);
+                    if (followScale) Doors.DoorCommands.FollowScale(a, na);
                     if (followBase)
                     {
                         MoverBase.Follow(a, na);
+                        if (na.Door is not null && na.Rotation != a.Rotation && MoverBase.ShownKey(a) is null)
+                            Doors.DoorCommands.Configure(na, na.LocalToWorld(Vec3.Zero), na.Rotation);
                     }
 
                     cmd.Actor(a.Clone(), na);

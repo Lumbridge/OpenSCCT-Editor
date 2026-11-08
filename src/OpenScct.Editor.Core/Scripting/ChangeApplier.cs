@@ -29,7 +29,7 @@ public static partial class ChangeApplier
     private static readonly string[] TransformKeys = ["rot", "rotDeg", "face", "keepRot", "scale", "scale3d", "prePivot", "postScale"];
 
     private static IEnumerable<string> CreateKeys =>
-        new[] { "id", "class", "props", "set", "brush", "shape", "csg", "flags", "mat", "mats", "ge", "kind", "points", "mask", "platform", "appearance", "count", "step" }
+        new[] { "id", "class", "door", "props", "set", "brush", "shape", "csg", "flags", "mat", "mats", "ge", "kind", "points", "mask", "platform", "appearance", "count", "step" }
             .Concat(Placement.Keys).Concat(TransformKeys).Concat(MetaKeys);
 
     private static IEnumerable<string> UpdateKeys =>

@@ -30,6 +30,7 @@ public sealed class MapChecker : IMapChecker
         new DesignRules(),
         new ConveyorRules(),
         new WindowRules(),
+        new DoorRules(),
         new FlowRules(),
         new IdentityRules(),
         new Gameplay.GeGameplayRules(),

@@ -147,6 +147,7 @@ public sealed class TransformSnapshot
                 // DrawScale 2 goes to 2 × factor, not to the factor).
                 Actor s = _actors[a.Id];
                 a.Window = s.Window?.Clone();
+                a.Door = s.Door?.Clone();
                 if (axis < 0)
                 {
                     a.DrawScale = StaticMeshDrawing.DrawScale(s) * factor;
@@ -158,6 +159,7 @@ public sealed class TransformSnapshot
 
                 a.Location = Spread(s.Location);
                 OpenScct.Editor.Core.Windows.WindowTransforms.Follow(s, a, prepare: !preview);
+                OpenScct.Editor.Core.Doors.DoorCommands.FollowScale(s, a, prepare: !preview);
             },
             ge: g => g.Points = _ges[g.Id].Points.Select(Spread).ToList(),
             mergeKey: mergeKey, followScale: false);
@@ -172,7 +174,7 @@ public sealed class TransformSnapshot
         _ => null,
     };
 
-    public bool HasParametric => _brushes.Values.Any(b => b.Stair is not null) || _actors.Values.Any(a => a.Window is not null);
+    public bool HasParametric => _brushes.Values.Any(b => b.Stair is not null) || _actors.Values.Any(a => a.Window is not null || a.Door is not null);
 
     /// <summary>Actual bounds after a semantic scale, without a BSP rebuild or writing preview assets.</summary>
     public OpenScct.Editor.Core.Geometry.Snap.MovingShape ScaledShape(Vec3 pivot, int axis, double factor)
@@ -185,7 +187,7 @@ public sealed class TransformSnapshot
                 : OpenScct.Editor.Core.Stairs.StairGeometry.Generate(b).Solids.SelectMany(part => part.WorldFaces()).SelectMany(f => f.Vertices));
         foreach (Actor a in p.Actors)
         {
-            var bounds = a.Window is not null || a.Shape is not null ? OpenScct.Editor.Core.Scripting.MapObjects.ActorBounds(a)
+            var bounds = a.Window is not null || a.Door is not null || a.Shape is not null ? OpenScct.Editor.Core.Scripting.MapObjects.ActorBounds(a)
                 : ActorSnapBox.Of(a)?.Box.Bounds() ?? (a.Location, a.Location);
             points.Add(bounds.Item1); points.Add(bounds.Item2);
         }

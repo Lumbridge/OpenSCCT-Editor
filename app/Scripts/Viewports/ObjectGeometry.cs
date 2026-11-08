@@ -14,6 +14,7 @@ public static class ObjectGeometry
 
     public static (Vec3 Min, Vec3 Max) ActorBounds(Actor a)
     {
+        if (a.Door is not null) return OpenScct.Editor.Core.Scripting.MapObjects.ActorBounds(a);
         if (a.Shape is { Faces.Count: > 0 } shape)
         {
             return BoundsOf(shape.Faces.SelectMany(f => f.Vertices).Select(a.LocalToWorld));

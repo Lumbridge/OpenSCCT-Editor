@@ -1,0 +1,167 @@
+{
+  "format": "osmap.prefab/1",
+  "name": "storage_shelf",
+  "title": "Storage shelving",
+  "category": "storage",
+  "summary": "Four open shelves and upright posts. Pivot: floor at the centre. Dimensions are in Unreal units; all parts are one linked, undoable instance.",
+  "params": {
+    "width": {
+      "default": 192,
+      "summary": "Shelf width",
+      "min": 96,
+      "max": 768
+    },
+    "height": {
+      "default": 224,
+      "summary": "Shelf height",
+      "min": 128,
+      "max": 1024
+    }
+  },
+  "ops": [
+    {
+      "op": "create",
+      "id": "$post0",
+      "brush": {
+        "size": [
+          8,
+          8,
+          "${height}"
+        ]
+      },
+      "at": [
+        -32,
+        "${-1 * (width / 2 - 4)}",
+        "${height / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$post1",
+      "brush": {
+        "size": [
+          8,
+          8,
+          "${height}"
+        ]
+      },
+      "at": [
+        -32,
+        "${1 * (width / 2 - 4)}",
+        "${height / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$post2",
+      "brush": {
+        "size": [
+          8,
+          8,
+          "${height}"
+        ]
+      },
+      "at": [
+        32,
+        "${-1 * (width / 2 - 4)}",
+        "${height / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$post3",
+      "brush": {
+        "size": [
+          8,
+          8,
+          "${height}"
+        ]
+      },
+      "at": [
+        32,
+        "${1 * (width / 2 - 4)}",
+        "${height / 2}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$shelf0",
+      "brush": {
+        "size": [
+          72,
+          "${width}",
+          6
+        ]
+      },
+      "at": [
+        0,
+        0,
+        "${height * 0.06}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$shelf1",
+      "brush": {
+        "size": [
+          72,
+          "${width}",
+          6
+        ]
+      },
+      "at": [
+        0,
+        0,
+        "${height * 0.36}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$shelf2",
+      "brush": {
+        "size": [
+          72,
+          "${width}",
+          6
+        ]
+      },
+      "at": [
+        0,
+        0,
+        "${height * 0.66}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    },
+    {
+      "op": "create",
+      "id": "$shelf3",
+      "brush": {
+        "size": [
+          72,
+          "${width}",
+          6
+        ]
+      },
+      "at": [
+        0,
+        0,
+        "${height * 0.96}"
+      ],
+      "csg": "add",
+      "mat": "Editor.Kit.Metal"
+    }
+  ]
+}

@@ -1,4 +1,11 @@
 using Godot;
+using System.Globalization;
+using System.Text;
+using OpenScct.Editor.Core.Assets;
+using OpenScct.Editor.Core.Doors;
+using OpenScct.Editor.Core.Gameplay;
+using OpenScct.Editor.Core.Windows;
+using OpenScct.Editor.Core.Services;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Prefabs;
 using OpenScctEditor.Assets;
@@ -7,16 +14,10 @@ using OpenScctEditor.Viewports;
 
 namespace OpenScctEditor.Panels;
 
-/// <summary>
-/// Small pictures of prefabs for the Prefabs panel: the prefab expanded with its default parameters
-/// (<see cref="PrefabPreview"/>) drawn as a wireframe from above at an angle, brushes in their CSG colours and actors
-/// as dots, on a tile. A prefab of actors only shows the glyph of its kind of actor instead (dots alone read as an empty
-/// picture). Drawn one at a time off the main thread and kept per prefab version (its hash), so a changed prefab gets a
-/// new picture.
-/// </summary>
+/// <summary>Shaded, fitted previews of actual prefab geometry, meshes and traversal pieces.</summary>
 public sealed class PrefabThumbnails
 {
-    public const int Size = 96;
+    public const int Size = 112;
     private static readonly Color s_actor = new(0.95f, 0.95f, 0.95f);
     private static readonly Color s_ge = new(0.4f, 0.9f, 0.9f);
     private readonly Dictionary<string, Texture2D?> _done = new(StringComparer.Ordinal);
@@ -34,7 +35,7 @@ public sealed class PrefabThumbnails
     /// <summary>The picture of a prefab, <see cref="Pending"/> while it is drawn.</summary>
     public Texture2D Get(PrefabDefinition def, string? mapFolder)
     {
-        string key = $"{def.Source}:{def.Name}:{def.Hash}";
+        string key = $"{mapFolder}:{EditorServices.ContentRoot}:{def.Source}:{def.Name}:{def.Hash}";
         if (_done.TryGetValue(key, out Texture2D? texture) && texture is not null)
         {
             return texture;
@@ -64,7 +65,7 @@ public sealed class PrefabThumbnails
             {
                 MapProject? expanded = PrefabPreview.Expand(job.Name, job.Folder, out _);
                 // The picture is an engine image: never drawn once the editor is closing.
-                EditorLifetime.TryEngine(() => drawn = Draw(expanded));
+                EditorLifetime.TryEngine(() => drawn = Draw(expanded, job.Folder));
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or IOException)
             {
@@ -107,90 +108,90 @@ public sealed class PrefabThumbnails
         return ImageTexture.CreateFromImage(tile);
     }
 
-    /// <summary>Draws the parts of an expanded prefab, fitted to the picture; or, for a prefab of actors only (or one
-    /// that does not expand), names the glyph to show instead.</summary>
-    private static (Image? Picture, string Glyph) Draw(MapProject? p)
+    private sealed record Face(Vec3[] Points, Color Colour, bool Edge);
+    private static readonly Vec3 Eye = new(1, 1, .8);
+    private static Vector2 Project(Vec3 v) => new((float)((v.Y - v.X) * .75), (float)((v.X + v.Y) * .3 - v.Z * .75));
+
+    private static (Image? Picture, string Glyph) Draw(MapProject? p, string? folder)
     {
-        if (p is null)
+        if (p is null) return (null, Unknown);
+        var faces = new List<Face>(); var lines = new List<(Vec3 A, Vec3 B)>();
+        var resolver = AssetResolver.For(EditorServices.ContentRoot, folder);
+        var colours = new Dictionary<string, Color>(StringComparer.OrdinalIgnoreCase);
+        Color Finish(string? name)
         {
-            return (null, Unknown);
-        }
-
-        // Without brushes there is nothing to read as a shape (a ladder or zip line is one thin line): the glyph of
-        // its kind instead, a GE's or the kind of actor most of its actors are.
-        if (p.Brushes.Count == 0)
-        {
-            string glyph = p.Ges.Count > 0 ? PanelIcons.GeIconName(p.Ges[0].Kind)
-                : p.Actors.GroupBy(a => PanelIcons.TypeIconName(a.Class)).OrderByDescending(g => g.Count()).FirstOrDefault()?.Key ?? Unknown;
-            return (null, glyph);
-        }
-
-        var lines = new List<(Vec3 A, Vec3 B, Color C)>();
-        foreach (Brush b in p.Brushes)
-        {
-            Color c = SceneStyle.BrushColor(b);
-            foreach (BrushFace f in b.WorldFaces())
+            if (name is null) return new Color(.5f, .62f, .7f);
+            if (colours.TryGetValue(name, out var cached)) return cached;
+            if (name.StartsWith("Editor.Door", StringComparison.Ordinal))
+            { var c = DoorAssets.Colour(name); return new Color(c.R / 255f, c.G / 255f, c.B / 255f); }
+            Color colour = new(.52f, .64f, .72f);
+            if (resolver.FindMaterial(name) is { Texture: { } texture } material)
             {
-                for (int i = 0; i < f.Vertices.Count; i++)
+                string path = Path.Combine(material.RenderDir, texture);
+                if (File.Exists(path))
                 {
-                    lines.Add((f.Vertices[i], f.Vertices[(i + 1) % f.Vertices.Count], c));
+                    using var image = Image.LoadFromFile(path);
+                    if (image is not null && !image.IsEmpty())
+                    {
+                        colour = new Color(0, 0, 0, 1);
+                        for (int y = 1; y <= 4; y++) for (int x = 1; x <= 4; x++)
+                        { var sample = image.GetPixel(x * (image.GetWidth()-1) / 5, y * (image.GetHeight()-1) / 5); colour.R += sample.R / 16; colour.G += sample.G / 16; colour.B += sample.B / 16; }
+                    }
+                }
+            }
+            return colours[name] = colour;
+        }
+        void FaceOf(IEnumerable<Vec3> points, Color colour, bool edge, bool cavity = false, bool twoSided = false)
+        {
+            Vec3[] v = points.ToArray(); if (v.Length < 3) return;
+            Vec3 n = OpenScct.Editor.Core.Geometry.Poly.Normal(v);
+            if (cavity) n = -n;
+            if (!twoSided && Vec3.Dot(n, Eye) <= 1e-6) return;
+            double light = .65 + .3 * Math.Max(0, Vec3.Dot(n.Normalized(), new Vec3(.3, .5, 1).Normalized()));
+            faces.Add(new(v, new Color(colour.R * (float)light, colour.G * (float)light, colour.B * (float)light, 1), edge));
+        }
+        foreach (var b in GeGeometry.ExpandValid(p).Brushes)
+        foreach (var f in b.WorldFaces())
+            FaceOf(f.Vertices, b.Oper == CsgOper.Subtract ? new Color(.35f, .51f, .6f) : Finish(f.Material), true, b.Oper == CsgOper.Subtract);
+        foreach (var a in p.Actors)
+        {
+            if (a.Door is { } door)
+            {
+                foreach (var part in DoorGeometry.Leaf(door)) foreach (var f in part.Shape.Faces) FaceOf(f.Vertices.Select(a.LocalToWorld), Finish(part.Material), true);
+                foreach (var b in DoorGeometry.Parts(a).Where(b => b.Oper == CsgOper.Add)) foreach (var f in b.WorldFaces()) FaceOf(f.Vertices, Finish(door.FrameMaterial), true);
+                continue;
+            }
+            if (a.Window is { } window)
+            {
+                foreach (var f in WindowGeometry.Pane(window).Faces) FaceOf(f.Vertices.Select(a.LocalToWorld), new Color(.4f, .72f, .82f), true);
+                foreach (var b in WindowGeometry.Parts(a).Where(b => b.Oper == CsgOper.Add)) foreach (var f in b.WorldFaces()) FaceOf(f.Vertices, Finish(f.Material), true);
+                continue;
+            }
+            if (a.Shape is { } shape)
+            { foreach (var f in shape.Faces) FaceOf(f.Vertices.Select(a.LocalToWorld), Finish(f.Material), true); continue; }
+            string? asset = PropValues.AssetPath(a.Props["StaticMesh"] ?? EditorServices.Classes?.Default(a.Class, "StaticMesh"));
+            if (asset is not null && resolver.FindViewMesh(asset) is { } mesh)
+            {
+                foreach (var section in MeshSections.Read(mesh))
+                {
+                    Vec3 Point(int index) => a.LocalToWorld(new Vec3(section.Positions[index*3]*100, section.Positions[index*3+2]*100, section.Positions[index*3+1]*100));
+                    for (int i = 0; i+2 < section.Indices.Length && faces.Count < 16000; i+=3)
+                        FaceOf(new[] { Point(section.Indices[i]), Point(section.Indices[i+2]), Point(section.Indices[i+1]) }, Finish(section.Material), false, twoSided: section.DoubleSided);
                 }
             }
         }
-
-        foreach (Ge g in p.Ges)
-        {
-            for (int i = 0; i + 1 < g.Points.Count; i++)
-            {
-                lines.Add((g.Points[i], g.Points[i + 1], s_ge));
-            }
-        }
-
-        if (lines.Count == 0)
-        {
-            return (null, Unknown);
-        }
-
-        List<Vec3> dots = p.Actors.Select(a => a.Location).ToList();
-        var points = lines.SelectMany(l => new[] { l.A, l.B }).Concat(dots).Select(Project).ToList();
-
-        Vector2 min = points.Aggregate(points[0], (m, v) => m.Min(v));
-        Vector2 max = points.Aggregate(points[0], (m, v) => m.Max(v));
-        Vector2 extent = (max - min).Max(new Vector2(1, 1));
-        float scale = Size * (1 - 2 * PictureMargin) / Math.Max(extent.X, extent.Y);
-        Vector2 offset = new Vector2(Size, Size) / 2 - (min + max) / 2 * scale;
-        Vector2 ToPixel(Vec3 v) => Project(v) * scale + offset;
-
-        Image image = PictureTile.Make(Size, EditorTheme.Tile);
-        foreach ((Vec3 a, Vec3 b, Color c) in lines)
-        {
-            Line(image, ToPixel(a), ToPixel(b), c);
-        }
-
-        foreach (Vec3 d in dots)
-        {
-            Vector2 at = ToPixel(d);
-            image.FillRect(new Rect2I((int)at.X - 1, (int)at.Y - 1, 3, 3), s_actor);
-        }
-
-        return (image, Unknown);
-    }
-
-    /// <summary>A view from the front-left, above: X right and down, Y left and down, Z up.</summary>
-    private static Vector2 Project(Vec3 v) =>
-        new((float)((v.X - v.Y) * 0.866), (float)((v.X + v.Y) * 0.5 - v.Z));
-
-    private static void Line(Image image, Vector2 a, Vector2 b, Color c)
-    {
-        int steps = (int)Math.Ceiling(Math.Max(Math.Abs(b.X - a.X), Math.Abs(b.Y - a.Y)));
-        for (int i = 0; i <= steps; i++)
-        {
-            Vector2 p = steps == 0 ? a : a.Lerp(b, i / (float)steps);
-            int x = (int)Math.Round(p.X), y = (int)Math.Round(p.Y);
-            if (x >= 0 && y >= 0 && x < Size && y < Size)
-            {
-                image.SetPixel(x, y, c);
-            }
-        }
+        foreach (var g in p.Ges) for (int i=0; i+1 < Math.Min(g.Points.Count, 2); i++) lines.Add((g.Points[i], g.Points[i+1]));
+        var vertices = faces.SelectMany(f => f.Points).Concat(lines.SelectMany(l => new[] { l.A, l.B })).ToList();
+        if (vertices.Count == 0)
+            return (null, p.Actors.GroupBy(a => PanelIcons.TypeIconName(a.Class)).OrderByDescending(g => g.Count()).FirstOrDefault()?.Key ?? Unknown);
+        var points = vertices.Select(Project).ToArray(); var min = points.Aggregate((a,b) => a.Min(b)); var max = points.Aggregate((a,b) => a.Max(b));
+        var extent = (max-min).Max(Vector2.One); float scale = (Size-24) / Math.Max(extent.X, extent.Y);
+        Vector2 offset = new Vector2(Size/2f, Size/2f-3) - (min+max)/2*scale;
+        string XY(Vec3 v) { var q = Project(v)*scale+offset; return string.Create(CultureInfo.InvariantCulture, $"{q.X:0.##},{q.Y:0.##}"); }
+        var svg = new StringBuilder($"<svg xmlns='http://www.w3.org/2000/svg' width='{Size}' height='{Size}'><defs><linearGradient id='bg' x2='0' y2='1'><stop stop-color='#252e39'/><stop offset='1' stop-color='#151b24'/></linearGradient></defs><rect width='{Size}' height='{Size}' rx='8' fill='url(#bg)'/><ellipse cx='{Size/2}' cy='{Size-14}' rx='{Size*.34}' ry='5' fill='#0e131b' opacity='.6'/>");
+        foreach (var f in faces.OrderBy(f => f.Points.Average(v => Vec3.Dot(v, Eye))))
+            svg.Append($"<polygon points='{string.Join(' ', f.Points.Select(XY))}' fill='#{f.Colour.ToHtml(false)}' stroke='{(f.Edge ? "#c2d3db" : "none")}' stroke-opacity='.28' stroke-width='.55' stroke-linejoin='round'/>");
+        foreach (var l in lines) svg.Append($"<polyline points='{XY(l.A)} {XY(l.B)}' stroke='#6ee0d3' stroke-width='1.5' fill='none'/>");
+        svg.Append("</svg>"); var picture = new Image(); picture.LoadSvgFromString(svg.ToString()); return (picture, Unknown);
     }
 }

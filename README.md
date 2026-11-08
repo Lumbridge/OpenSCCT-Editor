@@ -72,6 +72,9 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 - **Build and play.** A compiler to OpenSCCT's SVMap format (CSG, BSP, zones, collision, lightmaps, vertex-lit
   meshes), checked with OpenSCCT's own loader. Play the map in OpenSCCT from the editor, or run a headless test
   round with bots, a scripted route or a host and a joining client.
+- **Doors.** The [Doors palette](docs/DOORS.md) creates six styles of framed doors with hinged, sliding or raised
+  movement. Preview wall cuts, edit dimensions and opening behaviour in Inspector, and resize with viewport handles.
+  Built-in tutorials cover placement, editing and switches. Editable doors build for OpenSCCT.
 - **Windows and glass.** The [Windows palette](docs/WINDOWS.md) places scalable glass or complete framed windows
   in six shapes and three finishes. Framed windows cut editable walls; right-click inside an existing frame to fit
   linked breakable glass. These windows build for OpenSCCT and require Editor 0.2.5 or newer to reopen.
@@ -112,12 +115,14 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 - **Analysis.** Map Check with stable rule codes and fixes, a deep check of the compiled map (leaks, void, floating
   meshes, collision caps), the stealth light map, reachability and routes for each side, and the bots' nav graph.
 - **Assets and prefabs.** An asset catalogue of the materials, meshes, textures and sounds a map can use, glTF and OBJ
-  mesh import with generated collision, and prefabs with a starter library. Use **Get Packs…** in Assets to download
+  mesh import with generated collision, and 38 built-in prefabs with shaded previews, category/library filters,
+  favourites and remembered settings. The common furniture, storage and industrial kit includes its own finishes.
+  Use **Get Packs…** in Assets to download
   shared data and map asset libraries from [OpenSCCT-Content](https://github.com/Lumbridge/OpenSCCT-Content). The editor
   indexes the new assets as soon as installation finishes. Open **Tools > Emitter Library** to browse,
   preview and place the 37 RE+ stock effects from installed OpenSCCT maps, save your own effects or import RE+ effect packs.
 - **Find anything and guided lessons.** Ctrl+Shift+P searches commands, controls, placeables, classes, installed
-  assets, prefabs and presets. Search **Laptop** to reveal its tile, or **tutorial** for 35 cancellable lessons with
+  assets, prefabs and presets. Search **Laptop** to reveal its tile, or **tutorial** for 38 cancellable lessons with
   highlighted controls. Favourites, saved lesson progress and **Show me** help you find the next step.
   See [the command-palette guide](docs/COMMAND-PALETTE.md).
 - **Command line, scripting and MCP.** Everything the app does is also an `ose` command

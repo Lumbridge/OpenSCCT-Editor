@@ -49,7 +49,7 @@ public sealed class TransformTool : IViewportTool
 
     public string Title => Mode.ToString();
 
-    public bool IsDragging => _drag is { Moving: true } || _stairHandles?.IsDragging == true || _windowHandles?.IsDragging == true;
+    public bool IsDragging => _drag is { Moving: true } || _stairHandles?.IsDragging == true || _windowHandles?.IsDragging == true || _doorHandles?.IsDragging == true;
 
     public string Shortcut => Mode switch { TransformMode.Move => "M", TransformMode.Rotate => "R", _ => "Shift+S" };
 
@@ -57,8 +57,10 @@ public sealed class TransformTool : IViewportTool
 
     private StairHandles? _stairHandles;
     private WindowHandles? _windowHandles;
+    private DoorHandles? _doorHandles;
     public bool Input(EditorViewport view, InputEvent e)
     {
+        if (Mode == TransformMode.Scale && (_doorHandles ??= new DoorHandles(_tools)).Input(view, e)) return true;
         if (Mode == TransformMode.Scale && (_windowHandles ??= new WindowHandles(_tools)).Input(view, e)) return true;
         if (Mode == TransformMode.Scale && (_stairHandles ??= new StairHandles(_tools)).Input(view, e)) return true;
         switch (e)
@@ -128,6 +130,7 @@ public sealed class TransformTool : IViewportTool
     {
         if (_stairHandles?.Cancel() == true) return true;
         if (_windowHandles?.Cancel() == true) return true;
+        if (_doorHandles?.Cancel() == true) return true;
         if (_drag is { } drag)
         {
             _drag = null;
@@ -150,6 +153,7 @@ public sealed class TransformTool : IViewportTool
     {
         _select.Draw(view, canvas);
         if (Mode == TransformMode.Scale) (_stairHandles ??= new StairHandles(_tools)).Draw(view, canvas);
+        if (Mode == TransformMode.Scale) (_doorHandles ??= new DoorHandles(_tools)).Draw(view, canvas);
         if (Mode == TransformMode.Scale) (_windowHandles ??= new WindowHandles(_tools)).Draw(view, canvas);
         if (_drag is { Moving: true } dragging)
         {
