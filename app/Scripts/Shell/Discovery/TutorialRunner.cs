@@ -1,5 +1,6 @@
 using Godot;
 using OpenScct.Editor.Core.Assets;
+using OpenScct.Editor.Core.Model;
 using OpenScctEditor.Core;
 using OpenScctEditor.Panels;
 using OpenScctEditor.Tools;
@@ -20,6 +21,8 @@ public partial class TutorialRunner : PanelContainer, IShellPart
     private HFlowContainer _buttons = null!;
     private Button _fold = null!;
     private bool _collapsed;
+    private string? _subjectId;
+    private readonly DeferredAction _refreshGuidance = new(() => Instance?.RefreshGuidance());
     public string? LessonId => _lesson?.Id;
     public int StepIndex => _step;
 
@@ -68,6 +71,8 @@ public partial class TutorialRunner : PanelContainer, IShellPart
         context.AddAction(new EditorAction("help.cancelTutorial", "Cancel Current Tutorial", "Help", Cancel)
         { Description = "Close the lesson and its highlight; keep your edits", IsEnabled = () => _lesson is not null, Order = 23 });
         context.SessionReplaced += Cancel;
+        context.ProjectChanged += _ => _refreshGuidance.Queue();
+        context.SelectionChanged += () => _refreshGuidance.Queue();
     }
 
     private static EditorTutorial? Last => TutorialCatalog.All.FirstOrDefault(t => t.Id == AppSettings.GetString("tutorials", "last", ""));
@@ -79,6 +84,7 @@ public partial class TutorialRunner : PanelContainer, IShellPart
     public void Start(EditorTutorial lesson, bool resume = false)
     {
         _lesson = lesson;
+        _subjectId = null;
         GuideSpotlight.Clear();
         _collapsed = true; ToggleCollapsed();
         _step = resume ? Math.Clamp(AppSettings.GetInt("tutorials", lesson.Id, 0), 0, lesson.Steps.Length - 1) : 0;
@@ -90,6 +96,7 @@ public partial class TutorialRunner : PanelContainer, IShellPart
     public void Cancel()
     {
         _lesson = null;
+        _subjectId = null;
         Visible = false;
         DiscoveryNavigation.Invalidate();
     }
@@ -121,7 +128,7 @@ public partial class TutorialRunner : PanelContainer, IShellPart
     private void Render()
     {
         if (_lesson is null) return;
-        TutorialStep step = _lesson.Steps[_step];
+        TutorialStep step = ResolveStep();
         _title.Text = _lesson.Title;
         _progress.Text = $"Step {_step + 1} of {_lesson.Steps.Length} · work in your map, then Next";
         _stepTitle.Text = step.Title;
@@ -137,10 +144,25 @@ public partial class TutorialRunner : PanelContainer, IShellPart
     {
         if (_lesson is null) return;
         DiscoveryNavigation.Invalidate();
-        string[] target = _lesson.Steps[_step].Target.Split(':', 2);
+        string[] target = ResolveStep().Target.Split(':', 2);
         string[] detail = target[1].Split('|', 2);
         switch (target[0])
         {
+            case "setup":
+                Actor? subject = _subjectId is null ? null : _ctx.Project.FindActor(_subjectId);
+                if (detail[0] is "inspect" or "dropzone")
+                {
+                    Actor? inspect = detail[0] == "dropzone" ? TutorialMapGuidance.DropZones(_ctx.Project, subject).FirstOrDefault() : subject;
+                    if (inspect is not null) _ctx.Selection.Set([ObjectRef.Actor(inspect.Id)]);
+                    DiscoveryNavigation.ShowPanel("Inspector", lesson: true);
+                }
+                else
+                {
+                    Actor? objective = TutorialMapGuidance.Objective(_ctx.Project, subject);
+                    MissionsPanel.RevealTutorialObjective(objective?.Id, detail[0]);
+                    if (detail[0] == "new-mission") DiscoveryNavigation.ShowPanel("Missions", "New mission", lesson: true);
+                }
+                break;
             case "panel": DiscoveryNavigation.ShowPanel(detail[0], detail.Length > 1 ? detail[1] : null, lesson: true); break;
             case "placeable": PlaceablesPanel.Instance?.RevealClass(detail[0], lesson: true); break;
             case "assetkind": AssetBrowserPanel.Instance?.RevealKind(Enum.Parse<AssetKind>(detail[0]), lesson: true); break;
@@ -155,6 +177,21 @@ public partial class TutorialRunner : PanelContainer, IShellPart
                 if (MainWindow.Instance is { } window) NavigationHighlight.Instance?.PointAt(window.ViewportArea, dismissOnLeave: false);
                 break;
         }
+    }
+
+    private TutorialStep ResolveStep()
+    {
+        Actor? subject = TutorialMapGuidance.Subject(_ctx.Project, _lesson!.Id, _ctx.Selection.Items, _subjectId);
+        _subjectId = subject?.Id;
+        return TutorialMapGuidance.Resolve(_lesson, _step, _ctx.Project, subject);
+    }
+
+    private void RefreshGuidance()
+    {
+        if (_lesson is null || !Visible) return;
+        TutorialStep step = ResolveStep();
+        _stepTitle.Text = step.Title;
+        _body.Text = step.Body;
     }
 
     public override void _Process(double delta)

@@ -30,9 +30,10 @@ foreach (EditorTutorial tutorial in TutorialCatalog.All)
     foreach (TutorialStep step in tutorial.Steps)
     {
         string[] target = step.Target.Split(':', 2);
-        Check(target.Length == 2 && target[0] is "panel" or "action" or "view" or "tool" or "placeable" or "assetkind", tutorial.Id + " valid navigation route");
+        Check(target.Length == 2 && target[0] is "panel" or "action" or "view" or "tool" or "placeable" or "assetkind" or "setup", tutorial.Id + " valid navigation route");
     }
     string query = DiscoverySearch.Parse("how do I " + tutorial.Title).Query;
     Check(DiscoverySearch.Score(query, tutorial.Title, tutorial.Keywords) is not null, tutorial.Id + " can be found by its task title");
 }
+TutorialGuidanceChecks.Run(Check);
 Console.WriteLine($"PASS {passed} search/lesson checks; {TutorialCatalog.All.Count} lessons, {TutorialCatalog.All.Sum(t => t.Steps.Length)} guided steps");

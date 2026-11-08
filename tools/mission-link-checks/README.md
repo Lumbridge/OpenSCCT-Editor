@@ -32,3 +32,8 @@ an empty compatible-target list, the small-window layout, completion controls an
 The earlier `ui-shots.json` regression script covers the Add objectives picker, linking the map selection, new
 mission/objective creation, undo/redo, completion controls and small/high-DPI layouts. Run it against a separate,
 freshly generated `Ui.osmap`, then pass that output directory and `--verify-ui` to the checker to verify its saved result.
+
+For the Choose mission/objective regression, start a background editor on a separate fresh `Ui.osmap`, then run
+`python tools/mission-link-checks/check_choose_parent.py <background-run-folder>`. It checks objective-to-mission,
+device-to-objective and device-owner-to-mission links, one-step undo/redo, duplicate no-ops, view-only choices,
+Cancel, and the laptop guide's recognition of an existing complete chain. The test saves the disposable map.

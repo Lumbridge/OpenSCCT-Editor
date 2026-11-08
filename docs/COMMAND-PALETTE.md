@@ -42,6 +42,11 @@ you work; minimise with **−** and expand with **+**. The buttons support keybo
 when focus is inside its card; in the map view, Escape remains available to cancel a tool gesture.
 
 Lessons navigate the UI and explain the task. You perform the map edits yourself and decide when to advance.
+The laptop, bomb and carry-disk lessons follow the selected device's actual objective and mission links. They
+recognise automatically created objectives, reused objectives, existing missions and disk drop zones, and ask you
+to create or link something only when it is missing. Instructions update as you edit; Show me again reveals the
+current step's target. With several devices in a map, select the one you want the lesson to follow.
+
 Cancelling keeps edits already made, clears the lesson outline and saves your place. **Help → Resume Last
 Tutorial** continues at that step; choosing the tutorial again starts at the beginning. Finishing marks the lesson
 completed in search. Opening another map cancels the active lesson. The original **Your first map** checklist
