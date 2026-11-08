@@ -368,6 +368,7 @@ public sealed class ToolManager : IShellPart
         }
 
         Active.BuildOptions(_options);
+        _options.Visible = _options.GetChildCount() > 0;
     }
 
     private void RegisterActions()

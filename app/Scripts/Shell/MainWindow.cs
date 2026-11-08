@@ -62,9 +62,6 @@ public partial class MainWindow : Control
     /// <summary>The toolbar under the menus.</summary>
     public HFlowContainer ToolRow { get; private set; } = null!;
 
-    /// <summary>The active tool's options and typed transform values, below the wrapping toolbar.</summary>
-    public HBoxContainer OptionsRow { get; private set; } = null!;
-
     public override void _Ready()
     {
         // The updater starting a new build once to see that it runs: answer and quit before anything else.
@@ -97,14 +94,8 @@ public partial class MainWindow : Control
         MenuRow = Row(root, "MenuRow", "TopBar");
         var toolBar = new PanelContainer { Name = "ToolRowBar", ThemeTypeVariation = "Bar" };
         root.AddChild(toolBar);
-        var toolFlow = new VBoxContainer { Name = "ToolFlow" };
-        toolFlow.AddThemeConstantOverride("h_separation", EditorTheme.SpaceXl);
-        toolFlow.AddThemeConstantOverride("v_separation", EditorTheme.SpaceXxs);
-        toolBar.AddChild(toolFlow);
         ToolRow = new HFlowContainer { Name = "ToolRow" };
-        toolFlow.AddChild(ToolRow);
-        OptionsRow = new HBoxContainer { Name = "OptionsRow", SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        toolFlow.AddChild(OptionsRow);
+        toolBar.AddChild(ToolRow);
 
         var docks = new MarginContainer { Name = "Docks", SizeFlagsVertical = SizeFlags.ExpandFill };
         foreach (string side in new[] { "left", "top", "right", "bottom" })

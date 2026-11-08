@@ -408,9 +408,10 @@ picker's own steps is written (hue, saturation, brightness each on its own), so 
 saturation bytes. A drag is one undo step; Escape in the picker puts back the colour it opened on by undoing its
 picks; several objects with different colours show a dash.
 
-**Toolbars.** Main toolbar: file | undo/redo | tools | snap segments | CSG | layout | Build, Check, Play
-(Play = primary), then the tool's options on the same `Bar`, wrapping to a second line when the window is too narrow
-(so the run buttons never move when the tool changes). A snap toggle and its size drop-down form one segmented
+**Toolbars.** Main toolbar: file | undo/redo | tools (including the Lights palette button) | snap segments | CSG | layout | Build, Check, Play
+(Play = primary), then the tool's options and typed transform values in the same wrapping flow. Groups share one line
+while they fit, with no reserved options strip or expanding gap before Location. Empty tool options are hidden;
+narrower windows wrap complete groups (so the run buttons never move when the tool changes). A snap toggle and its size drop-down form one segmented
 control: grid snap, rotation snap, then neighbour snap, whose drop-down (View > Neighbour Snap Options) shows its
 distance and holds, under a separator, check items for what it applies to (Move, Resize, Rotate, In Line, Baked world). `ToolMenu` drop-downs keep a fixed width (widest item) and open at their bottom-left + 2 px. Tool option rows: tool controls first, then `Divider`, then
 the hint as `Caption` at the end, all hints sentence case with " · ".

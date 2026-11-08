@@ -6,8 +6,8 @@ namespace OpenScctEditor.Shell;
 
 /// <summary>
 /// The toolbar: file and undo buttons, the tools, snapping (grid, rotation, neighbour), CSG Add/Subtract, the view layout, then
-/// Build, Check and Play (the primary action) at the far end; under it the active tool's options and the typed
-/// transform values. Every button is an editor
+/// Build, Check and Play (the primary action), followed by the active tool's options and typed transform values.
+/// Groups share one row while they fit and wrap together on narrower windows. Every button is an editor
 /// action, so its state follows the action and a missing action simply hides its button. Buttons show
 /// <see cref="ToolbarIcons"/>; their tooltips give the action's name and shortcut.
 /// </summary>
@@ -25,6 +25,10 @@ public sealed class ToolbarPart : IShellPart
 
     public void Attach(MainWindow window, EditorContext context)
     {
+        context.AddAction(new EditorAction("view.lights", "Lights", "", () => DockTabs.ShowPanel("Lights"))
+        {
+            Description = "Open the light palette to place fixtures and raw light presets.",
+        });
         var row = new HBoxContainer();
         window.ToolRow.AddChild(row);
         window.ToolRow.AddThemeConstantOverride("h_separation", EditorTheme.SpaceXxs);
@@ -88,6 +92,7 @@ public sealed class ToolbarPart : IShellPart
         foreach (string tool in new[] { "select", "move", "rotate", "scale", "place", "brush", "stairs", "windows", "ge", "conveyor", "face", "vertex", "clip", "measure", "security" })
         {
             Button("tools." + tool);
+            if (tool == "windows") Button("view.lights", icon: Icons.Get("type-light", EditorTheme.Text));
         }
 
         Gap();
@@ -109,13 +114,16 @@ public sealed class ToolbarPart : IShellPart
         row.AddChild(new Control { CustomMinimumSize = new Vector2(EditorTheme.SpaceXs, 0) });
         Button("build.play", "Play", "PrimaryButton", Icons.Get("play", EditorTheme.TextOnAccent));
 
-        var options = new HBoxContainer { Name = "ToolOptions", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+        var options = new HBoxContainer { Name = "ToolOptions" };
         options.AddThemeConstantOverride("separation", 4);
-        window.OptionsRow.AddChild(options);
+        window.ToolRow.AddChild(options);
         if (ToolManager.Instance is { } tools)
         {
             tools.SetOptionsBar(options);
-            window.OptionsRow.AddChild(new TransformBar(tools));
+            var transforms = new HBoxContainer { Name = "TransformValues" };
+            transforms.AddChild(new VSeparator());
+            transforms.AddChild(new TransformBar(tools));
+            window.ToolRow.AddChild(transforms);
             tools.Changed += Refresh;
         }
 
