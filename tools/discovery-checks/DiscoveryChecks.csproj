@@ -5,6 +5,7 @@
     <Compile Include="../../app/Scripts/Shell/Discovery/DiscoveryEntry.cs" Link="DiscoveryEntry.cs" />
     <Compile Include="../../app/Scripts/Shell/Discovery/TutorialCatalog.cs" Link="TutorialCatalog.cs" />
     <Compile Include="../../app/Scripts/Shell/Discovery/TutorialCatalog.Doors.cs" Link="TutorialCatalog.Doors.cs" />
+    <Compile Include="../../app/Scripts/Shell/Discovery/TutorialCatalog.Animation.cs" Link="TutorialCatalog.Animation.cs" />
     <Compile Include="../../app/Scripts/Shell/Discovery/TutorialMapGuidance.cs" Link="TutorialMapGuidance.cs" />
     <Compile Include="../../app/Scripts/Panels/Common/TextMatch.cs" Link="TextMatch.cs" />
   </ItemGroup>

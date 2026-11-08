@@ -1,5 +1,27 @@
 # Animation Studio implementation checks
 
+## Interaction fixes and guided lessons (2026-11-08)
+
+The `fix/animation-studio-interaction` branch adds five animation lessons through the existing tutorial system and
+fixes stage grounding/framing, hierarchy selection, transform handles, scene removal, scrub dragging, stale New
+overlays, animation command navigation and dismissible palette highlights. Replacement playtests compile a private
+practice map rather than relying on the development TestRange being installed.
+
+Validation: the full editor solution builds with zero warnings/errors; 57 animation contract/history/compilation
+checks and 506 discovery/lesson checks pass. An isolated rendered editor passes 29 interaction checks using the
+actual palette, hierarchy, sliders and transform handles, including first-person setup and New. Four final
+desktop/laptop/150% first-person screenshots have zero UI findings or failed steps. The installed OpenSCCT 0.8.117
+executable loads the generated practice room and selected stock Spy replacement pack, spawns the Spy, and exits
+cleanly. That launch check is headless; it verifies loading/spawning, not visual or human gameplay acceptance.
+The Tutorials submenu also passes reachability, scrolling and bounded-height checks at 100% and 150% UI scale,
+with all 53 lessons present.
+
+Use `tools/Start-BackgroundEditor.ps1 -EditorArgs '--animation-ui-checks'` to run the rendered interaction checks
+with installed character content configured through `OSE_CONTENT`. Its private run folder contains screenshots,
+the replacement overlay and generated practice map. No public release or installation is implied by these checks.
+
+## Initial implementation
+
 Checked on Windows with Godot 4.7.2 .NET and .NET 10, 2026-11-08, on the isolated `feature/animation-studio`
 worktrees. These are implementation checks; no public release/deployment or human acceptance is implied.
 

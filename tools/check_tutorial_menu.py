@@ -2,10 +2,17 @@
 
 Usage: python -B tools/check_tutorial_menu.py <disposable-background-run-folder>
 """
-import json,pathlib,socket,sys
+import json,pathlib,re,socket,sys,time
+
+catalog = pathlib.Path(__file__).resolve().parents[1] / 'app/Scripts/Shell/Discovery'
+expected_lessons = sum(len(re.findall(r'new\("[^"]+",', source.read_text())) for source in catalog.glob('TutorialCatalog*.cs'))
 
 run=pathlib.Path(sys.argv[1]).resolve()
-meta=json.loads(next((run/'live').glob('editor-*.json')).read_text())
+deadline=time.monotonic()+45
+while not (endpoints:=list((run/'live').glob('editor-*.json'))):
+    if time.monotonic()>deadline: raise RuntimeError('No disposable editor endpoint')
+    time.sleep(.1)
+meta=json.loads(endpoints[0].read_text())
 sock=socket.create_connection(('127.0.0.1',meta['port']),timeout=90);stream=sock.makefile('rwb');seq=0
 stream.write((json.dumps(dict(auth=meta['token'],client='tutorial-menu-check'))+'\n').encode());stream.flush()
 assert json.loads(stream.readline())['ok']
@@ -24,7 +31,7 @@ for percent in [100,150]:
     step('click',at='menu:Help');step('hover',at='item:Tutorials',seconds=.75)
     state=tree();popup=next(p for p in state['popups'] if p['path'].endswith('/Tutorials'))
     items=[i for i in popup['items'] if i['text']!='---']
-    assert len(items)==47,'All built-in lessons must remain in the submenu'
+    assert len(items)==expected_lessons,('All built-in lessons must remain in the submenu',len(items),expected_lessons)
     x,y,w,h=popup['rect']
     assert h<=480*state['scale']+2 and h<state['window'][1],('Tutorial menu exceeds height limit',popup['rect'],state['window'])
     shot('tutorial-menu-'+str(percent)+'-top')

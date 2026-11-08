@@ -47,6 +47,7 @@ public partial class NavigationHighlight : Control, IShellPart
     {
         if (!Active) { if (_target is not null) Clear(); return; }
         _time += delta;
+        if (_dismissOnLeave && (_time > 8 || !_target!.IsVisibleInTree())) { Clear(); return; }
         if (_target!.IsVisibleInTree())
         {
             bool inside = Rect().HasPoint(EditorPointer.Global(this));
@@ -54,6 +55,11 @@ public partial class NavigationHighlight : Control, IShellPart
             else _entered |= inside;
         }
         QueueRedraw();
+    }
+    public override void _Input(InputEvent e)
+    {
+        if (!Active || !_dismissOnLeave) return;
+        if (e is InputEventKey { Pressed: true, Keycode: Key.Escape } or InputEventMouseButton { Pressed: true }) Clear();
     }
 
     public override void _Draw()

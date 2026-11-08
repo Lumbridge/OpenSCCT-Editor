@@ -68,6 +68,7 @@ public static partial class TutorialCatalog
             S("Edit a placed assembly", "Select any part and use Show in list in Prefabs to reveal its definition. Change the parameters and choose Apply to selected to rebuild that instance. To keep individual hand edits, Break the instance first. Door dimensions and movement can also be edited in Inspector.", "panel:Prefabs"),
             S("Test the switch and door", "Run Map Check, then build and play. Use the switch from its front and watch the door open. Try a second copy too: each switch should control its own door. The switch model requires shared gameplay content.", "action:build.check")]),
         .. DoorLessons(),
+        .. AnimationLessons(),
         new("prefabs", "Browse and customise prefabs", "prefab library favourites furniture storage industrial props parameters thumbnail", [
             S("Browse the library", "Prefabs includes shaded previews of architecture, furniture, storage, industrial props, lights, doors and gameplay assemblies. Search by name or description, then narrow the category and library filters.", "panel:Prefabs"),
             S("Keep useful pieces", "Select a tile to inspect its description and settings. Add favourite marks a frequently used piece; turn on Favourites to show your starred library. Settings stay with a tile while you browse and resize the panel.", "panel:Prefabs"),

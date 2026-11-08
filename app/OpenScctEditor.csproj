@@ -16,6 +16,7 @@
     </ProjectReference>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <Compile Include="../tools/animation-checks/StudioInteractionChecks.cs" Link="Checks/StudioInteractionChecks.cs" />
     <ProjectReference Include="..\src\OpenScct.Editor.Core\OpenScct.Editor.Core.csproj" />
   </ItemGroup>
   <ItemGroup>

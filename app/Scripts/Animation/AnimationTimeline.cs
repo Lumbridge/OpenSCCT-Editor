@@ -110,7 +110,7 @@ public partial class AnimationTimeline : VBoxContainer
     {
         private readonly AnimationTimeline _owner;
         private float _zoom = 100, _scroll, _vertical, _delta, _valueDelta;
-        private bool _drag;
+        private bool _drag, _scrub;
         private Vector2 _start;
         private readonly Dictionary<(int Track, float Time), Vector2> _points = [];
         private const float Labels = 160, Ruler = 24, Row = 24;
@@ -181,7 +181,7 @@ public partial class AnimationTimeline : VBoxContainer
                 if (mouse.Pressed)
                 {
                     var nearest = _points.OrderBy(p => p.Value.DistanceSquaredTo(mouse.Position)).FirstOrDefault();
-                    if (_points.Count > 0 && nearest.Value.DistanceTo(mouse.Position) < 9)
+                    if (mouse.Position.Y >= Ruler && _points.Count > 0 && nearest.Value.DistanceTo(mouse.Position) < 9)
                     {
                         if (!mouse.CtrlPressed && !mouse.ShiftPressed && !_owner._selected.Contains(nearest.Key)) _owner._selected.Clear();
                         if (mouse.CtrlPressed && _owner._selected.Contains(nearest.Key)) _owner._selected.Remove(nearest.Key); else _owner._selected.Add(nearest.Key);
@@ -190,6 +190,7 @@ public partial class AnimationTimeline : VBoxContainer
                     else
                     {
                         if (!mouse.ShiftPressed) _owner._selected.Clear();
+                        _scrub = true; _owner._state.Playing = false;
                         _owner._state.Seek(Time(mouse.Position.X));
                     }
                 }
@@ -219,7 +220,12 @@ public partial class AnimationTimeline : VBoxContainer
                         catch (InvalidDataException) { /* Colliding keys are rejected as one undoable transaction. */ }
                     }
                 }
+                if (!mouse.Pressed) _scrub = false;
                 QueueRedraw(); AcceptEvent();
+            }
+            if (e is InputEventMouseMotion scrub && _scrub)
+            {
+                _owner._state.Seek(Time(scrub.Position.X)); AcceptEvent();
             }
             if (e is InputEventMouseMotion motion && _drag)
             {

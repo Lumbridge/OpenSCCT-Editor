@@ -191,7 +191,7 @@ public partial class AnimationStudio
             string id = instance.Id;
             PanelUi.Header(_inspector, instance.Name);
             PanelUi.Caption(_inspector, id);
-            PanelUi.Button(_inspector, "Select rig", "Pose this rig", () => { State.RigId = id; State.ClipId = instance.Clip; State.Notify(); });
+            PanelUi.Button(_inspector, "Select rig", "Pose this rig", () => State.SelectRig(id));
             Number(_inspector, "Start offset", instance.Start, -3600, 3600, .01f, value => Edit("Rig start offset", p => p.Scene.Single(r => r.Id == id).Start = value));
             for (int axis = 0; axis < 3; axis++)
             {
@@ -203,7 +203,10 @@ public partial class AnimationStudio
                 value => Edit("Scene animation", p => p.Scene.Single(r => r.Id == id).Clip = p.Clips.First(c => c.Name == value && c.Skeleton == instance.Skeleton).Id));
             PanelUi.Button(_inspector, "Duplicate rig", "Add another independently posed instance", () => Edit("Duplicate rig instance", p =>
             { RigInstance copy = AnimationJson.Clone(instance); copy.Id = Guid.NewGuid().ToString("N"); copy.Name += " copy"; copy.Transform = copy.Transform with { Position = copy.Transform.Position + NVector3.UnitX }; p.Scene.Add(copy); }));
+            PanelUi.Button(_inspector, "Remove rig", "Remove this scene instance and its scene links. Keeps clips and models; Undo restores it.", () => Run(() => State.Session.RemoveRig(id)));
         }
+        if (State.Skeleton is { } skeleton)
+            PanelUi.Button(_inspector, "Add rig", "Add the selected skeleton and clip to the scene", () => Edit("Add scene rig", p => p.Scene.Add(new() { Name = skeleton.Name, Skeleton = skeleton.Id, Clip = State.ClipId })));
         PanelUi.Button(_inspector, "Create paired interaction", "Create a synchronized two-rig sequence", () => Edit("Paired interaction sequence", p =>
         {
             var sequence = new AnimationSequence { Name = "Paired interaction", Duration = p.Clips.Select(c => c.Duration).DefaultIfEmpty(1).Max() };
@@ -315,7 +318,9 @@ public partial class AnimationStudio
         }
         if (play)
         {
-            args.AddRange(["--", "--svm-play=TestRange", "--svm-animation-pack=" + folder, "--side=" + (_firstPerson.Profile?.Role == FirstPersonRole.Merc ? "merc" : "spy"), "--bots=0"]);
+            string maps = Path.Combine(folder, "practice-maps");
+            AnimationPracticeMap.Build(maps);
+            args.AddRange(["--", "--svm-maps=" + maps, "--svm-play=TestRange", "--svm-test-round", "--svm-animation-pack=" + folder, "--side=" + (_firstPerson.Profile?.Role == FirstPersonRole.Merc ? "merc" : "spy"), "--bots=0"]);
             if (EditorServices.ContentRoot is { } content) args.Add("--svm-content=" + content);
         }
         else

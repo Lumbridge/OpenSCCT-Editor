@@ -10,6 +10,8 @@ public sealed class AnimationWorkspacePart : IShellPart
 {
     public static AnimationStudio? Studio { get; private set; }
     public static bool Active => Studio?.Visible == true;
+    private static Action<bool>? _show;
+    public static void ShowWorkspace(bool animation = true) => _show?.Invoke(animation);
     public void Attach(MainWindow window, EditorContext context)
     {
         Studio = new AnimationStudio { Name = "AnimationStudio", Visible = false };
@@ -21,9 +23,10 @@ public sealed class AnimationWorkspacePart : IShellPart
         map.Name = "MapWorkspace"; animation.Name = "AnimationWorkspace";
         context.AddAction(new EditorAction("animation.workspace", "Animation Studio", "View/Workspace", () => Show(true)) { Order = 120 });
         context.AddAction(new EditorAction("animation.map", "Map Workspace", "View/Workspace", () => Show(false)) { Order = 130 });
-        context.AddAction(new EditorAction("animation.example", "Animation Example", "", Studio.CreateExample));
-        context.AddAction(new EditorAction("animation.spy", "Import Spy Rig", "Assets/Animation", () => Studio.ImportStock(true)));
-        context.AddAction(new EditorAction("animation.merc", "Import Merc Rig", "Assets/Animation", () => Studio.ImportStock(false)));
+        _show = Show;
+        context.AddAction(new EditorAction("animation.example", "Animation Example", "Assets/Animation", () => { Show(true); Studio.CreateExample(); }) { Description = "Open Animation Studio and create a three-bone example to learn posing and keyframes." });
+        context.AddAction(new EditorAction("animation.spy", "Import Spy Rig", "Assets/Animation", () => { Show(true); Studio.ImportStock(true); }));
+        context.AddAction(new EditorAction("animation.merc", "Import Merc Rig", "Assets/Animation", () => { Show(true); Studio.ImportStock(false); }));
         context.AddAction(new EditorAction("animation.firstPerson.spy", "Spy First Person", "Assets/Animation", () => { Show(true); Studio.OpenFirstPerson(OpenScct.Animation.FirstPersonRole.Spy); }));
         context.AddAction(new EditorAction("animation.firstPerson.merc", "Merc First Person", "Assets/Animation", () => { Show(true); Studio.OpenFirstPerson(OpenScct.Animation.FirstPersonRole.Merc); }));
         string[] arguments = OS.GetCmdlineUserArgs();

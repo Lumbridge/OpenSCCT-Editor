@@ -14,6 +14,13 @@ public partial class AnimationStage : SubViewportContainer
     private Camera3D _camera = null!;
     private MeshInstance3D _lines = null!;
     private MeshInstance3D _floor = null!;
+    private MeshInstance3D _grid = null!;
+    private float _ground;
+    private string? _sceneKey;
+    private readonly List<(int Axis, Vector2 A, Vector2 B)> _handles = [];
+    private readonly Dictionary<int, Vector2> _tips = [];
+    private Vector2 _dragDirection;
+    private float _dragUnits;
     private readonly Dictionary<string, (Node3D Root, Skeleton3D? Skeleton, string Signature)> _models = [];
     private readonly Dictionary<int, Vector2> _pick = [];
     private readonly StandardMaterial3D _lineMaterial = new() { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, VertexColorUseAsAlbedo = true, NoDepthTest = true };
@@ -24,6 +31,10 @@ public partial class AnimationStage : SubViewportContainer
     private Vector2 _dragStart;
     private BoneTransform _before;
     private int _axis;
+    internal IReadOnlyDictionary<int, Vector2> BonePoints => _pick;
+    internal IReadOnlyList<(int Axis, Vector2 A, Vector2 B)> Handles => _handles;
+    internal float GroundHeight => _ground;
+    internal bool Empty => _models.Count == 0 && _pick.Count == 0 && _handles.Count == 0 && _lines.Mesh is null;
     public bool SequenceCamera { get; set; }
     public string? FirstPersonProfileId { get; set; }
     public string FirstPersonActionName { get; set; } = "Idle";
@@ -35,9 +46,10 @@ public partial class AnimationStage : SubViewportContainer
         _state = state; state.Changed += Sync; state.TimeChanged += Pose;
         TreeExiting += () => { state.Changed -= Sync; state.TimeChanged -= Pose; };
     }
+    internal void RefreshView() => Sync();
     public override void _Ready()
     {
-        Stretch = true; MouseFilter = MouseFilterEnum.Stop;
+        Stretch = true; ClipContents = true; MouseFilter = MouseFilterEnum.Stop;
         TooltipText = "Middle drag: orbit · Shift+middle: pan · Wheel: zoom · Click a bone to select · Drag a selected axis to pose";
         var viewport = new SubViewport { OwnWorld3D = true, GuiDisableInput = true, RenderTargetUpdateMode = SubViewport.UpdateMode.WhenVisible };
         AddChild(viewport);
@@ -47,8 +59,10 @@ public partial class AnimationStage : SubViewportContainer
                 AmbientLightSource = Godot.Environment.AmbientSource.Color, AmbientLightColor = Colors.White, AmbientLightEnergy = .65f } };
         viewport.AddChild(_camera);
         _world.AddChild(new DirectionalLight3D { RotationDegrees = new(-35, -30, 0), LightEnergy = 1.2f });
-        _floor = new MeshInstance3D { Mesh = new PlaneMesh { Size = new(12, 12) }, MaterialOverride = new StandardMaterial3D { AlbedoColor = EditorTheme.Field, Roughness = .9f } };
+        _floor = new MeshInstance3D { Mesh = new PlaneMesh { Size = new(20, 20) }, MaterialOverride = new StandardMaterial3D { AlbedoColor = EditorTheme.Field, Roughness = .9f } };
         _world.AddChild(_floor);
+        _grid = new MeshInstance3D { CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        _world.AddChild(_grid);
         _lines = new MeshInstance3D { CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         _world.AddChild(_lines);
         Aim(); Sync();
@@ -56,7 +70,32 @@ public partial class AnimationStage : SubViewportContainer
     public void Frame()
     {
         FirstPersonEye = false;
-        _target = FirstPersonProfileId is null ? new(0, .9f, 0) : new(.25f, -.1f, 0); _distance = FirstPersonProfileId is null ? 3 : .9f; Aim();
+        if (FirstPersonProfileId is null && Bounds() is { } bounds)
+        {
+            _target = bounds.GetCenter();
+            float halfFov = Mathf.DegToRad(_camera.Fov * .5f);
+            if (Size.X < Size.Y) halfFov = MathF.Atan(MathF.Tan(halfFov) * Size.X / MathF.Max(1, Size.Y));
+            _distance = MathF.Max(.5f, (bounds.Size.Length() * .5f + .15f) / MathF.Sin(halfFov));
+        }
+        else { _target = new(.25f, -.1f, 0); _distance = .9f; }
+        Aim();
+    }
+    private Aabb? Bounds()
+    {
+        Vector3? minimum = null, maximum = null;
+        foreach ((string id, var model) in _models)
+        {
+            RigInstance? instance = _state.Project.Scene.FirstOrDefault(r => r.Id == id);
+            SkeletonDefinition? definition = _state.Project.Skeletons.FirstOrDefault(s => s.Id == instance?.Skeleton);
+            if (definition is null) continue;
+            var clip = _state.Project.Clips.FirstOrDefault(c => c.Id == (id == _state.RigId ? _state.ClipId : instance?.Clip));
+            foreach (var bone in ClipEvaluator.World(definition, ClipEvaluator.Evaluate(definition, clip, 0)))
+            {
+                Vector3 point = model.Root.Transform * Vec(bone.Translation);
+                minimum = minimum?.Min(point) ?? point; maximum = maximum?.Max(point) ?? point;
+            }
+        }
+        return minimum is { } min && maximum is { } max ? new Aabb(min, max - min) : null;
     }
     public void FirstPerson()
     {
@@ -82,8 +121,7 @@ public partial class AnimationStage : SubViewportContainer
         if (_state.Project.FirstPersonProfiles.FirstOrDefault(p => p.Id == FirstPersonProfileId) is { } profile)
             instances = instances.Where(i => i.Id == profile.MainRig || i.Id == profile.ArmsRig).ToList();
         _floor.Visible = FirstPersonProfileId is null;
-        if (instances.Count == 0 && _state.Skeleton is { } skeleton) instances.Add(new() { Id = "preview", Skeleton = skeleton.Id });
-        foreach (string old in _models.Keys.Where(id => !instances.Any(i => i.Id == id)).ToArray()) { _models[old].Root.QueueFree(); _models.Remove(old); }
+        foreach (string old in _models.Keys.Where(id => !instances.Any(i => i.Id == id)).ToArray()) { _models[old].Root.GetParent().RemoveChild(_models[old].Root); _models[old].Root.QueueFree(); _models.Remove(old); }
         foreach (RigInstance instance in instances)
         {
             SkeletonDefinition definition = _state.Project.Skeletons.Single(s => s.Id == instance.Skeleton);
@@ -108,19 +146,40 @@ public partial class AnimationStage : SubViewportContainer
             }
             _models[instance.Id].Root.Transform = ToGodot(instance.Transform) * ToGodot(definition.DisplayTransform);
         }
+        string key = _state.Project.Id + ":" + string.Join(',', instances.Select(i => i.Id)) + ":" + FirstPersonProfileId;
+        if (_sceneKey != key)
+        {
+            _sceneKey = key; _drag = false;
+            _ground = (Bounds()?.Position.Y ?? 0) - .02f;
+            _floor.Position = new(0, _ground, 0);
+            var grid = new ImmediateMesh();
+            grid.SurfaceBegin(Mesh.PrimitiveType.Lines, new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = EditorTheme.Divider });
+            for (int i = -10; i <= 10; i++)
+            {
+                grid.SurfaceAddVertex(new(i, _ground + .001f, -10)); grid.SurfaceAddVertex(new(i, _ground + .001f, 10));
+                grid.SurfaceAddVertex(new(-10, _ground + .001f, i)); grid.SurfaceAddVertex(new(10, _ground + .001f, i));
+            }
+            grid.SurfaceEnd(); Mesh? old = _grid.Mesh; _grid.Mesh = grid; old?.Dispose();
+            bool eye = FirstPersonEye && FirstPersonProfileId is not null;
+            Frame();
+            if (eye) FirstPerson();
+        }
+        _grid.Visible = _floor.Visible;
         Pose();
     }
     private void Pose()
     {
-        if (!IsNodeReady() || _state is null || _state.Skeleton is null) return;
+        if (!IsNodeReady() || _state is null) return;
+        _pick.Clear(); _handles.Clear(); _tips.Clear();
+        if (_state.Skeleton is null || _models.Count == 0)
+        {
+            Mesh? old = _lines.Mesh; _lines.Mesh = null; old?.Dispose(); QueueRedraw(); return;
+        }
         var mesh = new ImmediateMesh(); mesh.SurfaceBegin(Mesh.PrimitiveType.Lines, _lineMaterial); int vertices = 0;
-        _pick.Clear();
         void Line(Vector3 a, Vector3 b, Color color)
         {
             mesh.SurfaceSetColor(color); mesh.SurfaceAddVertex(a); mesh.SurfaceSetColor(color); mesh.SurfaceAddVertex(b); vertices += 2;
         }
-        if (FirstPersonProfileId is null)
-            for (int i = -10; i <= 10; i++) { Line(new(i, .001f, -10), new(i, .001f, 10), EditorTheme.Divider); Line(new(-10, .001f, i), new(10, .001f, i), EditorTheme.Divider); }
         var overrides = new Dictionary<string, string>(StringComparer.Ordinal);
         if (_state.Project.FirstPersonProfiles.FirstOrDefault(p => p.Id == FirstPersonProfileId) is { } profile)
         {
@@ -159,7 +218,31 @@ public partial class AnimationStage : SubViewportContainer
                 {
                     Vector3[] axes = [Vector3.Right, Vector3.Up, Vector3.Back];
                     Basis basis = _state.WorldSpace ? Basis.Identity : (model.Root.Basis * ToGodot(BoneTransform.FromMatrix(world[bone])).Basis).Orthonormalized();
-                    for (int axis = 0; axis < 3; axis++) Line(position, position + basis * axes[axis] * .18f, axis switch { 0 => EditorTheme.AxisX, 1 => EditorTheme.AxisY, _ => EditorTheme.AxisZ });
+                    float length = MathF.Max(.05f, _camera.GlobalPosition.DistanceTo(position) * .09f);
+                    for (int axis = 0; axis < 3; axis++)
+                    {
+                        Color color = axis switch { 0 => EditorTheme.AxisX, 1 => EditorTheme.AxisY, _ => EditorTheme.AxisZ };
+                        void Handle(Vector3 a, Vector3 b)
+                        {
+                            Line(a, b, color);
+                            if (!_camera.IsPositionBehind(a) && !_camera.IsPositionBehind(b)) _handles.Add((axis, _camera.UnprojectPosition(a), _camera.UnprojectPosition(b)));
+                        }
+                        if (_state.TransformTool == "rotate")
+                        {
+                            Vector3 u = basis * axes[(axis + 1) % 3], v = basis * axes[(axis + 2) % 3];
+                            for (int step = 0; step < 64; step++)
+                            {
+                                float a = MathF.Tau * step / 64, b = MathF.Tau * (step + 1) / 64;
+                                Handle(position + (u * MathF.Cos(a) + v * MathF.Sin(a)) * length, position + (u * MathF.Cos(b) + v * MathF.Sin(b)) * length);
+                            }
+                        }
+                        else
+                        {
+                            Vector3 end = position + basis * axes[axis] * length;
+                            Handle(position + basis * axes[axis] * length * .18f, end);
+                            if (!_camera.IsPositionBehind(end)) _tips[axis] = _camera.UnprojectPosition(end);
+                        }
+                    }
                 }
             }
             if (selected && _state.Ghosts && _state.CurrentClip is { } clip)
@@ -182,7 +265,8 @@ public partial class AnimationStage : SubViewportContainer
             }
         }
         if (vertices > 0) mesh.SurfaceEnd();
-        Mesh? previousMesh = _lines.Mesh; _lines.Mesh = mesh; previousMesh?.Dispose();
+        Mesh? previousMesh = _lines.Mesh; _lines.Mesh = vertices > 0 ? mesh : null; previousMesh?.Dispose();
+        if (vertices == 0) mesh.Dispose();
         QueueRedraw();
     }
     public (BoneTransform[] Pose, BoneTransform Mount) CreateSpyGrip(string rigId)
@@ -222,6 +306,23 @@ public partial class AnimationStage : SubViewportContainer
     }
     public override void _Draw()
     {
+        if (_state is null) return;
+        if (_state.ShowBones)
+            foreach ((int bone, Vector2 point) in _pick)
+            {
+                DrawCircle(point, bone == _state.Bone ? 6 : 3, bone == _state.Bone ? EditorTheme.Accent : EditorTheme.TextDim);
+                if (bone == _state.Bone) DrawArc(point, 9, 0, MathF.Tau, 24, EditorTheme.TextBright, 2);
+            }
+        foreach ((int axis, Vector2 point) in _tips)
+        {
+            Color color = axis switch { 0 => EditorTheme.AxisX, 1 => EditorTheme.AxisY, _ => EditorTheme.AxisZ };
+            if (_state.TransformTool == "scale") DrawRect(new Rect2(point - new Vector2(4, 4), new(8, 8)), color);
+            else if (_pick.TryGetValue(_state.Bone, out Vector2 origin))
+            {
+                Vector2 direction = (point - origin).Normalized(), normal = direction.Orthogonal();
+                DrawColoredPolygon([point, point - direction * 11 + normal * 4, point - direction * 11 - normal * 4], color);
+            }
+        }
         if (!FirstPersonEye || FirstPersonProfileId is null) return;
         Vector2 centre = Size * .5f;
         DrawLine(centre + new Vector2(-6, 0), centre + new Vector2(6, 0), EditorTheme.TextDim);
@@ -239,10 +340,15 @@ public partial class AnimationStage : SubViewportContainer
                 if (mouse.Pressed)
                 {
                     _dragStart = mouse.Position;
-                    if (_pick.TryGetValue(_state.Bone, out Vector2 at) && at.DistanceTo(mouse.Position) < 60)
+                    var nearest = _pick.OrderBy(p => p.Value.DistanceSquaredTo(mouse.Position)).FirstOrDefault();
+                    var handle = _handles.OrderBy(h => Geometry2D.GetClosestPointToSegment(mouse.Position, h.A, h.B).DistanceSquaredTo(mouse.Position)).FirstOrDefault();
+                    bool selectBone = _pick.Count > 0 && nearest.Key != _state.Bone && nearest.Value.DistanceTo(mouse.Position) < 9;
+                    if (!selectBone && _handles.Count > 0 && Geometry2D.GetClosestPointToSegment(mouse.Position, handle.A, handle.B).DistanceTo(mouse.Position) < 9)
                     {
-                        Vector2 direction = mouse.Position - at; _axis = MathF.Abs(direction.X) > MathF.Abs(direction.Y) ? 0 : 1;
-                        if (mouse.CtrlPressed) _axis = 2;
+                        _axis = handle.Axis;
+                        _dragDirection = (handle.B - handle.A).Normalized();
+                        // A handle spans a fixed fraction of the camera distance, independent of window size.
+                        _dragUnits = _state.TransformTool == "move" ? _distance * .09f / MathF.Max(10, handle.A.DistanceTo(handle.B)) * .82f : .01f;
                         BoneTransform[] pose = _state.Pose();
                         if (_state.Bone < pose.Length && _state.Skeleton is { } definition)
                         {
@@ -255,8 +361,7 @@ public partial class AnimationStage : SubViewportContainer
                     }
                     if (!_drag)
                     {
-                        var nearest = _pick.OrderBy(p => p.Value.DistanceSquaredTo(mouse.Position)).FirstOrDefault();
-                        if (_pick.Count > 0 && nearest.Value.DistanceTo(mouse.Position) < 18) { _state.Bone = nearest.Key; _state.Notify(); }
+                        if (_pick.Count > 0 && nearest.Value.DistanceTo(mouse.Position) < 18) _state.SelectBone(nearest.Key);
                     }
                 }
                 else if (_drag)
@@ -272,13 +377,13 @@ public partial class AnimationStage : SubViewportContainer
             if (_pan) { _target += (-_camera.GlobalBasis.X * motion.Relative.X + _camera.GlobalBasis.Y * motion.Relative.Y) * _distance * .0015f; Aim(); }
             if (_drag)
             {
-                float delta = (motion.Position.X - _dragStart.X - motion.Position.Y + _dragStart.Y) * .01f;
+                float delta = (motion.Position - _dragStart).Dot(_dragDirection) * _dragUnits;
                 if (motion.ShiftPressed) delta = MathF.Round(delta * 10) / 10;
                 NVector3 axis = _axis switch { 0 => NVector3.UnitX, 1 => NVector3.UnitY, _ => NVector3.UnitZ };
                 BoneTransform value = _state.TransformTool switch
                 {
                     "move" => _before with { Position = _before.Position + (_state.WorldSpace ? axis : NVector3.Transform(axis, _before.Rotation)) * delta },
-                    "scale" => _before with { Scale = _before.Scale + axis * delta },
+                    "scale" => _before with { Scale = NVector3.Max(new(.001f), _before.Scale + axis * delta) },
                     _ => _before with { Rotation = System.Numerics.Quaternion.Normalize(_state.WorldSpace ? System.Numerics.Quaternion.CreateFromAxisAngle(axis, delta) * _before.Rotation : _before.Rotation * System.Numerics.Quaternion.CreateFromAxisAngle(axis, delta)) },
                 };
                 if (_state.WorldSpace && System.Numerics.Matrix4x4.Invert(_dragParent, out var inverse)) value = BoneTransform.FromMatrix(value.Matrix * inverse);

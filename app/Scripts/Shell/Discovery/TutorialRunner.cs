@@ -133,7 +133,7 @@ public partial class TutorialRunner : PanelContainer, IShellPart
         if (_lesson is null) return;
         TutorialStep step = ResolveStep();
         _title.Text = _lesson.Title;
-        _progress.Text = $"Step {_step + 1} of {_lesson.Steps.Length} · work in your map, then Next";
+        _progress.Text = $"Step {_step + 1} of {_lesson.Steps.Length} · " + (_lesson.Id.StartsWith("animation-", StringComparison.Ordinal) ? "try it in the studio, then Next" : "work in your map, then Next");
         _stepTitle.Text = step.Title;
         _body.Text = step.Body;
         _instructions.ScrollVertical = 0;
@@ -151,6 +151,10 @@ public partial class TutorialRunner : PanelContainer, IShellPart
         string[] detail = target[1].Split('|', 2);
         switch (target[0])
         {
+            case "animation":
+                Animation.AnimationWorkspacePart.ShowWorkspace();
+                Animation.AnimationWorkspacePart.Studio?.RevealTutorial(target[1]);
+                break;
             case "setup":
                 Actor? subject = _subjectId is null ? null : _ctx.Project.FindActor(_subjectId);
                 if (detail[0] is "inspect" or "dropzone")
@@ -207,7 +211,8 @@ public partial class TutorialRunner : PanelContainer, IShellPart
     public override void _Process(double delta)
     {
         if (!Visible || MainWindow.Instance is not { } window) return;
-        Rect2 views = window.ViewportArea.GetGlobalRect();
+        Rect2 views = Animation.AnimationWorkspacePart.Active && Animation.AnimationWorkspacePart.Studio?.FindChild("AnimationStage", true, false) is Control stage
+            ? stage.GetGlobalRect() : window.ViewportArea.GetGlobalRect();
         float width = Math.Min(360, Math.Max(280, window.Size.X - 32));
         float y = Math.Max(views.Position.Y + 12, 70);
         _instructions.CustomMinimumSize = new Vector2(0, Math.Clamp(window.Size.Y - y - 180, 48, 130));

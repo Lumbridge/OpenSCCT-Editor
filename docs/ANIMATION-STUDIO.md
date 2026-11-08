@@ -4,6 +4,12 @@ Choose **Animation** beside **Map** to open the studio. Animation documents have
 and splitter layout. A map does not need to be open or saved. **New** creates an empty document; the Stock tab's
 **Create example rig** starts with an original three-bone rig without requiring installed game content.
 
+Use **Tutorials** in the studio or **Help > Tutorials** for five guided lessons: first keyframes, stock Spy/Merc
+editing, scene items, in-game replacements and first-person weapons/arms. Each uses the existing tutorial card,
+highlights the current control and lets you work at your own pace. Search for `tutorials: animation` in the command
+palette. Running an animation command opens the studio; **Show me** reveals its actual control without running it.
+Palette highlights clear on click, Escape, moving away after entering the control, or after eight seconds.
+
 ## Start with a character or imported rig
 
 The **Stock** library searches the installed converted character, weapon and skeletal-prop GLBs. Double-click an
@@ -45,8 +51,9 @@ Space plays/pauses, the transport steps frames and scrubs, and the Clip inspecto
 FPS. Speed supports reverse preview. Preview and scrubbing do not dispatch gameplay events. The stage supports
 middle-button orbit, Shift-middle pan, wheel zoom and F to frame. Select bones in the hierarchy or the stage.
 
-Use Move, Rotate or Scale; **World** chooses world axes, otherwise the gizmo uses the bone's axes. Ctrl chooses Z
-when dragging; Shift snaps. Numeric pose fields are available in the inspector. **Auto key** commits edits at the
+Use Move, Rotate or Scale; the active button stays pressed. Drag a coloured arrow, rotation ring or scale square;
+red is X, green is Y and blue is Z. **World** chooses world axes, otherwise the gizmo uses the bone's axes.
+Shift snaps. Numeric pose fields are available in the inspector. **Auto key** commits edits at the
 playhead; turn it off to stage a pose, then **Key pose** or I to record it. Pose presets and mirrored poses are in
 the Pose inspector. Rig presets create matching left/right maps for stock Spy/Merc bones.
 
@@ -65,7 +72,9 @@ The Rig inspector edits two-bone/chain IK, pinning, look-at and parent constrain
 cross-rig target bones. **Pin at playhead** captures a foot/hand target; **Humanoid controls** creates named controls
 for available stock limbs. These are authoring constraints: compiled clips bake their result.
 
-The Scene inspector adds independently posed instances, offsets and synchronized clips. **Create paired
+**Scene items** opens the Scene inspector for independently posed instances, offsets and synchronized clips.
+**Remove rig** removes a scene instance and its dependent scene links, retaining its reusable clips and model;
+Undo restores the instance and links together. **Add rig** reuses the selected skeleton and clip. **Create paired
 interaction** creates skeletal sequence tracks for two rigs. Cross-rig constraints need one owning instance per
 clip; duplicate a clip when two instances need different constraint partners. Baking resolves dependencies in
 target-first order and rejects cyclic dependencies. First-person action pairs participate in this bake too.
@@ -110,7 +119,8 @@ actor binding at the map cursor. Switch to Map to position it; map Undo removes 
 for the assembled scene. Reattach after animation edits to update the map's copy.
 
 **Test in OpenSCCT** builds a private overlay and launches the game-side animation preview. **Play replacements**
-launches a local TestRange session with that overlay selected, using the current first-person role. Bind the desired
+builds a private practice room and launches it as a local TestRange session with that overlay selected, using the
+current first-person role. No installed development TestRange is required. Bind the desired
 actions first. Neither test writes installed stock content. Installed game builds must report Animation Studio
 runtime capability; source runs use the configured sibling game checkout. For custom props and map triggers, use
 the map build/play path. Exported packs are imported and explicitly selected under the game's Content screen;

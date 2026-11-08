@@ -20,12 +20,14 @@ public partial class FirstPersonStudio : HFlowContainer
     private SpinBox _fov = null!;
     private string? _profileId;
     private bool _updating;
+    private string? _projectId;
     public bool Active { get; private set; }
     public FirstPersonProfile? Profile => Active ? _state.Project.FirstPersonProfiles.FirstOrDefault(p => p.Id == _profileId) : null;
     public string? EditingSkeleton => Profile is not { } profile ? null : _state.Project.Scene.FirstOrDefault(r => r.Id == (_part.Selected == 1 ? profile.ArmsRig ?? profile.MainRig : profile.MainRig))?.Skeleton;
     public FirstPersonStudio(StudioState state, AnimationStage stage, Action refreshLibrary) { _state = state; _stage = stage; _refreshLibrary = refreshLibrary; }
     public override void _Ready()
     {
+        _projectId = _state.Project.Id;
         _mode = new OptionButton { Name = "AnimationStudioSection" }; _mode.AddItem("Animation"); _mode.AddItem("First Person"); AddChild(_mode);
         _mode.ItemSelected += index => { Active = index == 1; Activate(); };
         _role = Choice("Role", ["Spy", "Merc"]); _role.Name = "FirstPersonRole";
@@ -53,6 +55,11 @@ public partial class FirstPersonStudio : HFlowContainer
     public void ShowRole(FirstPersonRole role)
     {
         Active = true; _mode.Selected = 1; _role.Selected = (int)role; Weapons(); LoadSetup();
+    }
+    public void ShowControls()
+    {
+        if (Active) return;
+        Active = true; _mode.Selected = 1; SelectExisting();
     }
     private void Weapons()
     {
@@ -167,6 +174,12 @@ public partial class FirstPersonStudio : HFlowContainer
     private void Refresh()
     {
         if (!IsNodeReady()) return;
+        if (_projectId != _state.Project.Id)
+        {
+            _projectId = _state.Project.Id; _profileId = null; Active = false; _mode.Selected = 0;
+            _stage.FirstPersonProfileId = null; _stage.FirstPersonEye = false;
+            _stage.RefreshView();
+        }
         _updating = true;
         foreach (Control child in GetChildren().OfType<Control>()) if (child != _mode) child.Visible = Active;
         if (_profileId is not null && Profile is null && Active) _profileId = _state.Project.FirstPersonProfiles.FirstOrDefault()?.Id;

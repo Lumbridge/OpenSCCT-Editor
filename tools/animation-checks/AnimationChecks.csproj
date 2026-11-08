@@ -1,4 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
   <ItemGroup><ProjectReference Include="..\..\src\OpenScct.Editor.Core\OpenScct.Editor.Core.csproj" /></ItemGroup>
+  <ItemGroup><Compile Remove="StudioInteractionChecks.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../app/Scripts/Animation/StudioState.cs" Link="StudioState.cs" /></ItemGroup>
 </Project>

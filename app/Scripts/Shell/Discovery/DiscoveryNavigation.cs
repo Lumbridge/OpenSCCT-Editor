@@ -27,6 +27,8 @@ public static class DiscoveryNavigation
     public static void Reveal(Control target, bool lesson = false)
     {
         if (!GodotObject.IsInstanceValid(target) || !target.IsInsideTree()) return;
+        if (Animation.AnimationWorkspacePart.Active && MainWindow.Instance?.MapWorkspace.IsAncestorOf(target) == true)
+            Animation.AnimationWorkspacePart.ShowWorkspace(false);
         int revision = Revision;
         for (Node? owner = target; owner is not null; owner = owner.GetParent())
             if (owner is EditorPanel panel) { DockTabs.ShowPanel(panel.Name); break; }
@@ -83,6 +85,11 @@ public static class DiscoveryNavigation
 
     public static void ShowAction(EditorAction action, bool lesson = false)
     {
+        if (action.Id.StartsWith("animation.", StringComparison.Ordinal))
+        {
+            Animation.AnimationWorkspacePart.ShowWorkspace(action.Id != "animation.map");
+            if (action.Id is "animation.example" or "animation.spy" or "animation.merc") Animation.AnimationWorkspacePart.Studio?.ShowLibrary(true);
+        }
         Control? target = Descendants(MainWindow.Instance).OfType<Control>().FirstOrDefault(b => ActionId(b) == action.Id && b.IsVisibleInTree());
         target ??= Descendants(MainWindow.Instance).OfType<Control>().FirstOrDefault(b => ActionId(b) == action.Id);
         if (target is not null)
@@ -92,7 +99,6 @@ public static class DiscoveryNavigation
         }
         // A lesson keeps its card usable. Search's Show me opens and focuses the real menu command.
         if (!lesson && MenuBarPart.Instance?.RevealAction(action) == true) return;
-        if (Descendants(MainWindow.Instance).OfType<MenuBar>().FirstOrDefault() is { } bar) Reveal(bar, lesson);
         EditorContext.Instance.SetStatus($"{action.Title}: {action.Menu.Replace("/", " › ", StringComparison.Ordinal)}"
             + (ShortcutBindings.Text(action) is { } shortcut ? $" · {shortcut}" : "") + ". Open the menu to run this command.");
     }

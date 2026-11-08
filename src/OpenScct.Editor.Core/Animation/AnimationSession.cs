@@ -132,6 +132,15 @@ public sealed class AnimationSession
         Edit("New animation", p => p.Clips.Add(new() { Id = id, Name = name, Skeleton = skeletonId, FramesPerSecond = p.FramesPerSecond }));
         return id;
     }
+    public void RemoveRig(string id) => Edit("Remove scene rig", p =>
+    {
+        p.Scene.RemoveAll(r => r.Id == id);
+        foreach (AnimationClip clip in p.Clips) clip.Constraints.RemoveAll(c => c.TargetRig == id);
+        foreach (ControlRig rig in p.ControlRigs) rig.Controls.RemoveAll(c => c.TargetRig == id);
+        foreach (AnimationSequence sequence in p.Sequences) sequence.Tracks.RemoveAll(t => t.Target == id);
+        var profiles = p.FirstPersonProfiles.Where(f => f.MainRig == id || f.ArmsRig == id).Select(f => f.Id).ToHashSet();
+        p.FirstPersonProfiles.RemoveAll(f => profiles.Contains(f.Id));
+    });
     public void Reimport(string clipId)
     {
         AnimationClip clip = Project.Clips.Single(c => c.Id == clipId);

@@ -32,6 +32,7 @@ public partial class AnimationStudio : VBoxContainer
     private Label _title = null!, _timeLabel = null!, _status = null!;
     private HSlider _seek = null!;
     private Button _play = null!;
+    private readonly Dictionary<string, Button> _poseTools = [];
     private VBoxContainer _inspector = null!;
     private bool _refreshing;
     private double _autosave;
@@ -50,8 +51,10 @@ public partial class AnimationStudio : VBoxContainer
         PanelUi.Button(files, "Export…", "Export GLB/glTF or a compiled animation pack", Export);
         PanelUi.Button(files, "Add to Map", "Copy this animation project into the open map", AttachMap);
         PanelUi.Button(files, "Place prop", "Place the selected rig and animation in the open map", PlaceMapProp);
+        PanelUi.Button(files, "Scene items", "Select, duplicate, add or remove scene rigs", () => ShowInspector("Scene"));
         PanelUi.Primary(files, "Test in OpenSCCT", "Build a private content overlay and launch a local animation test", TestGame);
         PanelUi.Button(files, "Play replacements", "Play TestRange with this project's explicitly bound replacements", () => TestGame(true));
+        PanelUi.Button(files, "Tutorials", "Guided animation lessons", () => CommandPalette.Instance?.OpenSearch("tutorials: animation"));
         _title = PanelUi.Caption(files, "", false);
 
         var horizontal = new HSplitContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -61,7 +64,7 @@ public partial class AnimationStudio : VBoxContainer
         var local = new VBoxContainer { Name = "Project" }; library.AddChild(local);
         HFlowContainer actions = PanelUi.Toolbar(local);
         PanelUi.Button(actions, "+ Clip", "Create an animation on the selected rig", NewClip);
-        PanelUi.IconButton(actions, "copy", "Duplicate the selected clip", DuplicateClip);
+        PanelUi.IconButton(actions, "copy", "Duplicate the selected clip", DuplicateClip).Name = "AnimationDuplicateClip";
         _clips = new Tree { Name = "AnimationClips", HideRoot = true, SizeFlagsVertical = SizeFlags.ExpandFill };
         local.AddChild(_clips);
         _clips.ItemSelected += () => { if (!_refreshing && _clips.GetSelected()?.GetMetadata(0).AsString() is { Length: > 0 } id) State.SelectClip(id); };
@@ -71,7 +74,10 @@ public partial class AnimationStudio : VBoxContainer
         _stock = new Tree { Name = "StockAnimationLibrary", HideRoot = true, SizeFlagsVertical = SizeFlags.ExpandFill }; stock.AddChild(_stock);
         _stock.ItemActivated += () => { if (_stock.GetSelected()?.GetMetadata(0).AsString() is { Length: > 0 } path) ImportPath(path); };
         PanelUi.Button(stock, "Refresh library", "Read installed animation assets", ReloadLibrary);
-        PanelUi.Button(stock, "Create example rig", "Start with an original three-bone sample, without installed game content", CreateExample);
+        PanelUi.Button(stock, "Import Spy rig", "Add an editable stock Spy", () => ImportStock(true)).SetMeta("editor_action", "animation.spy");
+        PanelUi.Button(stock, "Import Merc rig", "Add an editable stock Merc", () => ImportStock(false)).SetMeta("editor_action", "animation.merc");
+        PanelUi.Button(stock, "Create example rig", "Start with an original three-bone sample, without installed game content", CreateExample).SetMeta("editor_action", "animation.example");
+        library.Name = "AnimationLibraryTabs";
 
         var right = new HSplitContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; horizontal.AddChild(right);
         var middle = new VSplitContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill }; right.AddChild(middle);
@@ -87,7 +93,8 @@ public partial class AnimationStudio : VBoxContainer
         foreach (string tool in new[] { "move", "rotate", "scale" })
         {
             string captured = tool;
-            PanelUi.Button(viewTools, PanelUi.DisplayName(tool), "Pose tool · Ctrl selects Z · Shift snaps", () => State.TransformTool = captured);
+            Button button = PanelUi.Button(viewTools, PanelUi.DisplayName(tool), "Select a bone, then drag a coloured handle · Shift snaps", () => State.SelectTool(captured));
+            button.Name = "AnimationTool_" + tool; button.ToggleMode = true; _poseTools[tool] = button;
         }
         PanelUi.Toggle(viewTools, "World", "Inspect and edit world-space bone transforms", false, value => { State.WorldSpace = value; State.Notify(); });
         _stage = new AnimationStage { Name = "AnimationStage", SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -103,8 +110,9 @@ public partial class AnimationStudio : VBoxContainer
         PanelUi.Toggle(transport, "Auto key", "Commit pose edits as keys", true, value => State.AutoKey = value);
         PanelUi.Button(transport, "Key pose", "Key the whole pose at the playhead", () => State.KeyPose());
         _timeLabel = PanelUi.Caption(transport, "0.000 s", false);
-        _seek = new HSlider { MinValue = 0, MaxValue = 1, Step = .0001, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(90, 0) };
+        _seek = new HSlider { Name = "AnimationSeek", MinValue = 0, MaxValue = 1, Step = .0001, SizeFlagsHorizontal = SizeFlags.ExpandFill, CustomMinimumSize = new(90, 0) };
         transport.AddChild(_seek); _seek.ValueChanged += v => { if (!_refreshing) State.Seek((float)v); };
+        _seek.DragStarted += () => State.Playing = false;
 
         var tabs = new TabContainer { CustomMinimumSize = new(0, 190), SizeFlagsVertical = SizeFlags.ExpandFill }; middle.AddChild(tabs);
         _tabs = tabs;
@@ -118,7 +126,9 @@ public partial class AnimationStudio : VBoxContainer
         _rig.ItemSelected += () =>
         {
             if (_refreshing || _rig.GetSelected() is not { } selected) return;
-            State.Bone = selected.GetMetadata(0).AsInt32(); State.Notify();
+            // Rebuilding this tree in its own selection signal can invalidate the active item.
+            int bone = selected.GetMetadata(0).AsInt32();
+            Callable.From(() => State.SelectBone(bone)).CallDeferred();
         };
         _inspector = PanelUi.Scroll(details); PanelUi.ScrollOf(_inspector).SizeFlagsVertical = SizeFlags.ExpandFill;
         _status = PanelUi.Caption(this, "Import a rig from the library or start an example.");
@@ -135,6 +145,7 @@ public partial class AnimationStudio : VBoxContainer
         string? startup = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--animation=", StringComparison.Ordinal));
         if (startup is not null) Run(() => State.Open(AnimationSession.Open(startup[12..])));
         if (OS.GetCmdlineUserArgs().Contains("--animation-demo")) CreateExample();
+        if (OS.GetCmdlineUserArgs().Contains("--animation-ui-checks")) Callable.From(() => { _ = RunInteractionChecks(); }).CallDeferred();
     }
     public override void _Process(double delta)
     {
@@ -147,6 +158,7 @@ public partial class AnimationStudio : VBoxContainer
         if (!IsNodeReady()) return;
         _refreshing = true;
         _title.Text = State.Project.Name + (HasUnsavedChanges ? " *" : "");
+        foreach ((string tool, Button button) in _poseTools) button.SetPressedNoSignal(State.TransformTool == tool);
         _clips.Clear(); TreeItem root = _clips.CreateItem();
         foreach (Clip clip in State.Project.Clips.Where(c => _firstPerson?.EditingSkeleton is not { } skeleton || c.Skeleton == skeleton))
         {
@@ -173,7 +185,11 @@ public partial class AnimationStudio : VBoxContainer
     private void RefreshTime()
     {
         if (!IsNodeReady()) return;
-        _refreshing = true; _seek.MaxValue = MathF.Max(.001f, State.Duration); _seek.SetValueNoSignal(State.Time);
+        _refreshing = true;
+        // Keep range updates separate from the playhead while the user drags the slider.
+        double duration = MathF.Max(.001f, State.Duration);
+        if (!Mathf.IsEqualApprox(_seek.MaxValue, duration)) _seek.MaxValue = duration;
+        _seek.SetValueNoSignal(State.Time);
         _timeLabel.Text = $"{State.Time:0.000} s · {State.Time * State.Project.FramesPerSecond:0.#} f";
         _refreshing = false;
     }
@@ -186,6 +202,7 @@ public partial class AnimationStudio : VBoxContainer
         ImportPath(path);
         string idle = spy ? "WaitStAlFd0" : "WaitStSpFd2";
         if (State.Project.Clips.FirstOrDefault(c => c.Name.Equals(idle, StringComparison.OrdinalIgnoreCase) && c.Skeleton == State.Skeleton?.Id) is { } clip) State.SelectClip(clip.Id);
+        _stage.Frame();
     }
     public void OpenFirstPerson(FirstPersonRole role) => _firstPerson.ShowRole(role);
     private void FillStock()
@@ -199,6 +216,20 @@ public partial class AnimationStudio : VBoxContainer
     }
     private void NewClip() { if (State.Skeleton is { } skeleton) Run(() => State.SelectClip(State.Session.NewClip(skeleton.Id))); }
     private void DuplicateClip() { if (State.CurrentClip is { } clip) Run(() => { Clip copy = AnimationEdits.Duplicate(clip); State.Session.Edit("Duplicate clip", p => p.Clips.Add(copy)); State.SelectClip(copy.Id); }); }
+    public void ShowInspector(string page) { _page = page; Refresh(); }
+    public void ShowLibrary(bool stock) { if (FindChild("AnimationLibraryTabs", true, false) is TabContainer library) library.CurrentTab = stock ? 1 : 0; }
+    public void RevealTutorial(string route)
+    {
+        string[] parts = route.Split('|', 2);
+        if (parts[0] is "Scene" or "Pose" or "Bindings" or "Clip") ShowInspector(parts[0]);
+        if (parts[0] == "Stock") ShowLibrary(true);
+        if (parts[0] == "Project") ShowLibrary(false);
+        string target = parts.Length > 1 ? parts[1] : parts[0];
+        if (target is "Load setup" or "New action clip" or "Eye view" or "Bind actions") _firstPerson.ShowControls();
+        Control? control = DiscoveryNavigation.Descendants(this).OfType<Control>().FirstOrDefault(c => c.Name == target && c.IsVisibleInTree())
+            ?? DiscoveryNavigation.FindControl(this, target);
+        if (control is not null) DiscoveryNavigation.Reveal(control, lesson: true);
+    }
     private void Import() => Dialogs.OpenFile("Import animation", ["*.glb,*.gltf,*.fbx,*.bvh,*.psk,*.pskx,*.psa;Animation assets"], ImportPath);
     public void ImportPath(string path) => Run(() =>
     {

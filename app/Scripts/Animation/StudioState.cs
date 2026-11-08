@@ -44,6 +44,14 @@ public sealed class StudioState
     private void DocumentChanged()
     {
         if (CurrentClip is null) ClipId = Project.Clips.FirstOrDefault()?.Id;
+        if (!Project.Scene.Any(r => r.Id == RigId))
+        {
+            RigInstance? rig = Project.Scene.FirstOrDefault(r => r.Skeleton == CurrentClip?.Skeleton) ?? Project.Scene.FirstOrDefault();
+            RigId = rig?.Id;
+            if (rig is not null && rig.Skeleton != CurrentClip?.Skeleton)
+                ClipId = rig.Clip ?? Project.Clips.FirstOrDefault(c => c.Skeleton == rig.Skeleton)?.Id;
+        }
+        Bone = Math.Clamp(Bone, 0, Math.Max(0, (Skeleton?.Bones.Count ?? 1) - 1));
         if (Layer >= (CurrentClip?.Layers.Count ?? 0)) Layer = -1;
         GraphPlayer = null; PoseOverrides.Clear(); Notify();
     }
@@ -53,6 +61,15 @@ public sealed class StudioState
         RigId = Project.Scene.FirstOrDefault(i => i.Skeleton == CurrentClip?.Skeleton)?.Id;
         RangeStart = 0; RangeEnd = Duration; Time = 0; Notify();
     }
+    public void SelectRig(string id)
+    {
+        RigInstance rig = Project.Scene.Single(r => r.Id == id);
+        RigId = id; ClipId = rig.Clip ?? Project.Clips.FirstOrDefault(c => c.Skeleton == rig.Skeleton)?.Id;
+        Bone = 0; Layer = -1; SequenceId = null; GraphPlayer = null; PoseOverrides.Clear();
+        RangeStart = 0; RangeEnd = Duration; Time = 0; Notify();
+    }
+    public void SelectBone(int bone) { Bone = bone; Notify(); }
+    public void SelectTool(string tool) { TransformTool = tool; Notify(); }
     public void Seek(float time) { Time = Math.Clamp(time, 0, Duration); PoseOverrides.Clear(); TimeChanged?.Invoke(); }
     public void Advance(float delta)
     {

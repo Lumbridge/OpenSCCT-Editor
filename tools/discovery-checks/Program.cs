@@ -34,7 +34,7 @@ foreach (EditorTutorial tutorial in TutorialCatalog.All)
     foreach (TutorialStep step in tutorial.Steps)
     {
         string[] target = step.Target.Split(':', 2);
-        Check(target.Length == 2 && target[0] is "panel" or "prefab" or "action" or "view" or "tool" or "placeable" or "assetkind" or "setup", tutorial.Id + " valid navigation route");
+        Check(target.Length == 2 && target[0] is "panel" or "prefab" or "action" or "view" or "tool" or "placeable" or "assetkind" or "setup" or "animation", tutorial.Id + " valid navigation route");
         if (target[0] == "prefab")
             Check(OpenScct.Editor.Core.Prefabs.PrefabStore.Builtin.Any(p => p.Name == target[1].Split('|')[0]), tutorial.Id + " targets an available prefab");
     }
