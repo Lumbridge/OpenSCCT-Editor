@@ -73,9 +73,9 @@ public partial class AssetBrowserPanel
     private void OpenMaterial(IEnumerable<TextureSetDraft> drafts, string? existing = null)
     {
         if (Context.Session.Folder is not { } folder || Dialogs.Host is null) return;
-        if (Dialogs.Host.GetChildren().OfType<MaterialWindow>().FirstOrDefault(w => !w.IsQueuedForDeletion()) is { } open) { open.PopupCentered(); return; }
+        if (Dialogs.Host.GetChildren().OfType<MaterialWindow>().FirstOrDefault(w => !w.IsQueuedForDeletion()) is { } open) { open.ShowEditor(); return; }
         var window = new MaterialWindow(folder, drafts, RevealMaterial, existing);
-        Dialogs.Host.AddChild(window); window.PopupCentered(new(1100, 760));
+        Dialogs.Host.AddChild(window); window.ShowEditor();
     }
 
     private void RevealMaterial(string path)

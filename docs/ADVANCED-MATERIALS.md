@@ -2,7 +2,7 @@
 
 The Assets menu and command search provide **Import Textures…**, **Import Animated Texture…**, **Create Material…** and **Edit Material…**. Help → Browse Tutorials includes six material lessons: texture import, animation, lighting and shine, depth/collision, emissive baking and original-game export. Ctrl+Shift+P finds them by topic. These features require the matching advanced-materials OpenSCCT build for gameplay preview.
 
-Editor 0.2.35 and game 0.8.123 include the browser, repeat-filtering and authoring-window corrections described in [material fixes validation](MATERIAL-FIXES-VALIDATION.md).
+Editor 0.2.36 and game 0.8.124 include the browser, repeat-filtering, native-window bounds and shallow-angle parallax corrections described in [material fixes validation](MATERIAL-FIXES-VALIDATION.md).
 
 ## Import and edit
 
@@ -40,7 +40,7 @@ Repeat filtering keeps continuous UV derivatives for ordinary textures and repea
 | Base colour, tint, opacity | Texture and factors, linear evaluation | Baked colour/opacity, native DXT mip data |
 | Opaque, cutout, translucent, two-sided, unlit | Supported; cutout threshold editable | Texture flags and native Shader output blending where required |
 | Normal and bump | Strength, OpenGL/DirectX convention, height-derived normals, mirrored UV tangent frames | Relief flattened; differences reported |
-| Parallax | UV projection, 4–64 height steps; verified at grazing angles | Flattened and reported |
+| Parallax | UV projection, 4–64 coarse height steps with extra grazing-angle samples (up to 64) and four intersection refinements; stable mip gradients | Flattened and reported |
 | Real displacement | Deterministic CPU subdivision 0–6 and height/midpoint; render LODs | Visual relief flattened and reported |
 | Displaced collision | Optional per face or mesh section; full final shape replaces flat collision | Export refused until disabled or replaced by compatible geometry |
 | Roughness/gloss, metallic, specular colour/strength | Maps, channels and factors, direct highlights and supplied reflection environment | Compatible environment/specular approximation; PBR differences reported |

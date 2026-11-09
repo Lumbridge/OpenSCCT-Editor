@@ -28,6 +28,9 @@ ImageFile("Stone_albedo.png", 220, 80, 20); ImageFile("Stone_normal.png", 128, 1
 var set = TextureImporter.Preview(new[] { "Stone_albedo.png", "Stone_normal.png", "Stone_orm.png" }.Select(f => Path.Combine(root, f))).Single();
 Check(set.Sources.Count == 5 && set.Material.Textures["metallic"].Channel == "b", "A texture set groups albedo, normal and ORM channels");
 Check(set.Material.Textures["baseColor"].Srgb && !set.Material.Textures["normal"].Srgb, "Colour and data bindings use different transfer functions");
+ImageFile("Paving_4K-JPG_Color.png", 180, 140, 90); ImageFile("Paving_4K-JPG_Displacement.png", 128, 128, 128); ImageFile("Paving_4K-JPG_NormalGL.png", 128, 128, 255);
+var paving = TextureImporter.Preview(new[] { "Paving_4K-JPG_Color.png", "Paving_4K-JPG_Displacement.png", "Paving_4K-JPG_NormalGL.png" }.Select(f => Path.Combine(root, f))).Single();
+Check(paving.Sources.ContainsKey("height") && !paving.Material.Textures["height"].Srgb && !paving.Material.NormalDirectX, "Displacement-named texture sets bind linear height and OpenGL normals");
 var imported = TextureImporter.Import(folder, set);
 Check(imported.Path == "MyLevel.Textures.Stone", "Imported material has a map-local path");
 var catalog = AssetCatalog.For(null, folder);

@@ -48,11 +48,14 @@ public partial class MaterialWindow : AcceptDialog
     {
         _folder = folder; _session = Context.Session; _drafts = drafts.ToList(); _imported = imported; _existing = existing;
         Title = existing is null ? "Import Textures & Create Materials" : "Edit Material";
-        Name = "MaterialAuthoring"; Exclusive = false; Transient = true; Unresizable = false; MinSize = new(900, 650);
+        Name = "MaterialAuthoring"; Exclusive = false; Transient = true; Unresizable = false; WrapControls = false;
         OkButtonText = existing is null ? "Import Materials" : "Save Material";
         DialogHideOnOk = false;
         AddCancelButton("Cancel");
-        var body = new VBoxContainer { Name = "MaterialBody", CustomMinimumSize = new(860, 540), SizeFlagsVertical = Control.SizeFlags.ExpandFill }; AddChild(body);
+        // A native dialog must not inherit a growing minimum from a wrapped status
+        // label or the expanded texture tabs. Keep its frame bounded; scroll content.
+        var bounds = new ScrollContainer { Name = "MaterialBounds" }; AddChild(bounds);
+        var body = new VBoxContainer { Name = "MaterialBody", CustomMinimumSize = new(860, 540), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsVertical = Control.SizeFlags.ExpandFill }; bounds.AddChild(body);
         var row = new HBoxContainer { Name = "MaterialColumns", SizeFlagsVertical = Control.SizeFlags.ExpandFill }; body.AddChild(row);
         _sets.CustomMinimumSize = new(170, 0); _sets.SizeFlagsVertical = Control.SizeFlags.ExpandFill; row.AddChild(_sets);
         foreach (TextureSetDraft draft in _drafts) _sets.AddItem(draft.Name);
@@ -91,6 +94,40 @@ public partial class MaterialWindow : AcceptDialog
         _sets.Select(0); BuildProperties();
     }
 
+    public void ShowEditor()
+    {
+        Rect2I usable = IsEmbedded()
+            ? new Rect2I(Vector2I.Zero, (Vector2I)GetParent().GetViewport().GetVisibleRect().Size)
+            : DisplayServer.ScreenGetUsableRect(Visible ? CurrentScreen : GetParent().GetWindow().CurrentScreen);
+        OpenWithin(usable);
+    }
+
+    internal void OpenWithin(Rect2I usable)
+    {
+        Vector2I maximum = new(Math.Max(1, usable.Size.X - 32), Math.Max(1, usable.Size.Y - 80));
+        MaxSize = Vector2I.Zero;
+        MinSize = new(Math.Min(900, maximum.X), Math.Min(650, maximum.Y));
+        MaxSize = maximum;
+        Vector2I wanted = Visible ? Size : new(1100, 760);
+        PopupCentered(new(Math.Clamp(wanted.X, MinSize.X, maximum.X), Math.Clamp(wanted.Y, MinSize.Y, maximum.Y)));
+        CenterFrame(usable);
+        EditorLifetime.Defer(() => { if (IsInstanceValid(this) && Visible) CenterFrame(usable); });
+    }
+
+    private void CenterFrame(Rect2I usable)
+    {
+        // Decorations are only reliable once the native window exists, especially
+        // on displays with a different Windows DPI. Include them in the final cap.
+        Vector2I decoration = GetSizeWithDecorations() - Size;
+        Vector2I maximum = new(Math.Max(1, usable.Size.X - Math.Max(0, decoration.X) - 24), Math.Max(1, usable.Size.Y - Math.Max(0, decoration.Y) - 24));
+        MaxSize = Vector2I.Zero;
+        MinSize = new(Math.Min(900, maximum.X), Math.Min(650, maximum.Y));
+        MaxSize = maximum;
+        Size = new(Math.Clamp(Size.X, MinSize.X, maximum.X), Math.Clamp(Size.Y, MinSize.Y, maximum.Y));
+        Vector2I inset = Position - GetPositionWithDecorations();
+        Position = usable.Position + (usable.Size - GetSizeWithDecorations()) / 2 + inset;
+    }
+
     public override void _Process(double delta)
     {
         if (!ReferenceEquals(Context.Session, _session)) { Close(); return; }
@@ -114,7 +151,8 @@ public partial class MaterialWindow : AcceptDialog
         foreach (string slot in AuthoredMaterial.Slots)
         {
             var line = new VBoxContainer();
-            var fold = new Button { Text = Words(slot), ToggleMode = true, ButtonPressed = Current.Material.Textures.ContainsKey(slot), Alignment = HorizontalAlignment.Left };
+            var fold = new Button { Text = slot == "height" ? "height (displacement map)" : Words(slot), ToggleMode = true, ButtonPressed = Current.Material.Textures.ContainsKey(slot), Alignment = HorizontalAlignment.Left };
+            if (slot == "height") fold.TooltipText = "Height textures are often named _Displacement. Set Parallax Depth or real Displacement in Depth to enable relief.";
             maps.AddChild(fold); maps.AddChild(line); line.Visible = fold.ButtonPressed; fold.Toggled += value => line.Visible = value;
             var buttons = new HBoxContainer(); line.AddChild(buttons);
             var pick = new Button { Text = slot + ": " + (Current.Sources.TryGetValue(slot, out string? source) ? Path.GetFileName(source) : Current.Material.Textures.TryGetValue(slot, out MaterialTexture? t) ? Path.GetFileName(t.File) : "Choose…"), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
