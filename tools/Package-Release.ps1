@@ -189,6 +189,8 @@ function Write-Text([string]$path, [string]$text) {
 
 $title = "OpenSCCT Editor $Version"
 $readme = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'release/README.txt') -Raw).Replace('{{TITLE}}', $title).Replace('{{UNDERLINE}}', '=' * $title.Length)
+$readme += "`n`n" + (Get-Content -LiteralPath (Join-Path $repo 'docs/ADVANCED-MATERIALS.md') -Raw)
+$readme += "`n`n" + (Get-Content -LiteralPath (Join-Path $repo 'docs/ADVANCED-MATERIALS-VALIDATION.md') -Raw)
 Write-Text (Join-Path $folder 'README.txt') $readme
 
 # Godot's own licence and its third-party components, as the engine reports them.
