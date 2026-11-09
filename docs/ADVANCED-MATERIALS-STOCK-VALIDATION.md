@@ -1,6 +1,6 @@
 # Supplemental stock rendering acceptance
 
-2026-11-09, after the local packages were built. Baseline: published game 0.8.119 (`b37932af`); materials: `4d3d976c`. The packages remain local feature prereleases.
+2026-11-09, after the local packages were built. Baseline: published game 0.8.119 (`b37932af`); materials: `4d3d976c`. These measurements were made on local feature prereleases before release preparation.
 
 ## Captures and representative measurements
 
@@ -21,7 +21,7 @@ Four warehouse cameras were captured at 1280x720 on an RTX 4070 SUPER using Godo
 | Thermal | courtyard | 0.00210 / 255 | 0.318% |
 | Thermal | crane | 0.02571 / 255 | 0.354% |
 
-Completed captures report map-loader times of 2.76–3.04 s for baseline and 2.90–3.94 s for materials; maximum draw calls are 332 in normal/night and 326 in thermal, identical between builds. These are single-run, cached-content observations, not launch-to-controllable or minimum-hardware benchmarks. Pipeline caching was disabled in the isolated profiles for later captures.
+Completed captures report map-loader times of 2.76ï¿½3.04 s for baseline and 2.90ï¿½3.94 s for materials; maximum draw calls are 332 in normal/night and 326 in thermal, identical between builds. These are single-run, cached-content observations, not launch-to-controllable or minimum-hardware benchmarks. Pipeline caching was disabled in the isolated profiles for later captures.
 
 ## Open acceptance failures
 

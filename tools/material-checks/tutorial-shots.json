@@ -1,0 +1,127 @@
+[
+  {
+    "h": 1000,
+    "w": 1600,
+    "op": "size"
+  },
+  {
+    "action": "tutorial.textures",
+    "op": "run"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-textures"
+  },
+  {
+    "at": "text:Next",
+    "op": "click"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-textures-step2"
+  },
+  {
+    "action": "help.cancelTutorial",
+    "op": "run"
+  },
+  {
+    "action": "tutorial.animated-textures",
+    "op": "run"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-animated-textures"
+  },
+  {
+    "at": "text:Next",
+    "op": "click"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-animated-textures-step2"
+  },
+  {
+    "action": "help.cancelTutorial",
+    "op": "run"
+  },
+  {
+    "action": "tutorial.material-lighting",
+    "op": "run"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-material-lighting"
+  },
+  {
+    "at": "text:Next",
+    "op": "click"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-material-lighting-step2"
+  },
+  {
+    "action": "help.cancelTutorial",
+    "op": "run"
+  },
+  {
+    "action": "tutorial.material-depth",
+    "op": "run"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-material-depth"
+  },
+  {
+    "at": "text:Next",
+    "op": "click"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-material-depth-step2"
+  },
+  {
+    "action": "help.cancelTutorial",
+    "op": "run"
+  },
+  {
+    "action": "tutorial.material-emission",
+    "op": "run"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-material-emission"
+  },
+  {
+    "at": "text:Next",
+    "op": "click"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-material-emission-step2"
+  },
+  {
+    "action": "help.cancelTutorial",
+    "op": "run"
+  },
+  {
+    "action": "tutorial.material-export",
+    "op": "run"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-material-export"
+  },
+  {
+    "at": "text:Next",
+    "op": "click"
+  },
+  {
+    "op": "shot",
+    "name": "tutorial-material-export-step2"
+  },
+  {
+    "action": "help.cancelTutorial",
+    "op": "run"
+  }
+]

@@ -1,14 +1,15 @@
 # Advanced materials acceptance
 
-Local Windows validation, 2026-11-09. The editor worktree is isolated on `feature/advanced-materials`; the game worktree uses the same branch and includes the published 0.8.119 baseline. Publication is separate.
+Local Windows validation, 2026-11-09. The editor worktree is isolated on `feature/advanced-materials`; the game worktree uses the same branch and includes the published 0.8.119 baseline. Matching release versions are Editor 0.2.34 and game 0.8.122.
 
 ## Automated checks
 
 - `tools/material-checks` (55 passed): texture-set recognition, ORM, colour spaces, unique/replace/skip, cancellation/failure integrity, animation ordering/playback, exact 16-bit height samples in both decoders, deterministic tessellation, pinned boundaries, collision overrides, save/reopen and Save As, native Texture/Shader objects, emissive occlusion, directional bake data, compiled materials and deterministic output.
 - `tools/material-network-checks`: real PlaySession server/client movement on a physically displaced floor, as Spy and Merc at 0 and 100 ms simulated latency. Bullet and camera box traces agree; the flat floor is replaced. Repeated physical collision compilation is byte-identical. Settled client errors were 0.009 units for Spy and 0.005 for Merc.
 - Game `authored-material` GPU smoke: 23 rendered variants, visible atlas frame changes, independent frame mips, alpha modes, actor/lightmap paths, refraction, normal response, DirectX/OpenGL conventions, triplanar, metallic/reflection and roughness changes, emission, grazing-angle parallax, directional static-mesh normal response, night/thermal/EMF, and three generated LOD levels. A compiled editor fixture loads through the actual game map loader with its directional mesh stream intact; reduced texture quality preserves atlas frames.
+- Tutorial acceptance: all six material lessons, 552 discovery checks across 58 lessons/250 steps, and 12 tutorial screenshots with zero findings or failed Next-step navigation.
 - Editor screenshot automation: material authoring and Texture Animation windows, with no UI findings or failed steps, repeated successfully with the exported editor. The bundled self-contained CLI imports and reopens a material. The exported game also passes all 23 GPU variants and the compiled-map loader check.
-- Existing regression suites: 116 SDC export, 10 mesh import, 516 discovery/tutorial, 89 shadow-cache and 34 launcher-integration checks passed. The game baseline's spectator/perspective input tests also pass.
+- Existing regression suites: 116 SDC export, 10 mesh import, 552 discovery/tutorial, 89 shadow-cache and 34 launcher-integration checks passed. The game baseline's spectator/perspective input tests also pass.
 
 ## Original engine
 

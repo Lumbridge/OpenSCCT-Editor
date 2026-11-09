@@ -27,6 +27,8 @@ Check(DiscoverySearch.Score(hingedQuery, "Tutorial: Build a hinged door", "", "T
     "A requested single-door tutorial beats a recently used double-door tutorial");
 Check(TutorialCatalog.All.Select(t => t.Id).Distinct().Count() == TutorialCatalog.All.Count, "Unique tutorial IDs");
 Check(TutorialCatalog.All.Count >= 30, "Broad tutorial coverage");
+foreach (string id in new[] { "textures", "animated-textures", "material-lighting", "material-depth", "material-emission", "material-export" })
+    Check(TutorialCatalog.All.Any(t => t.Id == id && t.Steps.Length >= 4), "Built-in material workflow lesson: " + id);
 foreach (EditorTutorial tutorial in TutorialCatalog.All)
 {
     Check(tutorial.Steps.Length >= 3, tutorial.Id + " has useful steps");

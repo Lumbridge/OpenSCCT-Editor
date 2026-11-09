@@ -1,6 +1,6 @@
 # Texture import, authored materials and animation
 
-The Assets menu and command search provide **Import Textures…**, **Import Animated Texture…**, **Create Material…** and **Edit Material…**. The texture and animated-texture tutorials in Help walk through them. These features require the matching advanced-materials OpenSCCT build for gameplay preview.
+The Assets menu and command search provide **Import Textures…**, **Import Animated Texture…**, **Create Material…** and **Edit Material…**. Help → Browse Tutorials includes six material lessons: texture import, animation, lighting and shine, depth/collision, emissive baking and original-game export. Ctrl+Shift+P finds them by topic. These features require the matching advanced-materials OpenSCCT build for gameplay preview.
 
 ## Import and edit
 
