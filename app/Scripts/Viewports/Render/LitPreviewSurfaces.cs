@@ -24,6 +24,7 @@ public static class LitPreviewSurfaces
         ImageTexture[] atlases = pass.Atlases
             .Select(a => ImageTexture.CreateFromImage(Image.CreateFromData(a.Width, a.Height, false, Image.Format.Rgba8, a.Rgba)))
             .ToArray();
+        var directions = pass.DirectionPngs.Select(png => { using var image = new Image(); image.LoadPngFromBuffer(png); return ImageTexture.CreateFromImage(image); }).ToArray();
         var sections = new Dictionary<(ViewMaterial Material, int Atlas), Section>();
         foreach (LitPreviewPolygon p in pass.Lit)
         {
@@ -55,7 +56,9 @@ public static class LitPreviewSurfaces
             }
 
             MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays);
-            materials.Add(atlas >= 0 ? Lightmapped(m, atlases[atlas]) : StoreyClip.Of(m.Unlit, m.TextureFile));
+            ShaderMaterial material = atlas >= 0 ? Lightmapped(m, atlases[atlas]) : StoreyClip.Of(m.Unlit, m.TextureFile);
+            if (atlas >= 0 && atlas < directions.Length && m.Unlit.HasMeta("authored_json")) { material.SetShaderParameter("am_bakedDirection", directions[atlas]); material.SetShaderParameter("am_hasBakedDirection", true); }
+            materials.Add(material);
         }
 
         if (materials.Count == 0)

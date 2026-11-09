@@ -178,7 +178,7 @@ public sealed class RgbaImage
     };
 
     /// <summary>Decodes a PNG file; throws <see cref="InvalidDataException"/> for a broken or interlaced one.</summary>
-    public static RgbaImage DecodePng(ReadOnlySpan<byte> png)
+    public static RgbaImage DecodePng(ReadOnlySpan<byte> png, Action<int, int, int, ushort[]>? samples16 = null)
     {
         if (png.Length < 8 || !png[..8].SequenceEqual(s_signature))
         {
@@ -246,6 +246,12 @@ public sealed class RgbaImage
         {
             int start = y * (rowBytes + 1);
             Unfilter(raw[start], raw.AsSpan(start + 1, rowBytes), previous, row, bpp);
+            if (depth == 16 && samples16 is not null)
+            {
+                var samples = new ushort[width * channels];
+                for (int i = 0; i < samples.Length; i++) samples[i] = (ushort)Raw(row, i, depth);
+                samples16(y, width, channels, samples);
+            }
             for (int x = 0; x < width; x++)
             {
                 int o = (y * width + x) * 4;

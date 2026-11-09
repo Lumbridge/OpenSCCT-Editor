@@ -542,3 +542,8 @@ ose update check [--install <folder>] [--prereleases] [--json] | update stage [-
 ```
 
 Editor updates. check: is a newer release out (for the release folder ose runs from, or --install; from source it only reports the latest release)? stage: download, verify and unpack it into that folder, ready to swap in when the editor next restarts. apply and recover are used by the editor: apply swaps a staged build in after the editor quit, recover puts the previous build back after an interrupted swap (run at sign-in by the entry the swap leaves).
+
+
+## Authored materials and animated textures
+
+See [texture import and material authoring](ADVANCED-MATERIALS.md#cli) for `texture-import`, sequence import and `material show/create/update`, using the same definitions and validation as the UI.

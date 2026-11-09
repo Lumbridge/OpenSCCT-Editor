@@ -13,6 +13,7 @@ namespace OpenScct.Editor.Core.Assets;
 /// </summary>
 public sealed class AssetResolver
 {
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(string, bool), Lazy<Glb>> _authoredGlbs = new();
     private AssetResolver(ContentLibrary content, ProjectAssets? project, ContentLibrary? source = null, GameplayPack? gameplay = null,
         SkeletalLibrary? skeletal = null)
     {
@@ -66,5 +67,14 @@ public sealed class AssetResolver
     public SkeletalMeshFile? FindSkeletalMesh(string asset) => Skeletal.FindMesh(asset);
 
     /// <summary>A glb file (loaded once per version).</summary>
-    public Glb Glb(string glbPath) => GlbCache.Load(glbPath);
+    public Glb Glb(string glbPath, bool collision = false) => _authoredGlbs.GetOrAdd((glbPath, collision), key =>
+        new Lazy<Glb>(() => AuthoredMeshGeometry.Prepare(GlbCache.Load(key.Item1), this, key.Item2))).Value;
+
+    public Glb ActorGlb(LibraryMesh mesh, Model.Actor? actor, bool collision = false)
+    {
+        string skins = AuthoredMeshGeometry.SkinKey(actor);
+        if (skins.Length == 0) return Glb(mesh.GlbPath, collision);
+        return _authoredGlbs.GetOrAdd((mesh.GlbPath + "|mesh:" + mesh.Mesh + "|skins:" + skins, collision), key =>
+            new Lazy<Glb>(() => AuthoredMeshGeometry.Prepare(AuthoredMeshGeometry.WithSkins(GlbCache.Load(mesh.GlbPath), actor, mesh.Mesh), this, collision, actor))).Value;
+    }
 }

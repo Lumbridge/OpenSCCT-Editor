@@ -13,7 +13,10 @@ public sealed record LitPreviewPolygon(PreviewPolygon Source, IReadOnlyList<Vec3
 
 /// <summary>The light a placed static mesh shows in game, per vertex of each glb primitive (by primitive index): RGBA8
 /// in the game's half-intensity units, so the view draws texture times twice the colour.</summary>
-public sealed record LitPreviewMesh(IReadOnlyDictionary<int, byte[]> Colours);
+public sealed record LitPreviewMesh(IReadOnlyDictionary<int, byte[]> Colours)
+{
+    public IReadOnlyDictionary<int, float[]>? Directions { get; init; }
+}
 
 /// <summary>A triangle of an imported map's own lightmaps, for the density view: its corners, normal, UVs in its atlas
 /// (of <see cref="AtlasWidth"/> x <see cref="AtlasHeight"/> texels as the original baked it) and its texel size in uu.</summary>
@@ -32,7 +35,10 @@ public readonly record struct MeshLightStats(int Meshes, int Baked, long Millise
 /// measures against.</summary>
 public sealed record LightPreviewPass(string Name, bool Final, IReadOnlyList<LitPreviewPolygon> Lit, IReadOnlyList<PreviewPolygon> Unlit,
     IReadOnlyList<(int Width, int Height, byte[] Rgba)> Atlases, IReadOnlyDictionary<string, LitPreviewMesh> Meshes,
-    IReadOnlyList<SourceLightmapTriangle> SourceLightmaps, double DefaultTexel, BakeStats Stats, MeshLightStats MeshStats);
+    IReadOnlyList<SourceLightmapTriangle> SourceLightmaps, double DefaultTexel, BakeStats Stats, MeshLightStats MeshStats)
+{
+    public IReadOnlyList<byte[]> DirectionPngs { get; init; } = [];
+}
 
 /// <summary>What changed since the bake the view shows, which decides the passes a new bake runs.</summary>
 public enum LightPreviewStart
@@ -72,7 +78,8 @@ public sealed class LightPreview
 
         var unlit = new List<PreviewPolygon>();
         var lit = new List<LitPoly>();
-        foreach (Poly poly in ctx.RenderWorld.Visible)
+        var displacement = new MaterialDisplacement(ctx.Library);
+        foreach (Poly poly in ctx.RenderWorld.Visible.SelectMany(displacement.Expand))
         {
             if (hidden.Contains(poly.Surface.BrushId))
             {
@@ -152,7 +159,8 @@ public sealed class LightPreview
             var meshStats = new MeshLightStats(meshes.Count, baked, final ? meshClock.ElapsedMilliseconds : 0);
             IReadOnlyList<SourceLightmapTriangle> sourceLightmaps = final && sourceMap is not null ? SourceLightmaps(sourceMap) : [];
             double defaultTexel = s.Mode == LightmapMode.Faithful ? BrushFace.DefaultLightMapScale : BrushFace.DefaultLightMapScale / s.Density;
-            yield return new LightPreviewPass(name, final, litPolygons, unlit, atlases, meshes, sourceLightmaps, defaultTexel, result.Stats, meshStats);
+            yield return new LightPreviewPass(name, final, litPolygons, unlit, atlases, meshes, sourceLightmaps, defaultTexel, result.Stats, meshStats)
+            { DirectionPngs = result.Directions is null ? [] : Enumerable.Range(0, result.Atlases.Count).Select(result.DirectionPng).ToList() };
         }
     }
 
@@ -183,7 +191,7 @@ public sealed class LightPreview
             }
             else
             {
-                stored = lighting.MeshPrimitives(path) is { } prims ? lighting.VertexLight(a, prims) : null;
+                stored = lighting.MeshPrimitives(path, a) is { } prims ? lighting.VertexLight(a, prims) : null;
                 baked += stored is null ? 0 : 1;
             }
 
@@ -195,7 +203,7 @@ public sealed class LightPreview
             double glow = Math.Min(1, 2 * ctx.Rules.Number(a, "AmbientGlow") / 255) / 2;
             (int r, int g, int b) = lighting.ZoneAmbient(ctx.ZoneAt(a.Location));
             var add = new Vec3(glow + (r / 255.0), glow + (g / 255.0), glow + (b / 255.0));
-            meshes[a.Id] = new LitPreviewMesh(stored.ToDictionary(p => p.Key, p => Shown(p.Value, add)));
+            meshes[a.Id] = new LitPreviewMesh(stored.ToDictionary(p => p.Key, p => Shown(p.Value, add))) { Directions = lighting.VertexDirections(a) };
         }
 
         return meshes;
@@ -269,7 +277,8 @@ public sealed class LightPreview
         }
 
         var lighting = new WorldLighting(ctx);
-        lighting.AddSurfaces(ctx.RenderWorld.Visible, p => ctx.InSkyZone(p.Centroid() + (p.Plane.N * 2)));
+        var displacement = new MaterialDisplacement(ctx.Library);
+        lighting.AddSurfaces(ctx.RenderWorld.Visible.SelectMany(displacement.Expand), p => ctx.InSkyZone(p.Centroid() + (p.Plane.N * 2)));
         if (source is not null)
         {
             lighting.AddOccluders(source.Occluders);

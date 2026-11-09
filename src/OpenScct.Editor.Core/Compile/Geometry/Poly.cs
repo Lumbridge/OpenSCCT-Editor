@@ -22,6 +22,7 @@ public enum SurfaceKind
 /// in world space. Every CSG fragment of the face shares it.</summary>
 public sealed class Surface
 {
+    public bool Displaced { get; init; }
     public required string BrushId { get; init; }
 
     public required int FaceIndex { get; init; }

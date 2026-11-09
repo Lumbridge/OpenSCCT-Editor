@@ -35,6 +35,15 @@ public sealed class SurfaceActions : IShellPart
     {
         _ctx = context;
         bool HasFaces() => Geo.Faces.Count > 0;
+        Add("surface.displacedCollision", "Use Displaced Collision", "Surface", 25,
+            () => SurfaceCommands.Run("Use displaced collision", (face, _) => { face.DisplacementCollision = true; return face; }), HasFaces, null,
+            "Build movement, bullet and camera collision from the selected faces' displaced shape");
+        Add("surface.flatCollision", "Use Original Collision", "Surface", 26,
+            () => SurfaceCommands.Run("Use original collision", (face, _) => { face.DisplacementCollision = false; return face; }), HasFaces, null,
+            "Keep the selected faces' depth visual and use their original collision");
+        Add("surface.materialCollision", "Use Material Collision Setting", "Surface", 27,
+            () => SurfaceCommands.Run("Use material collision setting", (face, _) => { face.DisplacementCollision = null; return face; }), HasFaces, null,
+            "Use each selected face's material default for displaced collision");
         Geo.Changed += () => Viewports.ViewportLayout.Instance?.RedrawAll();
 
         Add("surface.properties", "Surface Properties", "Surface", 10, ShowProperties, null, "F5",

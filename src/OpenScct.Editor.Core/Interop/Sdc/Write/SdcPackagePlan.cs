@@ -17,7 +17,7 @@ namespace OpenScct.Editor.Core.Interop.Sdc;
 /// when deletions leave gaps, objects written from the project move into them (copied objects never move, so their
 /// stored references stay right).
 /// </summary>
-internal sealed class SdcPackagePlan
+internal sealed partial class SdcPackagePlan
 {
     private const uint ActorFlags = 0x02070001;
     private const uint CsgBrushFlags = 0x02340001;
@@ -134,6 +134,7 @@ internal sealed class SdcPackagePlan
             PlanAuthored();
         }
 
+        PlanProjectTextures();
         Order();
         foreach (Item it in _order)
         {
@@ -1008,11 +1009,11 @@ internal sealed class SdcPackagePlan
         worldItem.Copied = null;
         // Built when written: its materials and actors resolve to their slots then.
         var refs = new SdcWorldRefs(FaceMaterial, id => _actors.TryGetValue(id, out Item? a) ? a.Ref : 0,
-            () => worldItem.Ref, WorldPoly);
+            () => worldItem.Ref, WorldPoly) { TextureScale = ProjectTextureScale };
         var world = new Lazy<UModelData>(() =>
         {
             _o.Progress?.Invoke("building the world: CSG, BSP, zones and lightmaps");
-            return SdcWorldModel.Build(_p, _o.ContentRoot, _findings, _layout, refs);
+            return SdcWorldModel.Build(_p, _o.ContentRoot, _findings, _layout, refs, _o.ProjectFolder);
         });
         worldItem.Write = w => world.Value.Write(w, _layout, Identity);
     }
@@ -2027,7 +2028,8 @@ internal sealed class SdcPackagePlan
                 ? Remap(source.Material) // the source's own reference (a package can import one path twice)
                 : Asset(m);
         float xbox = (float)f.LightMapScale;
-        return new FPoly(F(baseV), normal, F(f.TextureU), F(f.TextureV), verts, unchecked((uint)f.Flags),
+        var textureScale = ProjectTextureScale(f.Material);
+        return new FPoly(F(baseV), normal, F(f.TextureU * textureScale.U), F(f.TextureV * textureScale.V), verts, unchecked((uint)f.Flags),
             same ? Remap(source!.Actor) : 0, material, f.ItemName ?? "None", f.Link, same ? source!.BrushPoly : -1,
             f.LightMapScalePsx2 is double ps2 ? (float)ps2 : xbox, xbox);
     }

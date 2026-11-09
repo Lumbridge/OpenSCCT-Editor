@@ -26,7 +26,8 @@ public static class StaticMeshes
     private static int s_generation;
 
     /// <summary>The mesh when it is already loaded (null while loading or when missing).</summary>
-    public static LoadedMesh? Loaded(string path) => s_loaded.GetValueOrDefault(path);
+    public static LoadedMesh? Loaded(string path, Actor? actor = null) => s_loaded.GetValueOrDefault(Key(path, actor));
+    private static string Key(string path, Actor? actor) => AuthoredMeshGeometry.SkinKey(actor) is { Length: > 0 } skins ? path + "|skins:" + skins : path;
 
     /// <summary>True when <paramref name="path"/> was looked for and nothing ships it (or its file is broken).</summary>
     public static bool IsMissing(string path) => s_loaded.TryGetValue(path, out LoadedMesh? m) && m is null;
@@ -37,11 +38,11 @@ public static class StaticMeshes
     /// <summary>Calls <paramref name="ready"/> with the mesh of <paramref name="path"/> on the main thread (at once when
     /// loaded), or <paramref name="missing"/> when nothing ships it (or its file is broken). The lookup runs on the worker
     /// too: the first one in a library builds its index (a baked map's source map reads its whole glb JSON for it).</summary>
-    public static void Request(string path, Action<LoadedMesh> ready, Action? missing = null) =>
-        Load(path, "Static mesh", ready, missing, () =>
+    public static void Request(string path, Action<LoadedMesh> ready, Action? missing = null, Actor? actor = null) =>
+        Load(Key(path, actor), "Static mesh", ready, missing, () =>
         {
             AssetResolver resolver = AssetService.Instance.Resolver;
-            return () => resolver.FindViewMesh(path) is { } lib ? MeshSections.Read(lib) : null;
+            return () => resolver.FindViewMesh(path) is { } lib ? MeshSections.Read(resolver.ActorGlb(lib, actor), lib.RenderDir, lib.Mesh) : null;
         });
 
     /// <summary>As <see cref="Request"/>, for the skeletal mesh <paramref name="asset"/> in its reference pose.</summary>
@@ -177,10 +178,11 @@ public static class StaticMeshes
             arrays[(int)Mesh.ArrayType.Normal] = normals;
             arrays[(int)Mesh.ArrayType.TexUV] = uvs;
             arrays[(int)Mesh.ArrayType.Index] = indices;
-            MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays);
+            ViewMaterial viewMaterial = ViewMaterials.Section(s);
+            MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays, viewMaterial.Lit.HasMeta("authored_displacement") && viewMaterial.Lit.GetMeta("authored_displacement").AsBool());
             // The glb material's name, so a conveyor that scrolls one material of a mesh can find its surfaces.
             mesh.SurfaceSetName(mesh.GetSurfaceCount() - 1, s.Material ?? "");
-            materials.Add(ViewMaterials.Section(s));
+            materials.Add(viewMaterial);
             primitives.Add(s.Primitive);
             triangles.Add((s.Positions, s.Indices));
         }

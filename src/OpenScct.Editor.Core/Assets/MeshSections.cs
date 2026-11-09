@@ -34,6 +34,11 @@ public static class MeshSections
     public static List<MeshSection> Read(string glbPath, string renderDir, int mesh)
     {
         Glb glb = GlbCache.Load(glbPath);
+        return Read(glb, renderDir, mesh);
+    }
+
+    public static List<MeshSection> Read(Glb glb, string renderDir, int mesh)
+    {
         var sections = new List<MeshSection>();
         JsonArray primitives = glb.Array("meshes")[mesh]!["primitives"]!.AsArray();
         for (int pi = 0; pi < primitives.Count; pi++)

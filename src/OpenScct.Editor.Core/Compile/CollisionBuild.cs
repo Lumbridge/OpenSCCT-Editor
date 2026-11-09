@@ -2,6 +2,7 @@ using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.Text.Json.Nodes;
 using OpenScct.Content;
+using OpenScct.Editor.Core.Assets;
 using OpenScct.Content.Collision;
 using OpenScct.Content.Json;
 using OpenScct.Core;
@@ -562,13 +563,13 @@ public sealed partial class CollisionBuild
     /// False when the library has no such mesh.</summary>
     private bool AddLibraryMesh(Actor a, string? actorId, string path, ColliderKind kind, ColliderFlags flags, ushort variants, bool useRenderMesh = false)
     {
-        string cacheKey = useRenderMesh ? path + "|window-frame" : path;
+        string cacheKey = (useRenderMesh ? path + "|window-frame" : path) + "|" + AuthoredMeshGeometry.SkinKey(a);
         if (!_meshCache.TryGetValue(cacheKey, out var mesh))
         {
             // A gameplay actor's class mesh (a camera's, a laser trigger's) is in no converted map's library, only in
             // the gameplay pack; its render triangles are the per-polygon set the converter writes for stock devices.
             mesh = (_ctx.Library.FindMesh(path) ?? _ctx.Library.Gameplay.FindMesh(path)) is { } lib && File.Exists(lib.GlbPath)
-                ? _ctx.Library.Glb(lib.GlbPath).ReadUeTriangles(useRenderMesh ? lib.Mesh : lib.CollisionMesh ?? lib.Mesh)
+                ? _ctx.Library.ActorGlb(lib, a, collision: true).ReadUeTriangles(useRenderMesh || AuthoredMeshGeometry.HasCollision(AuthoredMeshGeometry.WithSkins(GlbCache.Load(lib.GlbPath), a, lib.Mesh), lib.Mesh, _ctx.Library, a) ? lib.Mesh : lib.CollisionMesh ?? lib.Mesh)
                 : null;
             _meshCache[cacheKey] = mesh;
         }

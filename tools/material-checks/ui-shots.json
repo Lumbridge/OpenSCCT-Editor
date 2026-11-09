@@ -1,0 +1,8 @@
+[
+  {"op":"size","w":1600,"h":1000},
+  {"op":"run","action":"assets.createMaterial"},
+  {"op":"shot","name":"material-authoring"},
+  {"op":"click","at":"tab:Texture Animation"},
+  {"op":"shot","name":"material-animation"},
+  {"op":"key","key":"Escape"}
+]

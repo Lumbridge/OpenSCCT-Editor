@@ -9,7 +9,10 @@ using OpenScct.Editor.Core.Services;
 namespace OpenScct.Editor.Core.Interop.Sdc;
 
 /// <summary>The object references the world model needs, resolved when the package is written.</summary>
-internal sealed record SdcWorldRefs(Func<string?, int> Material, Func<string, int> Actor, Func<int> Model, Func<Brush, int, FPoly> EditorPoly);
+internal sealed record SdcWorldRefs(Func<string?, int> Material, Func<string, int> Actor, Func<int> Model, Func<Brush, int, FPoly> EditorPoly)
+{
+    public Func<string?, (double U, double V)> TextureScale { get; init; } = _ => (1, 1);
+}
 
 /// <summary>
 /// The world model of a map written without a source .sdc, built by the editor's own compiler: the CSG of the brushes,
@@ -21,9 +24,9 @@ internal static class SdcWorldModel
     private const int AtlasSize = 512;
     private const byte FormatBgra8 = 5;
 
-    public static UModelData Build(MapProject p, string? contentRoot, List<Finding> findings, SdcLayout layout, SdcWorldRefs refs)
+    public static UModelData Build(MapProject p, string? contentRoot, List<Finding> findings, SdcLayout layout, SdcWorldRefs refs, string? projectFolder = null)
     {
-        var ctx = new CompileContext(p, new CompileOptions { Target = TargetGame.Original, ContentRoot = contentRoot }, null);
+        var ctx = new CompileContext(p, new CompileOptions { Target = TargetGame.Original, ContentRoot = contentRoot, ProjectFolder = projectFolder }, null);
         GameplayBuild.SortActors(ctx);
         MapCompiler.BuildWorld(ctx);
         // The world build's own findings; class checks are the export's lint (this context has no generated class data).
@@ -80,7 +83,8 @@ internal static class SdcWorldModel
                 // The cooked copy keeps a surface's source face only on portals and mirrors (SDC-FORMAT.md section 8).
                 bool keepsPoly = layout == SdcLayout.Editor || s.Kind == SurfaceKind.Portal || (s.Flags & PolyFlags.Mirrored) != 0;
                 r = new SdcSurfaceRefs(refs.Material(s.Material), brush is null ? 0 : refs.Actor(brush.Id), brush is null ? -1 : s.FaceIndex,
-                    brush is null || !keepsPoly ? null : refs.EditorPoly(brush, s.FaceIndex), look.USize, look.VSize);
+                    brush is null || !keepsPoly ? null : refs.EditorPoly(brush, s.FaceIndex), look.USize, look.VSize)
+                { TextureUScale = refs.TextureScale(s.Material).U, TextureVScale = refs.TextureScale(s.Material).V };
                 surfaceRefs[s] = r;
             }
 

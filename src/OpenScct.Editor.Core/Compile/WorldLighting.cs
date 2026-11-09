@@ -35,6 +35,8 @@ public sealed class WorldLighting
     // resolving the material on every sample repeatedly scans project assets and allocates short-name strings.
     private readonly ConcurrentDictionary<Surface, Lazy<Vec3>> _surfaceAlbedo = new(ReferenceEqualityComparer.Instance);
     private readonly ConcurrentDictionary<string, Lazy<Vec3>> _albedo = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IReadOnlyDictionary<int, float[]>> _vertexDirections = new();
+    public IReadOnlyDictionary<int, float[]>? VertexDirections(Actor actor) => _vertexDirections.GetValueOrDefault(actor.Id);
 
     /// <summary>The leaf light lists of the compiled world (an authored map's; a baked map's world is the source map's,
     /// whose own lists <see cref="SourceLightLists"/> reads), with a note for each baked light standing in solid
@@ -183,6 +185,63 @@ public sealed class WorldLighting
             {
                 ctx.Info("lighting.effect", $"light {a.Id}: LightEffect {light.Effect} has no baked form of its own; it bakes as a point light",
                     ObjectRef.Actor(a.Id));
+            }
+        }
+        AddEmissiveSurfaces();
+    }
+
+    private void AddEmissiveSurfaces()
+    {
+        if (_ctx.RenderWorld is null) return;
+        Vec3 Emission(LibraryMaterial library, OpenScct.Content.Materials.AuthoredMaterial material)
+        {
+            Vec3 color = new(material.EmissionColor[0], material.EmissionColor[1], material.EmissionColor[2]);
+            if (material.Textures.TryGetValue("emission", out var binding))
+            {
+                var image = Identity.RgbaImage.Decode(File.ReadAllBytes(Assets.Import.TextureImporter.SafeFile(library.RenderDir, binding.File)));
+                double Channel(byte value) { double c = value / 255.0; return binding.Srgb ? c <= .04045 ? c / 12.92 : Math.Pow((c + .055) / 1.055, 2.4) : c; }
+                double r = 0, g = 0, b = 0;
+                for (int i = 0; i < image.Pixels.Length; i += 4) { r += Channel(image.Pixels[i]); g += Channel(image.Pixels[i + 1]); b += Channel(image.Pixels[i + 2]); }
+                color = color.Scale(new Vec3(r, g, b) / (image.Width * image.Height));
+            }
+            return color * material.EmissionEnergy;
+        }
+        void Add(string id, Vec3 center, Vec3 normal, double area, Vec3 color, double energy)
+        {
+            if (area <= 0 || normal.LengthSquared < 1e-12) return;
+            Vec3 location = center + normal * 2;
+            Lights.Add(new BakeLight { Id = id, Location = location, EmissionColour = color,
+                EmissionNormal = normal, EmissionArea = area, LightRadius = Math.Max(8, Math.Sqrt(area * energy) * 4 / 25), Zone = _ctx.ZoneAt(location), BakeOnly = true });
+        }
+        foreach (var group in _ctx.RenderWorld.Visible.GroupBy(p => p.Surface))
+        {
+            if (_ctx.Library.FindMaterial(group.Key.Material ?? "") is not { } library ||
+                OpenScct.Content.Materials.AuthoredMaterial.From(library.Flags["authored"]) is not { BakeEmission: true, EmissionEnergy: > 0 } material) continue;
+            Vec3 color = Emission(library, material);
+            foreach (Poly polygon in group)
+            {
+                Add($"Emission.{group.Key.BrushId}.{group.Key.FaceIndex}.{Lights.Count}", polygon.Centroid(), polygon.Plane.N, polygon.Area(), color, material.EmissionEnergy);
+            }
+        }
+        foreach ((Actor actor, bool gameplay, string path) in MeshActors())
+        {
+            if (gameplay || _ctx.Rules.Flag(actor, "bHidden") || MeshPrimitives(path, actor) is not { } primitives) continue;
+            foreach (var primitive in primitives)
+            {
+                if (_ctx.Library.FindMaterial(primitive.Material ?? "") is not { } library || OpenScct.Content.Materials.AuthoredMaterial.From(library.Flags["authored"]) is not { BakeEmission: true, EmissionEnergy: > 0 } material) continue;
+                Vec3 color = Emission(library, material);
+                int stride = Math.Max(1, (primitive.Indices.Length / 3 + 255) / 256);
+                for (int t = 0; t + 2 < primitive.Indices.Length; t += 3 * stride)
+                {
+                    Vec3 a = _ctx.Rules.LocalToWorld(actor, primitive.Positions[primitive.Indices[t]]), b = _ctx.Rules.LocalToWorld(actor, primitive.Positions[primitive.Indices[t + 1]]), c = _ctx.Rules.LocalToWorld(actor, primitive.Positions[primitive.Indices[t + 2]]);
+                    Vec3 cross = Vec3.Cross(b - a, c - a); double length = cross.Length;
+                    if (length <= 1e-12) continue;
+                    Vec3 normal = cross / length;
+                    // UePrimitive triangles have UE winding; match its supplied outward normal.
+                    Vec3 supplied = _ctx.Rules.LocalToWorld(actor, primitive.Normals[primitive.Indices[t]]) - _ctx.Rules.LocalToWorld(actor, Vec3.Zero);
+                    if (Vec3.Dot(normal, supplied) < 0) normal = -normal;
+                    Add($"Emission.{actor.Id}.{primitive.Index}.{t}", (a + b + c) / 3, normal, length * .5 * Math.Min(stride, (primitive.Indices.Length - t) / 3), color, material.EmissionEnergy);
+                }
             }
         }
     }
@@ -365,12 +424,13 @@ public sealed class WorldLighting
     }
 
     /// <summary>A library mesh's primitives in UE space, or null when no converted map or project asset ships it.</summary>
-    public List<Glb.UePrimitive>? MeshPrimitives(string asset)
+    public List<Glb.UePrimitive>? MeshPrimitives(string asset, Actor? actor = null)
     {
-        if (!_meshPrimitives.TryGetValue(asset, out List<Glb.UePrimitive>? prims))
+        string key = asset + "|" + AuthoredMeshGeometry.SkinKey(actor);
+        if (!_meshPrimitives.TryGetValue(key, out List<Glb.UePrimitive>? prims))
         {
             LibraryMesh? lib = _ctx.Library.FindMesh(asset);
-            _meshPrimitives[asset] = prims = lib is not null && File.Exists(lib.GlbPath) ? _ctx.Library.Glb(lib.GlbPath).ReadUePrimitives(lib.Mesh) : null;
+            _meshPrimitives[key] = prims = lib is not null && File.Exists(lib.GlbPath) ? _ctx.Library.ActorGlb(lib, actor).ReadUePrimitives(lib.Mesh) : null;
         }
 
         return prims;
@@ -381,7 +441,7 @@ public sealed class WorldLighting
     {
         foreach ((Actor a, bool gameplay, string path) in MeshActors())
         {
-            if (!gameplay && MeshPrimitives(path) is { } prims)
+            if (!gameplay && MeshPrimitives(path, a) is { } prims)
             {
                 AddMesh(a, prims);
             }
@@ -582,6 +642,7 @@ public sealed class WorldLighting
             Transmission = _windowLight.IsEmpty ? null : _windowLight.Filter,
             TransmissionPath = _windowLight.IsEmpty ? null : _windowLight.Path,
             CaptureWindows = CaptureWindows,
+            Directional = _ctx.RenderWorld.Visible.Any(p => _ctx.Library.FindMaterial(p.Surface.Material ?? "")?.Flags["authored"] is not null),
             Ambient = LightmapAmbient,
             Albedo = (_, piece) => piece.Source is Poly poly ? Albedo(poly.Surface) : Grey,
             ChartAt = ChartAt,
@@ -654,10 +715,13 @@ public sealed class WorldLighting
 
         TriangleBvh bvh = Occluders;
         var result = new Dictionary<int, byte[]>();
+        bool directional = prims.Any(p => OpenScct.Content.Materials.AuthoredMaterial.From(_ctx.Library.FindMaterial(p.Material ?? "")?.Flags["authored"]) is not null);
+        var directions = new Dictionary<int, float[]>();
         for (int pi = 0; pi < prims.Count; pi++)
         {
             Glb.UePrimitive p = prims[pi];
             var rgba = new byte[p.Positions.Length * 4];
+            var direction = directional ? new float[p.Positions.Length * 4] : null;
             var captured = CaptureWindows && shadows && !_windowLight.IsEmpty ? new OpenScct.Content.WindowLightTransfer.Sample?[p.Positions.Length] : null;
             Vec3[] w = world[pi];
             Parallel.For(0, p.Positions.Length, i =>
@@ -666,6 +730,7 @@ public sealed class WorldLighting
                 Vec3 local = new Vec3(p.Normals[i].X / scale.X, p.Normals[i].Y / scale.Y, p.Normals[i].Z / scale.Z);
                 Vec3 n = a.Rotation.Rotate(local).Normalized();
                 Vec3 sum = Vec3.Zero;
+                Vec3 dominant = Vec3.Zero; double energy = 0;
                 Vec3 plain = Vec3.Zero;
                 var terms = captured is null ? null : new List<OpenScct.Content.WindowLightTransfer.Term>();
                 foreach (BakeLight l in lights)
@@ -682,6 +747,12 @@ public sealed class WorldLighting
                     }
 
                     WindowLightPath? path = shadows ? _windowLight.Path(l, w[i]) : null;
+                    if (direction is not null)
+                    {
+                        Vec3 radiance = l.Colour.Scale(path?.Colour ?? Vec3.One) * f;
+                        double weight = radiance.X + radiance.Y + radiance.Z;
+                        dominant += (l.IsSun ? -l.Direction : l.Location - w[i]).Normalized() * weight; energy += weight;
+                    }
                     sum += l.Colour.Scale(path?.Colour ?? Vec3.One) * f;
                     if (path is { Panes.Length: > 0 })
                     {
@@ -699,8 +770,15 @@ public sealed class WorldLighting
                 rgba[(4 * i) + 1] = Byte(sum.Y);
                 rgba[(4 * i) + 2] = Byte(sum.Z);
                 rgba[(4 * i) + 3] = 255;
+                if (direction is not null)
+                {
+                    Vec3 d = dominant.Normalized();
+                    direction[i * 4] = (float)(d.X * .5 + .5); direction[i * 4 + 1] = (float)(d.Z * .5 + .5); direction[i * 4 + 2] = (float)(d.Y * .5 + .5);
+                    direction[i * 4 + 3] = energy > 1e-9 ? (float)Math.Min(1, dominant.Length / energy) : 0;
+                }
             });
             result[p.Index] = rgba;
+            if (direction is not null) directions[p.Index] = direction;
             if (captured is not null && captured.Any(s => s is not null))
             {
                 var batch = new OpenScct.Content.WindowLightTransfer.Batch();
@@ -718,6 +796,7 @@ public sealed class WorldLighting
             }
         }
 
+        if (directional) _vertexDirections[a.Id] = directions;
         return result;
     }
 

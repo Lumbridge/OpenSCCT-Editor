@@ -13,6 +13,9 @@ namespace OpenScct.Editor.Core.Lightmaps;
 /// </summary>
 public sealed record BakeLight
 {
+    public Vec3? EmissionColour { get; init; }
+    public Vec3? EmissionNormal { get; init; }
+    public double EmissionArea { get; init; }
     public const int LE_NonIncidence = 13;
     public const int LE_Shell = 14;
     public const int LE_Cylinder = 17;
@@ -112,6 +115,7 @@ public sealed record BakeLight
     {
         get
         {
+            if (EmissionColour is { } emission) return emission;
             LightRgb c = ActorLightRules.Colour((byte)Math.Clamp(Hue, 0, 255), (byte)Math.Clamp(Saturation, 0, 255), (float)Brightness);
             return new Vec3(c.R, c.G, c.B) * (Modulation * LevelBrightness);
         }
@@ -128,6 +132,14 @@ public sealed record BakeLight
     /// </summary>
     public double Surface(Vec3 p, Vec3 n, bool twoSided)
     {
+        if (EmissionNormal is { } emitterNormal)
+        {
+            Vec3 offset = p - Location; double distance = offset.Length;
+            if (distance >= Radius || distance < .001) return 0;
+            Vec3 direction = offset / distance;
+            double receiver = twoSided ? Math.Abs(Vec3.Dot(n, -direction)) : Math.Max(0, Vec3.Dot(n, -direction));
+            return receiver * Math.Max(0, Vec3.Dot(emitterNormal, direction)) * EmissionArea / (Math.PI * (distance * distance + EmissionArea));
+        }
         if (IsSun)
         {
             double c = -Vec3.Dot(n, Direction);
@@ -168,6 +180,7 @@ public sealed record BakeLight
     /// </summary>
     public double Vertex(Vec3 p, Vec3 n)
     {
+        if (EmissionNormal is not null) return Surface(p, n, false);
         if (IsSun)
         {
             return Math.Max(0, -Vec3.Dot(n, Direction));
@@ -256,6 +269,8 @@ public sealed record BakeLight
     {
         var h = new Hash64();
         h.Add(Location);
+        h.Add(EmissionNormal ?? Vec3.Zero);
+        h.Add(EmissionArea);
         h.Add(Direction);
         h.Add(LightRadius);
         h.Add(Effect);

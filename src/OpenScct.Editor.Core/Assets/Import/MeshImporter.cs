@@ -123,8 +123,26 @@ public static class MeshImporter
                 ["uSize"] = w,
                 ["vSize"] = h,
             };
+            if (sm.Authored is { } authored)
+            {
+                authored.Textures["baseColor"] = new() { File = texture, Srgb = true };
+                foreach ((string slot, var map) in sm.Maps)
+                {
+                    byte[]? data = map.Bytes ?? (map.File is { } mapFile && File.Exists(mapFile) ? File.ReadAllBytes(mapFile) : null);
+                    if (data is null) { notes.Add($"{matPath}: missing {slot} map; omitted"); authored.Textures.Remove(slot); continue; }
+                    byte[] encoded = RgbaImage.FormatOf(data) == "PNG" ? data : RgbaImage.Decode(data).EncodePng();
+                    string relative = $"textures/{AssetPaths.LocalPackage}_{name}_{AssetPaths.Safe(key)}_{slot}.png";
+                    File.WriteAllBytes(Path.Combine(root, relative), encoded); authored.Textures[slot].File = relative;
+                }
+                materials[matPath]!["flags"]!["authored"] = authored.ToJson();
+                byte[] fallback = LegacyMaterialBake.Base(new LibraryMaterial(root, "MyLevel", matPath, materials[matPath]!["flags"]!.AsObject(), null, w, h)).EncodePng();
+                string fallbackFile = $"textures/{AssetPaths.LocalPackage}_{name}_{AssetPaths.Safe(key)}_fallback.png";
+                File.WriteAllBytes(Path.Combine(root, fallbackFile), fallback); materials[matPath]!["flags"]!["texture"] = fallbackFile;
+                materials[matPath]!["flags"]!["unlit"] = authored.Unlit;
+            }
             materialPaths[key] = matPath;
             materialIndex[key] = glb.AddMaterial(matPath, texture, sm.DoubleSided, sm.AlphaMode);
+            if (sm.Authored is { } definition) GltfAuthoredMaterial.Apply(glb, materialIndex[key], definition, file => File.ReadAllBytes(Path.Combine(root, file)), (file, bytes) => File.WriteAllBytes(Path.Combine(root, file), bytes));
         }
 
         int renderMesh = AddRenderMesh(glb, src, materialIndex, assetPath, out int triangles);
@@ -223,7 +241,7 @@ public static class MeshImporter
             }
             catch (InvalidDataException e)
             {
-                notes.Add($"material {m.Name}: cannot read {Path.GetFileName(m.ImageFile ?? "embedded image")}: {e.Message}; it uses its colour");
+                notes.Add($"material {m.Name}: could not decode {Path.GetFileName(m.ImageFile ?? "embedded image")}: {e.Message}; it uses its colour");
             }
         }
         else if (m.ImageFile is not null)
@@ -235,9 +253,9 @@ public static class MeshImporter
         var rgba = new byte[size * size * 4];
         for (int i = 0; i < size * size; i++)
         {
-            rgba[i * 4] = (byte)Math.Clamp(m.Color.X * 255, 0, 255);
-            rgba[i * 4 + 1] = (byte)Math.Clamp(m.Color.Y * 255, 0, 255);
-            rgba[i * 4 + 2] = (byte)Math.Clamp(m.Color.Z * 255, 0, 255);
+            rgba[i * 4] = m.Authored is null ? (byte)Math.Clamp(m.Color.X * 255, 0, 255) : (byte)255;
+            rgba[i * 4 + 1] = m.Authored is null ? (byte)Math.Clamp(m.Color.Y * 255, 0, 255) : (byte)255;
+            rgba[i * 4 + 2] = m.Authored is null ? (byte)Math.Clamp(m.Color.Z * 255, 0, 255) : (byte)255;
             rgba[i * 4 + 3] = 255;
         }
 

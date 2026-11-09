@@ -639,13 +639,14 @@ public sealed partial class WorldScene : Node3D
         input.Brushes = _project.Brushes.Concat(_geBrushes).Select(b => b.Clone()).ToList();
         input.Baked = _project.Baked;
         HashSet<string> hidden = _previewHidden = _hiddenBrushes;
+        var materialDisplacement = new OpenScct.Editor.Core.Assets.MaterialDisplacement(OpenScctEditor.Assets.AssetService.Instance.Resolver);
         BackgroundJobs.Start(_ =>
         {
             IReadOnlyList<PreviewPolygon>? polys = null;
             string? error = null;
             try
             {
-                polys = preview.Build(input).Where(poly => !hidden.Contains(poly.BrushId)).ToList();
+                polys = materialDisplacement.Preview(preview.Build(input).Where(poly => !hidden.Contains(poly.BrushId))).ToList();
             }
             catch (Exception ex)
             {

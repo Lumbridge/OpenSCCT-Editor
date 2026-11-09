@@ -11,6 +11,7 @@ public sealed record WindowLightPath(int[] Panes, Vec3 Colour);
 /// </summary>
 public sealed class BakeScene
 {
+    public bool Directional { get; init; }
     public required IReadOnlyList<LightmapChart> Charts { get; init; }
 
     /// <summary>Every light; only <see cref="BakeLight.Baked"/> ones are baked.</summary>

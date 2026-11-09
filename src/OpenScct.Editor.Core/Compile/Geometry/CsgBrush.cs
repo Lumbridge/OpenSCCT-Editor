@@ -74,6 +74,8 @@ public sealed class CsgBrush
             h.Add(f.PanU);
             h.Add(f.PanV);
             h.Add(f.LightMapScale);
+            h.Add(f.GeneratedDisplacement);
+            h.Add(f.DisplacementCollision is null ? -1 : f.DisplacementCollision.Value ? 1 : 0);
         }
 
         return h.Value;
@@ -127,6 +129,7 @@ public sealed class CsgBrush
             var surface = new Surface
             {
                 BrushId = b.Id,
+                Displaced = b.Shape.Faces[index].GeneratedDisplacement,
                 FaceIndex = index,
                 Material = f.Material,
                 Flags = flags,

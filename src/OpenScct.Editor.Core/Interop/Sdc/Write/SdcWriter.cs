@@ -8,6 +8,7 @@ namespace OpenScct.Editor.Core.Interop.Sdc;
 /// <summary>What <see cref="SdcWriter.Write"/> writes and from what.</summary>
 public sealed record SdcWriteOptions
 {
+    public string? ProjectFolder { get; init; }
     /// <summary>The editor copy (Packages\MapsEd, with brushes) or the cooked copy the game loads (Packages\Maps).</summary>
     public SdcLayout Layout { get; init; } = SdcLayout.Editor;
 
@@ -95,6 +96,12 @@ public static class SdcWriter
             findings.Add(Finding.Info("sdc.recoveredEditor", "Rebuilt the editor world and lightmap records from the recovered brushes. "
                 + (src is null ? "" : "Kept the source package's map-local assets and classes. ")
                 + "Lighting uses the available lights and may differ from the original; Build All in RE+ refreshes mesh lighting."));
+        }
+
+        if (options.ProjectFolder is { } folder)
+        {
+            try { project = Assets.LegacyMaterialBake.WithExportUvs(project, Assets.AssetResolver.For(options.ContentRoot, folder)); }
+            catch (InvalidOperationException ex) { throw new SdcWriteRefusedException(ex.Message); }
         }
 
         var plan = new SdcPackagePlan(project, packageName, options, src, srcMap, findings, recoveredEditor);

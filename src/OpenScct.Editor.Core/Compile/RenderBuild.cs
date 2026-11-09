@@ -130,6 +130,8 @@ public sealed partial class RenderBuild
         flags["unlit"] = look.Unlit;
         string texture = flags["texture"]!.GetValue<string>();
         int index = _glb.AddMaterial(key, texture, look.TwoSided, look.AlphaMode);
+        if (OpenScct.Content.Materials.AuthoredMaterial.From(flags["authored"]) is { } authored)
+            GltfAuthoredMaterial.Apply(_glb, index, authored, file => _ctx.Files["render/" + file], (file, bytes) => _ctx.Files["render/" + file] = bytes);
         _materials[key] = new JsonObject { ["flags"] = Sorted(flags), ["index"] = index, ["source"] = source };
         use = new MaterialUse(key, index, look.USize, look.VSize, look.Unlit, look, texture);
         _materialUses[key] = use;
@@ -207,6 +209,8 @@ public sealed partial class RenderBuild
     private ConvertedWorld? AddOccluders(BakedSource? baked)
     {
         _surfaces = MeshPrep.FixTJunctions(_ctx.RenderWorld.Visible);
+        var displacement = new MaterialDisplacement(_ctx.Library);
+        _surfaces = _surfaces.SelectMany(displacement.Expand).ToList();
         _lighting.AddSurfaces(_surfaces, p => _ctx.InSkyZone(p.Centroid() + (p.Plane.N * 2)));
         ConvertedWorld? source = null;
         if (baked is not null && File.Exists(Path.Combine(baked.Folder, "render", "world.glb")) &&
@@ -266,6 +270,7 @@ public sealed partial class RenderBuild
             {
                 string uri = $"textures/{atlasName}{a}.png";
                 _ctx.Files[$"render/{uri}"] = result.Png(a);
+                if (result.Directions is not null) _ctx.Files[$"render/textures/{atlasName}{a}_direction.png"] = result.DirectionPng(a);
                 _lightmapUris.Add(uri);
             }
 
@@ -283,6 +288,8 @@ public sealed partial class RenderBuild
             LightmapChart chart = pieces[i].Chart;
             MaterialUse use = Material(poly.Surface.Material, poly.Surface.Flags);
             MaterialUse mapped = LightmappedMaterial(use, $"{use.Key}{materialSuffix}{chart.Atlas}", _lightmapUris[chart.Atlas]);
+            if (result!.Directions is not null && _materials[mapped.Key]?["flags"] is JsonObject authoredFlags && authoredFlags["authored"] is not null)
+                authoredFlags["authored_direction"] = $"textures/{atlasName}{chart.Atlas}_direction.png";
             bool sky = _ctx.InSkyZone(poly.Centroid() + (poly.Plane.N * 2));
             if (!parts.TryGetValue((sky, mapped.Key), out WorldPart? part))
             {
@@ -339,6 +346,8 @@ public sealed partial class RenderBuild
         }
 
         int index = _glb.AddMaterial(key, use.Texture, use.Look.TwoSided, use.Look.AlphaMode, lightmapUri);
+        if (OpenScct.Content.Materials.AuthoredMaterial.From(_materials[use.Key]?["flags"]?["authored"]) is { } authored)
+            GltfAuthoredMaterial.Apply(_glb, index, authored, file => _ctx.Files["render/" + file], (file, bytes) => _ctx.Files["render/" + file] = bytes);
         JsonObject entry = _materials[use.Key]!.DeepClone().AsObject();
         entry["index"] = index;
         _materials[key] = entry;
@@ -593,7 +602,7 @@ public sealed partial class RenderBuild
                 continue;
             }
 
-            string? node = ImportMesh(path);
+            string? node = ImportMesh(path, a);
             if (node is null)
             {
                 missing++;
@@ -607,7 +616,8 @@ public sealed partial class RenderBuild
             string? variant = _lighting.DrawsVertexLit(a, gameplay) ? VertexLitVariant(a, path, node) : null;
             own |= _lighting.WindowResponse.Batches.Any(b => b.Resources.Any(r => r.Kind == "mesh" && r.Name == a.Id));
             vertexLit += variant is null ? 0 : 1;
-            JsonObject instance = Instance(a.Id, a.ShortClass, own, hidden, variant ?? node, a.Location, a.Rotation,
+            string drawnNode = variant ?? node;
+            JsonObject instance = Instance(a.Id, a.ShortClass, own, hidden, drawnNode, a.Location, a.Rotation,
                 _ctx.Rules.Scale(a), _ctx.Rules.PrePivot(a), variant is not null, mover ? "mover" : "staticmesh");
             ApplyDrawingFlags(instance, a);
             _instances.Add(instance);
@@ -621,9 +631,24 @@ public sealed partial class RenderBuild
 
     /// <summary>The library node of the mesh with the actor's baked vertex light (shared by every actor that bakes to
     /// the same colours), or null when no baked light reaches it.</summary>
+    private string MeshMaterialVariant(Actor actor, string asset, string node)
+    {
+        if (actor.Props["Skins"] is not SvJsonArray skins || skins.All(s => PropValues.AssetPath(s) is null)) return node;
+        JsonObject source = _glb.Array("nodes").OfType<JsonObject>().First(n => n["name"]?.GetValue<string>() == node);
+        JsonObject mesh = _glb.Array("meshes")[source["mesh"]!.GetValue<int>()]!.DeepClone().AsObject();
+        JsonArray primitives = mesh["primitives"]!.AsArray();
+        for (int i = 0; i < primitives.Count && i < skins.Count; i++)
+            if (PropValues.AssetPath(skins[i]) is { } material) primitives[i]!["material"] = Material(material, 0).GltfIndex;
+        string name = node + "#skins_" + actor.Id;
+        _glb.Array("meshes").Add(mesh);
+        _library.Add(_glb.AddNode(new JsonObject { ["name"] = name, ["mesh"] = _glb.Count("meshes") - 1,
+            ["extras"] = new JsonObject { ["svmap"] = new JsonObject { ["asset"] = asset, ["role"] = "libraryMesh", ["variant"] = "skins_" + actor.Id } } }));
+        return name;
+    }
+
     private string? VertexLitVariant(Actor a, string asset, string node)
     {
-        if (_lighting.MeshPrimitives(asset) is not { } prims || _lighting.VertexLight(a, prims) is not { } colours)
+        if (_lighting.MeshPrimitives(asset, a) is not { } prims || _lighting.VertexLight(a, prims) is not { } colours)
         {
             return null;
         }
@@ -637,6 +662,8 @@ public sealed partial class RenderBuild
                 hash.Add((int)b);
             }
         }
+        var directions = _lighting.VertexDirections(a);
+        if (directions is not null) foreach (var pair in directions.OrderBy(p => p.Key)) foreach (float value in pair.Value) hash.Add((double)value);
 
         string tag = $"vc{(uint)(hash.Value ^ (hash.Value >> 32)):x8}";
         string name = $"{node}#{tag}";
@@ -645,7 +672,7 @@ public sealed partial class RenderBuild
             return name;
         }
 
-        int mesh = _glb.AddColorVariant(_importedMeshIndex[asset], name, colours);
+        int mesh = _glb.AddColorVariant(_importedMeshIndex[MeshKey(asset, a)], name, colours, directions);
         _library.Add(_glb.AddNode(new JsonObject
         {
             ["extras"] = new JsonObject { ["svmap"] = new JsonObject { ["asset"] = _ctx.Library.FindMesh(asset)!.Asset, ["role"] = "libraryMesh", ["variant"] = tag } },
@@ -656,9 +683,11 @@ public sealed partial class RenderBuild
         return name;
     }
 
-    private string? ImportMesh(string asset)
+    private static string MeshKey(string asset, Actor? actor) => asset + "|" + AuthoredMeshGeometry.SkinKey(actor);
+    private string? ImportMesh(string asset, Actor? actor = null)
     {
-        if (_importedMeshes.TryGetValue(asset, out string? done))
+        string key = MeshKey(asset, actor);
+        if (_importedMeshes.TryGetValue(key, out string? done))
         {
             return done;
         }
@@ -668,18 +697,19 @@ public sealed partial class RenderBuild
             return null;
         }
 
-        Glb src = _ctx.Library.Glb(lib.GlbPath);
+        Glb src = _ctx.Library.ActorGlb(lib, actor);
         int mesh = _glb.ImportMesh(src, lib.Mesh, uri => CopyTexture(lib.RenderDir, lib.Origin, uri));
-        _importedMeshIndex[asset] = mesh;
+        _importedMeshIndex[key] = mesh;
+        string nodeName = lib.NodeName + (AuthoredMeshGeometry.SkinKey(actor).Length == 0 ? "" : "#skins_" + actor!.Id);
         _library.Add(_glb.AddNode(new JsonObject
         {
             ["extras"] = new JsonObject { ["svmap"] = new JsonObject { ["asset"] = lib.Asset, ["role"] = "libraryMesh", ["variant"] = "" } },
             ["mesh"] = mesh,
-            ["name"] = lib.NodeName,
+            ["name"] = nodeName,
         }));
         ImportMaterialEntries(src, lib.Mesh, lib.RenderDir, lib.Origin);
-        _importedMeshes[asset] = lib.NodeName;
-        return lib.NodeName;
+        _importedMeshes[key] = nodeName;
+        return nodeName;
     }
 
     /// <summary>The materials.json entries of an imported mesh's materials, copied from its map's table.</summary>
@@ -694,10 +724,12 @@ public sealed partial class RenderBuild
             }
 
             LibraryMaterial? lib = _ctx.Library.FindMaterial(name);
-            JsonObject flags = lib is not null && (lib.RenderDir == renderDir || origin == "EditorWindows")
+            JsonObject flags = lib is not null
                 ? CopyTextures(lib.Flags.DeepClone().AsObject(), lib.RenderDir, lib.Origin)
                 : new JsonObject();
             int index = _glb.Array("materials").Select((m, i) => (m, i)).First(t => t.m?["name"]?.GetValue<string>() == name).i;
+            if (OpenScct.Content.Materials.AuthoredMaterial.From(flags["authored"]) is { } authored)
+                GltfAuthoredMaterial.Apply(_glb, index, authored, file => _ctx.Files["render/" + file], (file, bytes) => _ctx.Files["render/" + file] = bytes);
             _materials[name] = new JsonObject { ["flags"] = Sorted(flags), ["index"] = index, ["source"] = lib?.Source ?? name };
             if (lib?.Gameplay is not null && !_gameplay.ContainsKey(lib.Source))
             {

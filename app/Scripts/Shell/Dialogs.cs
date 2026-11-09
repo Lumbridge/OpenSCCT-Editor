@@ -26,6 +26,12 @@ public static class Dialogs
     public static void OpenFile(string title, string[] filters, Action<string> done, string? startDir = null) =>
         Show(FileDialog.FileModeEnum.OpenFile, title, filters, done, startDir);
 
+    public static void OpenFiles(string title, string[] filters, Action<string[]> done, string? startDir = null)
+    {
+        FileDialog? dialog = Show(FileDialog.FileModeEnum.OpenFiles, title, filters, _ => { }, startDir);
+        if (dialog is not null) dialog.FilesSelected += files => { done(files); dialog.QueueFree(); };
+    }
+
     /// <summary>An open dialog with choices beside the file name (an option list each, shown in the native dialog, worded
     /// by its labels); <paramref name="done"/> gets the path and each choice's picked value.</summary>
     public static void OpenFile(string title, string[] filters,

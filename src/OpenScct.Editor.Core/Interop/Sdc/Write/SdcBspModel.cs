@@ -5,7 +5,11 @@ using OpenScct.Editor.Core.Model;
 namespace OpenScct.Editor.Core.Interop.Sdc;
 
 /// <summary>What one surface becomes in a model: its object references and, for the world, its texture size.</summary>
-internal sealed record SdcSurfaceRefs(int Material, int Actor, int BrushPoly, FPoly? EditorPoly, double USize, double VSize);
+internal sealed record SdcSurfaceRefs(int Material, int Actor, int BrushPoly, FPoly? EditorPoly, double USize, double VSize)
+{
+    public double TextureUScale { get; init; } = 1;
+    public double TextureVScale { get; init; } = 1;
+}
 
 /// <summary>How one node polygon is drawn: its lightmap (an FLightMap index and the atlas UV of a world point), or
 /// none when it is unlit.</summary>
@@ -237,8 +241,8 @@ internal sealed class SdcBspModel
         SdcSurfaceRefs refs = _refs(s);
         float scale = (float)(s.LightMapScale > 0 ? s.LightMapScale : 32);
         uint flags = unchecked((uint)s.Flags) | (s.Kind == SurfaceKind.Portal ? PolyPortal | PolyInvisible : 0);
-        _m.Surfs.Add(new FBspSurf(refs.Material, flags, Point(F(PannedBase(s))), Vector(F(poly.Plane.N)), Vector(F(s.TextureU)),
-            Vector(F(s.TextureV)), new Vector4(F(poly.Plane.N), (float)poly.Plane.D), scale, scale, refs.EditorPoly, refs.Actor, refs.BrushPoly));
+        _m.Surfs.Add(new FBspSurf(refs.Material, flags, Point(F(PannedBase(s))), Vector(F(poly.Plane.N)), Vector(F(s.TextureU * refs.TextureUScale)),
+            Vector(F(s.TextureV * refs.TextureVScale)), new Vector4(F(poly.Plane.N), (float)poly.Plane.D), scale, scale, refs.EditorPoly, refs.Actor, refs.BrushPoly));
         _surfs[s] = index = _m.Surfs.Count - 1;
         return index;
     }

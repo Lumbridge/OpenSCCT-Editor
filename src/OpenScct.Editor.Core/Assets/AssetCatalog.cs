@@ -114,6 +114,7 @@ public sealed class AssetCatalog
         {
             return e.Path;
         }
+        if (e.Kind == AssetKind.Texture && Find(AssetKind.Material, e.Path) is not null) return e.Path;
 
         if (e.Kind != AssetKind.Texture || e.File is not { } file || ImageKey(file) is not { } key
             || !_materialsByImage.TryGetValue(key, out List<string>? materials))

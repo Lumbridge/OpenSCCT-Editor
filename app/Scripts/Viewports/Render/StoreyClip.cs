@@ -74,6 +74,26 @@ public static class StoreyClip
     private static ShaderMaterial Make(StandardMaterial3D source, string? textureFile, Texture2D? lightmap)
     {
         Register();
+        if (source.HasMeta("authored_json"))
+        {
+            var definition = OpenScct.Content.Materials.AuthoredMaterial.From(System.Text.Json.Nodes.JsonNode.Parse(source.GetMeta("authored_json").AsString()))!;
+            definition.Surface = source.Transparency == BaseMaterial3D.TransparencyEnum.Alpha ? "translucent" : source.Transparency == BaseMaterial3D.TransparencyEnum.AlphaScissor ? "masked" : "opaque";
+            definition.TwoSided |= source.CullMode == BaseMaterial3D.CullModeEnum.Disabled;
+            string root = source.GetMeta("authored_root").AsString();
+            var loaded = new Dictionary<string, Texture2D>();
+            ShaderMaterial? authoredMaterial = null;
+            authoredMaterial = AuthoredPreview.Make(definition, _ => null, lightmap, source.ShadingMode == BaseMaterial3D.ShadingModeEnum.Unshaded, source.VertexColorUseAsAlbedo, authoredTexture: (slot, binding) =>
+            {
+                if (loaded.TryGetValue(slot, out Texture2D? known)) return known;
+                AuthoredTextures.Request(Path.Combine(root, binding.File), slot, binding, definition.Animation, image =>
+                {
+                    loaded[slot] = image;
+                    if (authoredMaterial is not null) OpenScctGame.Render.Materials.AuthoredMaterialBinding.Apply(authoredMaterial, definition, _ => null, (s, _) => loaded.GetValueOrDefault(s));
+                });
+                return loaded.GetValueOrDefault(slot);
+            });
+            return authoredMaterial;
+        }
         Texture2D? texture = source.AlbedoTexture;
         bool textured = texture is not null || textureFile is not null;
         var material = new ShaderMaterial { Shader = ShaderFor(source, textured, lightmap is not null) };
@@ -97,7 +117,7 @@ public static class StoreyClip
     }
 
     /// <summary>Drops the copies (with <see cref="ViewMaterials.Clear"/>, when the project's assets change).</summary>
-    public static void Clear() => s_materials.Clear();
+    public static void Clear() { s_materials.Clear(); AuthoredTextures.Clear(); }
 
     /// <summary>Adds the global shader parameter, once per run, before any shader that reads it is made.</summary>
     internal static void Register()

@@ -133,6 +133,8 @@ public partial class AssetBrowserPanel : EditorPanel
         _origin.ItemSelected += _ => KindChanged();
         _inMap = PanelUi.Toggle(bar, "In this map", "Only the assets this map uses", false, _ => _rebuild.Queue());
         PanelUi.Button(bar, "Get Packs…", "Download asset libraries from OpenSCCT-Content", () => ContentPacksPart.Open());
+        PanelUi.Button(bar, "Import Textures…", "Import a texture set and create a material", () => Context.Run("assets.importTextures"));
+        PanelUi.Button(bar, "Create Material…", "Create a material with texture slots and a live preview", () => Context.Run("assets.createMaterial"));
         _count = PanelUi.Caption(bar, "", wrap: false);
         _count.SizeFlagsVertical = SizeFlags.ShrinkCenter;
 

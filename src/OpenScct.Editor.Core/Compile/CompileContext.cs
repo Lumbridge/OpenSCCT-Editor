@@ -38,6 +38,8 @@ public sealed class CompileContext
             Error("ge.geometry", ex.Message);
         }
 
+        try { Project = new MaterialDisplacement(AssetResolver.For(options.ContentRoot ?? EditorServices.ContentRoot, options.ProjectFolder)).CollisionProject(Project); }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or ArgumentException) { Error("material.geometry", ex.Message); }
         Options = options;
         ContentRoot = options.ContentRoot ?? EditorServices.ContentRoot;
         Classes = ClassDefaults.Create(ContentRoot, catalog);

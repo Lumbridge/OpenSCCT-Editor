@@ -9,6 +9,25 @@ namespace OpenScct.Editor.Core.Lightmaps;
 /// </summary>
 public sealed class LightmapResult
 {
+    public float[][]? Directions { get; internal set; }
+
+    public byte[] DirectionPng(int atlas)
+    {
+        (int width, int height) = Atlases[atlas]; var bytes = new byte[width * height * 4];
+        if (Directions is not null) for (int index = 0; index < Charts.Count; index++)
+        {
+            LightmapChart chart = Charts[index]; if (chart.Atlas != atlas) continue;
+            for (int y = 0; y < chart.Height; y++) for (int x = 0; x < chart.Width; x++)
+            {
+                int source = (y * chart.Width + x) * 4, target = ((chart.Y + y) * width + chart.X + x) * 4;
+                var direction = new Model.Vec3(Directions[index][source], Directions[index][source + 1], Directions[index][source + 2]);
+                float[] normal = new float[3]; Compile.Output.GltfSpace.Normal(direction, normal, 0);
+                for (int c = 0; c < 3; c++) bytes[target + c] = (byte)Math.Clamp(Math.Round((normal[c] * .5 + .5) * 255), 0, 255);
+                bytes[target + 3] = (byte)Math.Clamp(Math.Round(Directions[index][source + 3] * 255), 0, 255);
+            }
+        }
+        return Compile.Output.Png.EncodeRgba(width, height, bytes);
+    }
     // A 4x4 Bayer matrix: an ordered dither is the same on every run, so builds stay byte-identical.
     private static readonly int[] s_bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
 

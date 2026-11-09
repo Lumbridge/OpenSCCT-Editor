@@ -43,8 +43,8 @@ public static class DdsFile
         return low >= 250 ? AlphaKind.None : middle <= 0.02 * count ? AlphaKind.Mask : AlphaKind.Blend;
     }
 
-    /// <summary>The power of two nearest <paramref name="n"/> (at least 1, at most <see cref="Largest"/>): UE2
-    /// textures have power-of-two sides.</summary>
+    /// <summary>The power of two nearest <paramref name="n"/> (at least one DXT block, at most <see cref="Largest"/>).
+    /// Direct3D 9 rejects a compressed base level smaller than 4×4.</summary>
     public static int PowerOfTwo(int n)
     {
         int p = 1;
@@ -58,7 +58,7 @@ public static class DdsFile
             p *= 2;
         }
 
-        return Math.Min(p, Largest);
+        return Math.Clamp(p, 4, Largest);
     }
 
     public static DdsTexture Encode(RgbaImage image, AlphaKind alpha)

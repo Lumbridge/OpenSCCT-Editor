@@ -220,3 +220,8 @@ OpenSCCT Editor is a fan project, not affiliated with or endorsed by Ubisoft. Sp
 trademarks of Ubisoft Entertainment. This repository contains project code, tools, original art and attributed
 third-party components ([THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)). It contains no game files: the editor
 reads your own game files and OpenSCCT's content at run time.
+
+
+## Texture and material authoring
+
+See [Advanced materials](docs/ADVANCED-MATERIALS.md) for texture-set import, animated textures, PBR/depth controls, optional displaced collision and the actual original-game compatibility matrix.

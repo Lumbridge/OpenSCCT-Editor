@@ -111,7 +111,7 @@ public sealed class Glb
             _bin.WriteByte(0);
         }
 
-        var view = new JsonObject { ["buffer"] = 0, ["byteLength"] = data.Length, ["byteOffset"] = _bin.Length, ["target"] = target };
+        var view = new JsonObject { ["buffer"] = 0, ["byteLength"] = data.Length, ["byteOffset"] = checked((int)_bin.Length), ["target"] = target };
         _bin.Write(data);
         Array("bufferViews").Add(view);
         var acc = new JsonObject
@@ -174,7 +174,7 @@ public sealed class Glb
         return _materialsByName[name];
     }
 
-    private int AddTexture(string uri)
+    public int AddTexture(string uri)
     {
         if (!_imagesByUri.TryGetValue(uri, out int image))
         {
@@ -215,7 +215,7 @@ public sealed class Glb
 
     /// <summary>A copy of a mesh that shares its accessors but carries its own COLOR_0 per primitive (null keeps the
     /// primitive's own): an instance's baked vertex light. Returns the new mesh index.</summary>
-    public int AddColorVariant(int mesh, string name, IReadOnlyDictionary<int, byte[]> colors)
+    public int AddColorVariant(int mesh, string name, IReadOnlyDictionary<int, byte[]> colors, IReadOnlyDictionary<int, float[]>? directions = null)
     {
         JsonObject copy = Array("meshes")[mesh]!.DeepClone().AsObject();
         copy["name"] = name;
@@ -224,6 +224,7 @@ public sealed class Glb
         {
             JsonObject attrs = prims[index]!["attributes"]!.AsObject();
             attrs["COLOR_0"] = AddAccessor(rgba, UnsignedByte, rgba.Length / 4, "VEC4", ArrayBuffer, normalized: true);
+            if (directions?.TryGetValue(index, out float[]? direction) == true) attrs["COLOR_1"] = AddAccessor(MemoryMarshal.AsBytes(direction.AsSpan()), Float, direction.Length / 4, "VEC4", ArrayBuffer);
         }
 
         Array("meshes").Add(copy);
@@ -347,7 +348,7 @@ public sealed class Glb
 
             var copy = view.DeepClone().AsObject();
             copy["buffer"] = 0;
-            copy["byteOffset"] = _bin.Length;
+            copy["byteOffset"] = checked((int)_bin.Length);
             _bin.Write(src._bin.GetBuffer().AsSpan(offset, length));
             Array("bufferViews").Add(copy);
             acc["bufferView"] = Count("bufferViews") - 1;

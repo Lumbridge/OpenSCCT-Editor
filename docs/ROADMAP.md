@@ -256,7 +256,7 @@ gets new `SCharacterOutfits0` / `SMatchSizeRules0` actors in the classes file; t
 existing map?" (the T3D brings its LevelInfo and builder brush), with Yes as the fallback if the MyLevel assets do not
 survive it.
 
-**Left:** prefab overrides and nesting, auto-split of big meshes, texture and sound import, an
+**Left:** prefab overrides and nesting, auto-split of big meshes, sound import, an
 outfit preview and skin presets, PSK export of outfit models for `.sdc` maps, player-count rules and outfits in the
 `.sdc` export, reading outfits changed in RE+ back from a T3D, scatter, compare with backup (`ose diff`), brush
 recovery from cooked copies, `ose pack` and `ose publish`, the stock editor and the game loading a written `.sdc`,
@@ -271,3 +271,6 @@ Suggested order, smallest useful steps first:
 2. The faithful lit viewport and the rest of M6 (the lightmapper is in).
 
 Mover workflow: see [MOVERS.md](MOVERS.md). Native paths remove the eight-stop authoring cap; the original-game exporters keep their compatibility limit.
+
+
+Texture import, advanced material editing and animated textures are available in the matching local materials packages. See [the supported feature matrix](ADVANCED-MATERIALS.md) and [acceptance coverage](ADVANCED-MATERIALS-VALIDATION.md).

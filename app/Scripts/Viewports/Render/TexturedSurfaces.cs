@@ -50,7 +50,7 @@ public sealed class TexturedSurfaces
             arrays[(int)Mesh.ArrayType.Vertex] = s.Points.ToArray();
             arrays[(int)Mesh.ArrayType.Normal] = s.Normals.ToArray();
             arrays[(int)Mesh.ArrayType.TexUV] = s.Uvs.ToArray();
-            MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays);
+            MeshUpload.AddSurface(mesh, Mesh.PrimitiveType.Triangles, arrays, m.Unlit.HasMeta("authored_displacement") && m.Unlit.GetMeta("authored_displacement").AsBool());
             materials.Add(m);
         }
 

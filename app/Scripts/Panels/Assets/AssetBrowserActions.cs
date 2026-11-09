@@ -29,6 +29,7 @@ public partial class AssetBrowserPanel
 
     private void RegisterActions()
     {
+        RegisterMaterialActions();
         bool IsSelected(AssetKind k) => Selected?.Kind == k;
         Context.AddAction(new EditorAction("assets.search", "Search Assets", "Assets", FocusSearch)
         {
@@ -118,7 +119,7 @@ public partial class AssetBrowserPanel
     /// <summary>The "more" menu of the details column: importing a mesh (and the collision it gets) and reindexing.</summary>
     private void AddMoreMenu(Control parent)
     {
-        const int import = 0, reindex = 1;
+        const int import = 0, reindex = 1, textures = 2, create = 3, edit = 4, animated = 5;
         var more = new MenuButton
         {
             ThemeTypeVariation = "IconButton",
@@ -158,10 +159,15 @@ public partial class AssetBrowserPanel
         menu.AddSubmenuNodeItem("Imported mesh collision", collision);
         menu.SetItemTooltip(menu.ItemCount - 1, "Collision an imported mesh gets: hulls of its parts (UCX_ parts kept), one hull, its box, or its own triangles");
         menu.AddSeparator();
+        menu.AddItem("Import Textures…", textures);
+        menu.AddItem("Import Animated Texture…", animated);
+        menu.AddItem("Create Material…", create);
+        menu.AddItem("Edit Material…", edit);
+        menu.AddSeparator();
         menu.AddIconItem(Icons.Get("refresh", EditorTheme.Text)!, "Refresh assets", reindex);
         menu.SetItemTooltip(menu.ItemCount - 1, "Reload the asset index and viewport meshes and textures, including external imports");
         menu.AboutToPopup += SyncCollision;
-        menu.IdPressed += id => Context.Run(id == import ? "assets.importMesh" : "assets.reindex");
+        menu.IdPressed += id => Context.Run(id switch { import => "assets.importMesh", textures => "assets.importTextures", animated => "assets.importAnimatedTexture", create => "assets.createMaterial", edit => "assets.editMaterial", _ => "assets.reindex" });
         parent.AddChild(more);
     }
 

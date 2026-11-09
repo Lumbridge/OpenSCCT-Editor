@@ -62,6 +62,8 @@ public sealed class SourcePart(string name)
 /// <summary>A source material: its base colour and the image it uses (a file, or PNG bytes embedded in a glb).</summary>
 public sealed class SourceMaterial(string name)
 {
+    public OpenScct.Content.Materials.AuthoredMaterial? Authored { get; set; }
+    public Dictionary<string, (string? File, byte[]? Bytes)> Maps { get; } = new();
     public string Name { get; } = name;
 
     public Vector3 Color { get; set; } = new(0.7f, 0.7f, 0.7f);

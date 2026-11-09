@@ -92,6 +92,8 @@ public sealed class Actor
     /// <summary>Parametric glass and its optional permanent frame, lowered at build time.</summary>
     public Windows.WindowDesign? Window { get; set; }
     public Doors.DoorDesign? Door { get; set; }
+    /// <summary>Per static-mesh primitive override; absent uses the material's collision choice.</summary>
+    public Dictionary<int, bool> DisplacementCollision { get; set; } = [];
 
     public EditorMeta Editor { get; set; } = new();
 
@@ -116,6 +118,7 @@ public sealed class Actor
         Legs = Legs,
         Window = Window?.Clone(),
         Door = Door?.Clone(),
+        DisplacementCollision = new(DisplacementCollision),
         Editor = Editor.Clone(),
         Source = Source,
     };
@@ -166,6 +169,9 @@ public static class PolyFlags
 /// <summary>One face of a brush, in the brush's local space (UE2 FPoly).</summary>
 public sealed class BrushFace
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool GeneratedDisplacement { get; set; }
+    public bool? DisplacementCollision { get; set; }
     /// <summary>Convex, coplanar, wound so the normal points out of the brush (UE2 convention: clockwise seen from outside).</summary>
     public List<Vec3> Vertices { get; set; } = new();
 
@@ -207,6 +213,8 @@ public sealed class BrushFace
     public BrushFace Clone() => new()
     {
         Vertices = new List<Vec3>(Vertices),
+        GeneratedDisplacement = GeneratedDisplacement,
+        DisplacementCollision = DisplacementCollision,
         Material = Material,
         Flags = Flags,
         TextureBase = TextureBase,

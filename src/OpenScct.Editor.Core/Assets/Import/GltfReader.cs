@@ -282,6 +282,44 @@ public static class GltfReader
                 }
             }
 
+            var authored = new OpenScct.Content.Materials.AuthoredMaterial
+            {
+                BaseColor = [sm.Color.X, sm.Color.Y, sm.Color.Z],
+                Opacity = pbr?["baseColorFactor"] is JsonArray { Count: > 3 } rgba ? rgba[3]!.GetValue<float>() : 1,
+                Surface = sm.AlphaMode == "MASK" ? "masked" : sm.AlphaMode == "BLEND" ? "translucent" : "opaque",
+                TwoSided = sm.DoubleSided, Cutoff = m["alphaCutoff"]?.GetValue<float>() ?? .5f,
+                Roughness = pbr?["roughnessFactor"]?.GetValue<float>() ?? 1,
+                Metallic = pbr?["metallicFactor"]?.GetValue<float>() ?? 1,
+                NormalStrength = m["normalTexture"]?["scale"]?.GetValue<float>() ?? 1,
+                AoStrength = m["occlusionTexture"]?["strength"]?.GetValue<float>() ?? 1,
+            };
+            if (m["emissiveFactor"] is JsonArray { Count: 3 } emissive)
+            { authored.EmissionColor = emissive.Select(v => v!.GetValue<float>()).ToArray(); authored.EmissionEnergy = authored.EmissionColor.Any(v => v > 0) ? 1 : 0; }
+            if (m["extensions"] is JsonObject extensions)
+            {
+                authored.Unlit = extensions.ContainsKey("KHR_materials_unlit");
+                authored.Clearcoat = extensions["KHR_materials_clearcoat"]?["clearcoatFactor"]?.GetValue<float>() ?? 0;
+                authored.ClearcoatGloss = 1 - (extensions["KHR_materials_clearcoat"]?["clearcoatRoughnessFactor"]?.GetValue<float>() ?? .5f);
+                authored.Anisotropy = extensions["KHR_materials_anisotropy"]?["anisotropyStrength"]?.GetValue<float>() ?? 0;
+                authored.Specular = (extensions["KHR_materials_specular"]?["specularFactor"]?.GetValue<float>() ?? 1) * .5f;
+                if (extensions["KHR_materials_specular"]?["specularColorFactor"] is JsonArray { Count: 3 } specularColor) authored.SpecularColor = specularColor.Select(c => c!.GetValue<float>()).ToArray();
+                authored.EmissionEnergy *= extensions["KHR_materials_emissive_strength"]?["emissiveStrength"]?.GetValue<float>() ?? 1;
+            }
+            void Map(string slot, JsonNode? info, string channel = "r")
+            {
+                if (info?["index"] is not JsonValue indexValue) return;
+                JsonNode? tex = Json["textures"]?[indexValue.GetValue<int>()];
+                JsonNode? sourceIndex = tex?["extensions"]?["EXT_texture_webp"]?["source"] ?? tex?["source"];
+                if (sourceIndex is not JsonValue imageIndex || Json["images"]?[imageIndex.GetValue<int>()] is not JsonObject img) return;
+                string? file = null; byte[]? data = null;
+                if (img["uri"]?.GetValue<string>() is { } uri) { data = DataUri(uri); if (data is null) file = Path.Combine(dir, Uri.UnescapeDataString(uri)); }
+                else if (img["bufferView"] is JsonValue bv) { JsonObject view = Json["bufferViews"]![bv.GetValue<int>()]!.AsObject(); data = buffers[view["buffer"]!.GetValue<int>()].AsSpan(view["byteOffset"]?.GetValue<int>() ?? 0, view["byteLength"]!.GetValue<int>()).ToArray(); }
+                sm.Maps[slot] = (file, data);
+                authored.Textures[slot] = new() { File = "pending/" + slot + ".png", Channel = channel, Srgb = slot is "baseColor" or "emission" };
+            }
+            Map("normal", m["normalTexture"]); Map("roughness", pbr?["metallicRoughnessTexture"], "g"); Map("metallic", pbr?["metallicRoughnessTexture"], "b");
+            Map("ao", m["occlusionTexture"]); Map("emission", m["emissiveTexture"]);
+            sm.Authored = authored;
             string unique = name;
             for (int n = 2; mesh.Materials.ContainsKey(unique); n++)
             {

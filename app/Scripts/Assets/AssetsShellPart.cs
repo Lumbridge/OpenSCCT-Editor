@@ -19,6 +19,7 @@ public sealed class AssetsShellPart : IShellPart
     {
         _source = AssetService.BakedSourceMap;
         window.AddChild(AssetThumbnails.Create());
+        window.AddChild(new AuthoredClock());
         context.SessionReplaced += OnSessionReplaced;
         context.ProjectChanged += _ => OnProjectChanged();
         AssetService.Instance.AssetsChanged += () =>

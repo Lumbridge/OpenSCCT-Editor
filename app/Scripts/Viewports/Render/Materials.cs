@@ -33,6 +33,15 @@ public static class ViewMaterials
             SurfaceLook look = SurfaceLook.Resolve(AssetService.Instance.Resolver, material, polyFlags);
             // An unlit material ignores lights in the lit view too.
             m = Make(look.Name, look.TextureFile, look.AlphaMode, look.TwoSided, look.Unlit, look.USize, look.VSize);
+            if (look.Library?.Flags["authored"] is { } authored)
+            {
+                foreach (StandardMaterial3D materialBase in new[] { m.Unlit, m.Lit })
+                {
+                    materialBase.SetMeta("authored_json", authored.ToJsonString());
+                    materialBase.SetMeta("authored_root", look.Library.RenderDir);
+                    materialBase.SetMeta("authored_displacement", OpenScct.Content.Materials.AuthoredMaterial.From(authored)?.Displacement != 0);
+                }
+            }
             s_surfaces[key] = m;
         }
 
@@ -42,11 +51,16 @@ public static class ViewMaterials
     /// <summary>The materials of a static mesh section (its glb material: image, alpha mode, sides).</summary>
     public static ViewMaterial Section(MeshSection s)
     {
-        string key = $"{s.Texture ?? s.Material ?? ""}|{s.AlphaMode}|{s.DoubleSided}";
+        string key = $"{s.Material}|{s.Texture}|{s.AlphaMode}|{s.DoubleSided}";
         if (!s_meshes.TryGetValue(key, out ViewMaterial? m))
         {
             bool windowUnlit = OpenScct.Editor.Core.Windows.WindowAssets.FindMaterial(s.Material ?? "")?.Flags["unlit"]?.GetValue<bool>() == true;
             m = Make(s.Material ?? "mesh", s.Texture, s.AlphaMode, s.DoubleSided, unlitOnly: windowUnlit, 1, 1);
+            if (s.Material is { } path && AssetService.Instance.Resolver.FindMaterial(path) is { } library && library.Flags["authored"] is { } definition)
+            {
+                foreach (StandardMaterial3D materialBase in new[] { m.Unlit, m.Lit })
+                { materialBase.SetMeta("authored_json", definition.ToJsonString()); materialBase.SetMeta("authored_root", library.RenderDir); materialBase.SetMeta("authored_displacement", OpenScct.Content.Materials.AuthoredMaterial.From(definition)?.Displacement != 0); }
+            }
             s_meshes[key] = m;
         }
 

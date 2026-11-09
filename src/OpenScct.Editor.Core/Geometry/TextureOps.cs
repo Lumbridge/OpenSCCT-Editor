@@ -47,7 +47,7 @@ public static class TextureOps
     /// (<c>base -= U panU / |U|^2</c>), which is exact only while U and V are square to each other; axes that are not
     /// (a texture kept through a non-uniform scale of a turned brush) are folded exactly. Square axes keep UE2's sum.
     /// </summary>
-    public static Vec3 FoldPans(Vec3 textureBase, Vec3 u, Vec3 v, int panU, int panV)
+    public static Vec3 FoldPans(Vec3 textureBase, Vec3 u, Vec3 v, double panU, double panV)
     {
         if (panU == 0 && panV == 0)
         {

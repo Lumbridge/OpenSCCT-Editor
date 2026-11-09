@@ -55,29 +55,39 @@ public sealed class OriginalExporter : IMapExporter
         }
 
         string folder = Path.GetFullPath(path).TrimEnd('\\', '/');
-        if (ClearFolder(folder) is { } refused)
+        if (ClearFolder(folder, delete: false) is { } refused)
         {
             return new ExportResult(false, [], [refused]);
         }
 
-        var writer = new Writer(project, folder, options);
+        string stage = folder + ".stage-" + Guid.NewGuid().ToString("N");
         try
         {
+            var writer = new Writer(project, folder, options, stage);
             writer.Run();
+            if (writer.Findings.Any(f => f.Severity == Severity.Error)) return new ExportResult(false, [], writer.Findings);
+            if (ClearFolder(folder) is { } conflict) return new ExportResult(false, [], [conflict]);
+            foreach (string file in writer.Files)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                File.Move(Path.Combine(stage, Path.GetRelativePath(folder, file)), file, overwrite: true);
+            }
+            File.WriteAllBytes(Path.Combine(folder, ManifestFile), CanonicalJson.ToFileBytes(Manifest(folder, writer.Files)));
+            return new ExportResult(true, writer.Files, writer.Findings);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            return new ExportResult(false, [], [Finding.Error("export.materialFailed", ex.Message + " Material conversion failed; correct the material and export again.")]);
         }
         finally
         {
-            // Also after a failure part way, so the next export can clear what this one wrote.
-            File.WriteAllBytes(Path.Combine(folder, ManifestFile), CanonicalJson.ToFileBytes(Manifest(folder, writer.Files)));
+            if (Path.GetFullPath(stage).StartsWith(folder + ".stage-", StringComparison.OrdinalIgnoreCase) && Directory.Exists(stage)) Directory.Delete(stage, recursive: true);
         }
-
-        bool ok = !writer.Findings.Any(f => f.Severity == Severity.Error);
-        return new ExportResult(ok, writer.Files, writer.Findings);
     }
 
     /// <summary>Empties the folder of an earlier export's files; refuses a folder that holds other things. Only the files
     /// the earlier export listed are deleted, one by one, and never through a link (a junction to an install).</summary>
-    private static Finding? ClearFolder(string folder)
+    private static Finding? ClearFolder(string folder, bool delete = true)
     {
         if (File.Exists(folder))
         {
@@ -116,6 +126,7 @@ public sealed class OriginalExporter : IMapExporter
             return Finding.Error("export.folder", $"{folder} is not empty and holds no earlier export (or its {ManifestFile} is damaged): pick an empty folder");
         }
 
+        if (!delete) return null;
         var folders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (string relative in files.OfType<SvJsonString>().Select(s => s.Value))
         {
@@ -174,7 +185,9 @@ public sealed class OriginalExporter : IMapExporter
     private sealed class Writer
     {
         private readonly MapProject _p;
+        private readonly MapProject _authoredSource;
         private readonly string _folder;
+        private readonly string _writeFolder;
         private readonly ExportOptions _options;
         private readonly UeSchema? _schema;
         private readonly AssetCatalog _catalog;
@@ -187,17 +200,21 @@ public sealed class OriginalExporter : IMapExporter
         // The actors <Map>-MapClasses.t3d holds, by short class and name: converted conveyors still as imported are
         // their RE+ belts there, changed ones the belts lowered from them.
         private readonly List<(string Class, string Name)> _classFile = [];
+        private string? _nativeMaterialMap;
         private readonly Dictionary<string, string> _carried = new(StringComparer.OrdinalIgnoreCase);
 
-        public Writer(MapProject p, string folder, ExportOptions options)
+        public Writer(MapProject p, string folder, ExportOptions options, string? writeFolder = null)
         {
             _p = p;
+            _authoredSource = p;
             _folder = folder;
+            _writeFolder = writeFolder ?? folder;
             _options = options;
             string? content = options.ContentRoot ?? EditorServices.ContentRoot;
             _schema = UeSchema.Load(content);
             _catalog = AssetCatalog.For(content, options.ProjectFolder);
             _resolver = LocalAssets.Resolver(p, content, options.ProjectFolder);
+            _p = LegacyMaterialBake.WithExportUvs(p, _resolver);
         }
 
         public List<string> Files { get; } = [];
@@ -212,6 +229,16 @@ public sealed class OriginalExporter : IMapExporter
         {
             _options.Progress?.Invoke("checking round-trip compatibility");
             Findings.AddRange(RoundTripLint.Check(_p, _schema, wholeMap: true, _catalog, _resolver, ProjectFolder, carriesAssets: true));
+            if (RoundTripLint.AssetRefs(_authoredSource, ProjectFolder).Any(r => _resolver.FindMaterial(r.Path)?.Flags["authored"] is JsonObject))
+            {
+                _options.Progress?.Invoke("writing the native editor copy with imported material objects");
+                var native = Interop.Sdc.SdcWriter.Write(_authoredSource, _p.Id, new Interop.Sdc.SdcWriteOptions
+                { ProjectFolder = ProjectFolder, ContentRoot = _options.ContentRoot, Schema = _schema, Layout = Interop.Sdc.SdcLayout.Editor });
+                _nativeMaterialMap = _p.Id + "-Editor.sdc";
+                Write(_nativeMaterialMap, Interop.Sdc.UPackageBuilder.Pack(native.Package));
+                Findings.AddRange(native.Findings);
+                Findings.Add(Finding.Info("export.nativeMaterials", "Open " + _nativeMaterialMap + " in RE+ to retain the imported native textures and material graphs. The T3D/DDS alternative carries a simpler base appearance."));
+            }
 
             _options.Progress?.Invoke($"writing {MapFile}");
             Dictionary<string, MapClass> own = MapClasses.Of(_p);
@@ -327,8 +354,9 @@ public sealed class OriginalExporter : IMapExporter
         private void Write(string relative, byte[] bytes)
         {
             string full = Path.Combine(_folder, relative);
-            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
-            File.WriteAllBytes(full, bytes);
+            string staged = Path.Combine(_writeFolder, relative);
+            Directory.CreateDirectory(Path.GetDirectoryName(staged)!);
+            File.WriteAllBytes(staged, bytes);
             Files.Add(full);
         }
 
@@ -390,7 +418,13 @@ public sealed class OriginalExporter : IMapExporter
         {
             bool Flag(string name) => m.Flags[name] is JsonValue v && v.TryGetValue(out bool b) && b;
             string note = string.Join(", ", new[] { Flag("two_sided") ? "two-sided" : "", Flag("unlit") ? "unlit" : "" }.Where(n => n.Length > 0));
-            AddTexture(local, png, Flag("masked") ? true : null, Flag("translucent") ? true : null, note);
+            RgbaImage? approximation = null;
+            if (OpenScct.Content.Materials.AuthoredMaterial.From(m.Flags["authored"]) is { } authored)
+            {
+                approximation = LegacyMaterialBake.Base(m);
+                foreach (string difference in LegacyMaterialBake.Differences(authored)) Findings.Add(Finding.Warning("export.materialApproximation", local + ": " + difference + "."));
+            }
+            AddTexture(local, png, Flag("masked") ? true : null, Flag("translucent") ? true : null, note, approximation);
         }
 
         /// <summary>A file under <c>Assets\&lt;kind&gt;\</c>, in folders by the asset's group so same-named assets of two
@@ -398,7 +432,7 @@ public sealed class OriginalExporter : IMapExporter
         private static string AssetFile(string kind, string group, string name, string extension) =>
             Path.Combine("Assets", kind, group.Length > 0 ? group.Replace('.', Path.DirectorySeparatorChar) : "", name + extension);
 
-        private void AddTexture(string local, string png, bool? masked, bool? blend, string note)
+        private void AddTexture(string local, string png, bool? masked, bool? blend, string note, RgbaImage? approximation = null)
         {
             if (!File.Exists(png))
             {
@@ -409,7 +443,7 @@ public sealed class OriginalExporter : IMapExporter
             RgbaImage image;
             try
             {
-                image = RgbaImage.Decode(File.ReadAllBytes(png));
+                image = approximation ?? RgbaImage.Decode(File.ReadAllBytes(png));
             }
             catch (InvalidDataException ex)
             {
@@ -525,6 +559,12 @@ public sealed class OriginalExporter : IMapExporter
             Line($"Exported by the OpenSCCT Editor on {DateTime.Now.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)}.");
             Line();
             Line("WHAT IS HERE");
+            if (_nativeMaterialMap is not null)
+            {
+                Line($"  {_nativeMaterialMap}  native editor copy with embedded textures and material graphs.");
+                Line("  For authored materials, open this SDC in RE+ and Build All, then Save As your map.");
+                Line("  The T3D/DDS steps below are an alternative; their simple diffuse textures do not retain the Shader graphs.");
+            }
             Line($"  {MapFile}  the map: LevelInfo, builder brush, brushes, actors and GEs.");
             if (hasClasses)
             {

@@ -25,6 +25,7 @@ public static class ModelJson
         o.Add("class", SvJsonNode.String(a.Class));
         if (a.Window is not null) o.Add("window", Scripting.ApiJson.Parse(a.Window.ToJson(), "window"));
         if (a.Door is not null) o.Add("door", Scripting.ApiJson.Parse(a.Door.ToJson(), "door"));
+        if (a.DisplacementCollision.Count > 0) o.Add("displacementCollision", Scripting.ApiJson.Parse(System.Text.Json.JsonSerializer.Serialize(a.DisplacementCollision), "displacementCollision"));
         o.Add("loc", Vec(a.Location));
         if (a.Rotation != Rot.Zero)
         {
@@ -196,6 +197,7 @@ public static class ModelJson
         }
 
         if (f.StairRole is not null) o.Add("stairRole", SvJsonNode.String(f.StairRole));
+        if (f.DisplacementCollision is { } displacedCollision) o.Add("displacementCollision", SvJsonNode.Bool(displacedCollision));
         if (f.ItemName is not null)
         {
             o.Add("item", SvJsonNode.String(f.ItemName));
@@ -350,6 +352,7 @@ public static class ModelJson
             Legs = MoverLegsJson.FromJson(o["legs"]),
             Window = o["window"] is SvJsonObject window ? Windows.WindowDesign.FromJson(Scripting.ApiJson.Write(window)) : null,
             Door = o["door"] is SvJsonObject door ? Doors.DoorDesign.FromJson(Scripting.ApiJson.Write(door)) : null,
+            DisplacementCollision = o["displacementCollision"] is SvJsonObject collision ? System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, bool>>(Scripting.ApiJson.Write(collision)) ?? [] : [],
             Editor = MetaFromJson(o["editor"]),
             Source = Str(o, "src"),
         };
@@ -427,6 +430,7 @@ public static class ModelJson
             LightMapScalePsx2 = o["lmScalePsx2"] is null ? null : Num(o["lmScalePsx2"]),
             ItemName = Str(o, "item"),
             StairRole = Str(o, "stairRole"),
+            DisplacementCollision = o["displacementCollision"] is null ? null : o["displacementCollision"]!.Kind == SvJsonKind.True,
             Link = o["link"] is null ? -1 : (int)Num(o["link"]),
         };
         if (o["verts"] is SvJsonArray verts)

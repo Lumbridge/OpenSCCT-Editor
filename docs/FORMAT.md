@@ -1366,3 +1366,8 @@ are derived for previews and builds. They are not additional authored objects. S
 ### Native mover paths
 
 Mover KeyPos/KeyRot and NumKeys retain the complete native path, up to 65,536 stops. Builds with more than eight stops write `sim/mover-paths.json` (`svm.mover-paths/1`) with all relative poses and the start index; the gameplay UC properties retain only an eight-key compatibility subset. The native path is authoritative on updated OpenSCCT servers and clients. SVMap import restores it. Original-game file exports refuse longer paths before writing. See [MOVERS.md](MOVERS.md).
+
+
+## Authored material data
+
+Project material flags may contain `authored`, a version 1 Godot-independent material definition. Existing flags and a basic texture fallback remain. Brush faces support optional `displacementCollision`; actors support per-section `displacementCollision` dictionaries. See [the authored material contract and limits](ADVANCED-MATERIALS.md).

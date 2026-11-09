@@ -148,7 +148,7 @@ public static class StaticMeshDrawing
                 var lines = new LineBuilder();
                 lines.Box(ObjectGeometry.Corners(mesh.Min, mesh.Max).Select(c => Space.ToGodot(MeshToWorld(a, c) - a.Location)).ToList(), color);
                 wire.Mesh = lines.Build();
-            }, gone);
+            }, gone, a);
         }
         else if (SkeletalPath(a) is { } skeletal)
         {
@@ -236,6 +236,8 @@ public static class StaticMeshDrawing
         for (int i = 0; i < mesh.Materials.Count; i++)
         {
             ViewMaterial m = mesh.Materials[i];
+            if (a.Props["Skins"] is OpenScct.Content.Json.SvJsonArray skins && i < skins.Count && PropValues.AssetPath(skins[i]) is { } replacement)
+                m = ViewMaterials.Surface(replacement, 0);
             mi.SetSurfaceOverrideMaterial(i, Rules.Flag(a, "bUnlit") ? StoreyClip.Of(m.Unlit, m.TextureFile)
                 : baked is null ? StoreyClip.Of(m.Lit, m.TextureFile) : VertexLit(m));
         }
@@ -281,7 +283,10 @@ public static class StaticMeshDrawing
             }
 
             arrays[(int)Mesh.ArrayType.Color] = colours;
-            MeshUpload.AddSurface(copy, Mesh.PrimitiveType.Triangles, arrays);
+            Mesh.ArrayFormat flags = 0;
+            if (light.Directions?.TryGetValue(mesh.Primitives[i], out float[]? direction) == true && direction.Length == count * 4)
+            { arrays[(int)Mesh.ArrayType.Custom2] = direction; flags = (Mesh.ArrayFormat)((long)Mesh.ArrayCustomFormat.RgbaFloat << (int)Mesh.ArrayFormat.FormatCustom2Shift); }
+            MeshUpload.AddSurface(copy, Mesh.PrimitiveType.Triangles, arrays, flags: flags);
             copy.SurfaceSetName(i, mesh.Mesh.SurfaceGetName(i));
         }
 
@@ -341,7 +346,7 @@ public static class StaticMeshDrawing
     }
 
     /// <summary>The mesh a static mesh actor draws with once it has loaded, else null.</summary>
-    public static LoadedMesh? Loaded(Actor a) => MeshPath(a) is { } path ? StaticMeshes.Loaded(path) : null;
+    public static LoadedMesh? Loaded(Actor a) => MeshPath(a) is { } path ? StaticMeshes.Loaded(path, a) : null;
 
     /// <summary>World bounds of a static mesh actor whose mesh has loaded, or null (the caller uses its box).</summary>
     public static (Vec3 Min, Vec3 Max)? WorldBounds(Actor a)

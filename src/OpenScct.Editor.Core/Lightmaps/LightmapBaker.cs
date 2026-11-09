@@ -169,11 +169,31 @@ public sealed class LightmapBaker
         }
 
         var texels = new float[charts.Count][];
+        var directions = scene.Directional ? new float[charts.Count][] : null;
         var windowResponse = scene.CaptureWindows && scene.TransmissionPath is not null && q.Shadows ? new WindowBakeCapture(charts, q.Faithful) : null;
         Parallel.For(0, charts.Count, new ParallelOptions { CancellationToken = cancel }, c =>
         {
             texels[c] = Compose(scene, charts[c], samples[c], buried[c], perChart[c].Select(l => (lights[l], q.Shadows ? shadows[jobIndex[(l, c)]] : null)), q, windowResponse, c);
             Dilate(texels[c], samples[c], buried[c], charts[c].Width, charts[c].Height);
+            if (directions is not null)
+            {
+                var chart = charts[c]; var data = new float[chart.Width * chart.Height * 4];
+                for (int i = 0; i < samples[c].Piece.Length; i++)
+                {
+                    if (samples[c].Piece[i] < 0 || buried[c]?[i] == true) continue;
+                    Vec3 position = chart.World(samples[c].Point[i]), vector = Vec3.Zero; double energy = 0;
+                    foreach (int l in perChart[c])
+                    {
+                        BakeLight light = lights[l]; byte[]? visibility = q.Shadows ? shadows[jobIndex[(l, c)]] : null;
+                        double weight = light.Surface(position, chart.Normal, chart.TwoSided) * (visibility is null ? 1 : visibility[i] / 255.0) * (light.Colour.X + light.Colour.Y + light.Colour.Z);
+                        if (light.OwnZoneOnly && light.Zone != chart.Pieces[samples[c].Piece[i]].Zone) continue;
+                        vector += (light.IsSun ? -light.Direction : light.Location - position).Normalized() * weight; energy += weight;
+                    }
+                    Vec3 direction = vector.Normalized(); data[i * 4] = (float)direction.X; data[i * 4 + 1] = (float)direction.Y; data[i * 4 + 2] = (float)direction.Z;
+                    data[i * 4 + 3] = (float)(energy > 1e-9 ? Math.Min(1, vector.Length / energy) : 0);
+                }
+                directions[c] = data;
+            }
         });
 
         windowResponse?.PrepareDirect(texels, samples, buried);
@@ -186,7 +206,7 @@ public sealed class LightmapBaker
         List<(int Width, int Height)> sizes = placed?.ToList() ?? AtlasPacker.Pack(charts, atlasSize);
         LastStats = new BakeStats(charts.Count, samples.Sum(s => (long)s.Covered), lights.Count, jobs.Count, cached, rays, clock.ElapsedMilliseconds);
         windowResponse?.Finish(texels, samples, buried);
-        return new LightmapResult(charts, texels, sizes, q.Faithful, LastStats) { WindowResponse = windowResponse };
+        return new LightmapResult(charts, texels, sizes, q.Faithful, LastStats) { WindowResponse = windowResponse, Directions = directions };
     }
 
     /// <summary>Records what a slot's bake used and drops every entry no slot uses any more, so the caches follow the

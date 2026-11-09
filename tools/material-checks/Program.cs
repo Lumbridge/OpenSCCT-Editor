@@ -1,0 +1,167 @@
+using System.Text.Json.Nodes;
+using OpenScct.Content.Materials;
+using OpenScct.Editor.Core.Assets;
+using OpenScct.Editor.Core.Assets.Import;
+using OpenScct.Editor.Core.Compile;
+using OpenScct.Editor.Core.Identity;
+using OpenScct.Editor.Core.Interop.Sdc;
+using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Project;
+using OpenScct.Editor.Core.Lightmaps;
+using OpenScct.Editor.Core.Services;
+using OpenScct.Editor.Core.Compile.Output;
+using OpenScct.Editor.Core.Classes;
+
+EditorServices.Discover(typeof(MapProject).Assembly); EditorServices.Classes = ClassCatalog.GeneratedOnly();
+string root = Path.GetFullPath(args.FirstOrDefault() ?? "local/material-checks");
+Directory.CreateDirectory(root);
+string folder = Path.Combine(root, "Materials.osmap");
+MapProject project = MapProject.CreateDefault("Mat01", "Material validation");
+OpenScct.Editor.Core.Geometry.Starter.AddStarterRoom(project);
+ProjectStore.Save(project, folder);
+var manifest = new JsonObject { ["format"] = ProjectAssets.Format };
+ProjectAssets.Save(folder, manifest);
+int checks = 0;
+void Check(bool ok, string label) { if (!ok) throw new InvalidOperationException(label); checks++; Console.WriteLine("PASS " + label); }
+void ImageFile(string file, byte r, byte g, byte b, byte a = 255) => File.WriteAllBytes(Path.Combine(root, file), new RgbaImage(4, 4, Enumerable.Range(0, 16).SelectMany(_ => new[] { r, g, b, a }).ToArray()).EncodePng());
+ImageFile("Stone_albedo.png", 220, 80, 20); ImageFile("Stone_normal.png", 128, 128, 255); ImageFile("Stone_orm.png", 200, 120, 255);
+var set = TextureImporter.Preview(new[] { "Stone_albedo.png", "Stone_normal.png", "Stone_orm.png" }.Select(f => Path.Combine(root, f))).Single();
+Check(set.Sources.Count == 5 && set.Material.Textures["metallic"].Channel == "b", "A texture set groups albedo, normal and ORM channels");
+Check(set.Material.Textures["baseColor"].Srgb && !set.Material.Textures["normal"].Srgb, "Colour and data bindings use different transfer functions");
+var imported = TextureImporter.Import(folder, set);
+Check(imported.Path == "MyLevel.Textures.Stone", "Imported material has a map-local path");
+var catalog = AssetCatalog.For(null, folder);
+Check(catalog.Find(AssetKind.Material, imported.Path) is not null && catalog.Find(AssetKind.Texture, imported.Path) is not null, "Both asset tabs expose an imported material");
+Check(catalog.SurfaceMaterial(catalog.Find(AssetKind.Texture, imported.Path)!) == imported.Path, "An imported texture resolves to its surface material");
+Check(TextureImporter.Import(folder, set).Path == imported.Path + "_2", "Default conflicts keep both materials");
+string before = ProjectAssets.For(folder).Manifest.ToJsonString();
+Check(TextureImporter.Import(folder, set, conflict: TextureConflict.Skip).Skipped, "Skip leaves the existing material alone");
+Check(ProjectAssets.For(folder).Manifest.ToJsonString() == before, "Skip does not change the manifest");
+var replacement = TextureImporter.Preview([Path.Combine(root, "Stone_albedo.png")]).Single(); replacement.Material.Roughness = .2f;
+TextureImporter.Import(folder, replacement, conflict: TextureConflict.Replace);
+Check(AuthoredMaterial.From(ProjectAssets.For(folder).FindMaterial(imported.Path)!.Flags["authored"])!.Roughness == .2f, "Replace updates the same material identity");
+var bad = new TextureSetDraft { Name = "Bad" }; bad.Sources["baseColor"] = Path.Combine(root, "missing.png"); bad.Material.Textures["baseColor"] = new() { File = "pending.png" };
+before = ProjectAssets.For(folder).Manifest.ToJsonString();
+try { TextureImporter.Import(folder, bad); Check(false, "Missing input should fail"); } catch (FileNotFoundException) { Check(ProjectAssets.For(folder).Manifest.ToJsonString() == before, "Failed import preserves existing assets"); }
+using (var cancelled = new CancellationTokenSource()) { cancelled.Cancel(); try { TextureImporter.Import(folder, set, cancellation: cancelled.Token); Check(false, "Canceled import should stop"); } catch (OperationCanceledException) { Check(ProjectAssets.For(folder).Manifest.ToJsonString() == before, "Cancellation preserves the manifest"); } }
+foreach ((string name, byte red) in new[] { ("frame1.png", (byte)10), ("frame2.png", (byte)90), ("frame10.png", (byte)240) }) ImageFile(name, red, 0, 0);
+var sequence = TextureImporter.PreviewSequence(new[] { "frame10.png", "frame2.png", "frame1.png" }.Select(f => Path.Combine(root, f)).ToList());
+var atlas = RgbaImage.Decode(sequence.Generated["baseColor"]);
+Check(atlas.Pixels[0] == 10 && atlas.Pixels[4 * 4] == 90 && atlas.Pixels[4 * 8 * 4] == 240, "Animation frames use natural numeric ordering");
+Check(sequence.Material.Animation.Frames == 3 && sequence.Material.Animation.Columns == 2, "Frame import records the atlas layout");
+var animation = sequence.Material.Animation; animation.Fps = 1;
+Check(animation.Frame(0) == 0 && animation.Frame(2) == 2 && animation.Frame(3) == 0, "Looping uses the shared scene-clock timeline");
+animation.PingPong = true; Check(animation.Frame(3) == 1 && animation.Frame(4) == 0, "Ping-pong omits duplicated endpoints");
+animation.Loop = false; Check(animation.Frame(99) == 0, "Non-looping ping-pong returns to its first frame");
+byte[] precise = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABEAAAAACB2fwVAAAADUlEQVR4nGNoYGhgBAADBgECbrQtWwAAAABJRU5ErkJggg==");
+var dataImage = new MaterialImage(precise); double low = dataImage.Sample(.25, .5, new()), high = dataImage.Sample(.75, .5, new());
+Check(Math.Abs(high - low - 1.0 / 65535) < 1e-10, "Height sampling retains the low bits of 16-bit PNGs");
+var preciseGpu = PngData.Read16(precise)!;
+Check(preciseGpu.Width == 2 && Math.Abs(preciseGpu.Rgba[4] - preciseGpu.Rgba[0] - 1f / 65535) < 1e-7, "The shared runtime PNG decoder retains 16-bit height differences");
+File.WriteAllBytes(Path.Combine(root, "Relief_height.png"), precise);
+var height = TextureImporter.Preview([Path.Combine(root, "Relief_height.png")]).Single(); height.Material.Displacement = 64; height.Material.Subdivision = 2;
+var heightResult = TextureImporter.Import(folder, height);
+var heightMaterial = ProjectAssets.For(folder).FindMaterial(heightResult.Path)!;
+Check(File.ReadAllBytes(Path.Combine(folder, "assets", AuthoredMaterial.From(heightMaterial.Flags["authored"])!.Textures["height"].File)).SequenceEqual(precise), "Import preserves the source height-map bytes");
+var surface = new Surface { BrushId = "test", FaceIndex = 0, Material = heightResult.Path, TextureU = Vec3.UnitX, TextureV = Vec3.UnitY };
+var poly = new Poly([new(0, 0, 0), new(256, 0, 0), new(256, 256, 0), new(0, 256, 0)], new Plane3(Vec3.UnitZ, 0), surface);
+var generator = new MaterialDisplacement(AssetResolver.For(null, folder)); var tris = generator.Expand(poly).ToList();
+Check(tris.Count == 32 && tris.SelectMany(p => p.Verts).Any(v => v.Z > 0), "Subdivision creates raised render geometry");
+Check(tris.SelectMany(p => p.Verts).Where(v => v.X == 0 || v.Y == 0 || v.X == 256 || v.Y == 256).All(v => v.Z == 0), "Patch boundaries remain watertight");
+Check(generator.Expand(poly).SelectMany(p => p.Verts).SequenceEqual(tris.SelectMany(p => p.Verts)), "Displacement is deterministic");
+var invalid = new AuthoredMaterial { Subdivision = 99 }; Check(invalid.Problems().Count > 0, "Unsupported subdivision is rejected");
+invalid = new() { Displacement = 1, Animation = new() { Frames = 2, Columns = 2 } }; Check(invalid.Problems().Count > 0, "Animated geometry cannot silently diverge from collision");
+invalid = new(); invalid.Textures["normal"] = new() { File = "../outside.png" }; Check(invalid.Problems().Count > 0, "Texture references cannot escape the project");
+TextureImporter.Import(folder, set, conflict: TextureConflict.Replace);
+foreach (Brush brush in project.Brushes) foreach (BrushFace face in brush.Shape.Faces) face.Material = imported.Path;
+ProjectStore.Save(project, folder);
+foreach (SdcLayout layout in Enum.GetValues<SdcLayout>())
+{
+    SdcWriteResult written = SdcWriter.Write(project, "MatTest", new() { ProjectFolder = folder, Layout = layout, UseSource = false });
+    UPackage package = UPackage.Parse("MatTest", written.Package, 1);
+    var texture = package.Exports.FirstOrDefault(e => package.PathOf(e.Index + 1) == "MatTest.Textures.Stone");
+    Check(texture is not null && package.ClassName(texture) == "Texture", layout + " embeds the material as a real Engine.Texture");
+    File.WriteAllBytes(Path.Combine(root, "MatTest-" + layout + ".sdc"), UPackageBuilder.Pack(written.Package));
+    Check(!written.Findings.Any(f => f.Code == "sdc.unresolved" && f.Message.Contains(imported.Path)), layout + " resolves custom material references");
+}
+ImageFile("Raised_height.png", 255, 255, 255);
+var raised = TextureImporter.Preview([Path.Combine(root, "Raised_height.png")]).Single(); raised.Material.Displacement = 32; raised.Material.Subdivision = 2; raised.Material.HeightMidpoint = 0;
+var raisedResult = TextureImporter.Import(folder, raised);
+project.Brushes[0].Shape.Faces[0].Material = raisedResult.Path;
+project.Brushes[0].Shape.Faces[0].DisplacementCollision = true;
+int originalFaces = project.Brushes[0].Shape.Faces.Count;
+var lowered = new MaterialDisplacement(AssetResolver.For(null, folder)).CollisionProject(project);
+Check(lowered.Brushes[0].Shape.Faces.Count > originalFaces && project.Brushes[0].Shape.Faces.Count == originalFaces, "Displaced collision lowers a copy and preserves the editable brush");
+Check(lowered.Brushes[0].Shape.Faces.Any(f => f.GeneratedDisplacement), "Collision faces record that displacement was already applied");
+ProjectStore.Save(project, folder);
+Check(ProjectStore.Load(folder).Brushes[0].Shape.Faces[0].DisplacementCollision == true, "Per-surface collision choice survives save and reopen");
+try { SdcWriter.Write(project, "MatTest", new() { ProjectFolder = folder, UseSource = false }); Check(false, "Displaced collision must not silently flatten in SDC"); }
+catch (SdcWriteRefusedException) { Check(true, "Legacy export refuses an unsupported gameplay-collision change"); }
+project.Brushes[0].Shape.Faces[0].DisplacementCollision = false;
+Check(ReferenceEquals(new MaterialDisplacement(AssetResolver.For(null, folder)).CollisionProject(project), project), "A surface can explicitly keep original collision");
+var quad = Glb.Create("material checks");
+int quadMaterial = quad.AddMaterial(imported.Path, "white.png", false, null);
+int quadMesh = quad.AddMesh("relief", [new Glb.MeshPart([-1,-1,0, 1,-1,0, 1,1,0, -1,1,0], [0,0,1, 0,0,1, 0,0,1, 0,0,1], [0,0, 1,0, 1,1, 0,1], [.1f,.1f, .9f,.1f, .9f,.9f, .1f,.9f], Enumerable.Repeat((byte)255, 16).ToArray(), [0,1,2,0,2,3], quadMaterial)]);
+var meshActor = new Actor("ReliefMesh", "Engine.StaticMeshActor"); meshActor.Props["Skins"] = new OpenScct.Content.Json.SvJsonArray([PropValues.AssetRef(raisedResult.Path)]); meshActor.DisplacementCollision[0] = true;
+var overrideMesh = AuthoredMeshGeometry.WithSkins(quad, meshActor, quadMesh);
+var meshResolver = AssetResolver.For(null, folder);
+var renderRelief = AuthoredMeshGeometry.Prepare(overrideMesh, meshResolver, false, meshActor);
+var physicalRelief = AuthoredMeshGeometry.Prepare(overrideMesh, meshResolver, true, meshActor);
+Check(renderRelief.ReadUePrimitives(quadMesh)[0].Positions.Length == 96 && renderRelief.ReadUePrimitives(quadMesh)[0].Positions.Any(p => p.Y > 0), "Mesh section overrides create displaced render geometry");
+Check(renderRelief.ReadUePrimitives(quadMesh)[0].Positions.SequenceEqual(physicalRelief.ReadUePrimitives(quadMesh)[0].Positions), "Physical mesh relief uses the identical final vertex shape");
+Check(renderRelief.Array("meshes")[0]!["primitives"]![0]!["attributes"]?["TEXCOORD_1"] is not null && renderRelief.ReadUePrimitives(quadMesh)[0].ColorAccessor >= 0, "Tessellation preserves secondary UVs and vertex colours");
+meshActor.DisplacementCollision[0] = false;
+Check(AuthoredMeshGeometry.Prepare(overrideMesh, meshResolver, true, meshActor).ReadUePrimitives(quadMesh)[0].Positions.Length == 4, "Per-section visual-only choice keeps flat mesh collision");
+project.Actors.Add(meshActor); ProjectStore.Save(project, folder);
+Check(ProjectStore.Load(folder).FindActor(meshActor.Id)!.DisplacementCollision[0] == false, "Per-mesh-section collision choice survives save and reopen"); project.Actors.Remove(meshActor);
+var source = ProjectStore.Load(folder); var session = new OpenScct.Editor.Core.Session.EditorSession(source, folder); string saveAs = Path.Combine(root, "SavedAs.osmap"); session.Save(saveAs);
+Check(File.ReadAllBytes(Path.Combine(saveAs, "assets", AuthoredMaterial.From(ProjectAssets.For(saveAs).FindMaterial(heightResult.Path)!.Flags["authored"])!.Textures["height"].File)).SequenceEqual(precise), "Save As takes authored maps and full precision source images with it");
+var failedProject = OpenScct.Editor.Core.Session.ProjectSnapshot.Take(project); failedProject.Brushes[0].Shape.Faces[0].DisplacementCollision = true;
+string originalFolder = Path.Combine(root, "original-preserved"); Directory.CreateDirectory(originalFolder); File.WriteAllText(Path.Combine(originalFolder, "previous.txt"), "Keep me"); File.WriteAllText(Path.Combine(originalFolder, "openscct-export.json"), "{\"format\":\"osmap.export/1\",\"files\":[\"previous.txt\"]}");
+var refusedFolder = new OpenScct.Editor.Core.Interop.Original.OriginalExporter().Export(failedProject, originalFolder, new ExportOptions { ProjectFolder = folder });
+Check(!refusedFolder.Ok && File.ReadAllText(Path.Combine(originalFolder, "previous.txt")) == "Keep me", "Original-editor conversion failure preserves previous output files");
+var emitter = new BakeLight { Id = "emitter", Location = new(2, 2, 16), EmissionNormal = -Vec3.UnitZ, EmissionColour = new(1, .2, .1), EmissionArea = 16, LightRadius = 64 };
+Check(emitter.Surface(new(2, 2, 0), Vec3.UnitZ, false) > 0 && emitter.Surface(new(2, 2, 32), -Vec3.UnitZ, false) == 0, "Emissive surfaces illuminate their front hemisphere");
+Check(emitter.Vertex(new(2,2,0), Vec3.UnitZ) > 0 && emitter.Vertex(new(2,2,32), -Vec3.UnitZ) == 0, "Static-mesh receivers use the emissive hemisphere and area falloff too");
+LightmapChart Chart() => new LightmapChart { Origin = Vec3.Zero, StepU = Vec3.UnitX * 8, StepV = Vec3.UnitY * 8, Normal = Vec3.UnitZ, Width = 4, Height = 4,
+    Pieces = [new ChartPiece([new(0, 0), new(4, 0), new(4, 4), new(0, 4)], 0)] }.Seal();
+LightmapResult Bake(bool blocked)
+{
+    var blockers = blocked ? new List<OccluderTriangle> { new(new(-100, -100, 8), new(100, -100, 8), new(100, 100, 8), OccluderFlags.None, 0), new(new(-100, -100, 8), new(100, 100, 8), new(-100, 100, 8), OccluderFlags.None, 1) } : [];
+    return new LightmapBaker().Bake(new BakeScene { Charts = [Chart()], Lights = [emitter], Occluders = TriangleBvh.Build(blockers), Ambient = _ => Vec3.Zero, Directional = true }, new BakeQuality { Shadows = true, Samples = 1 }, 64);
+}
+var bright = Bake(false); var shadowed = Bake(true);
+Check(bright.Texels[0].Sum() > 0 && shadowed.Texels[0].Sum() < bright.Texels[0].Sum() * .01, "Baked emissive illumination respects opaque occluders");
+Check(bright.Directions is not null && bright.DirectionPng(0).Length > 0, "Directional light data accompanies an authored bake");
+var compiled = new MapCompiler().Compile(project, Path.Combine(root, "compiled"), new CompileOptions { ProjectFolder = folder, FastLighting = true, Validate = false, WriteClassTable = false });
+Check(compiled.Ok, "Authored materials compile into an SVMap: " + string.Join("; ", compiled.Findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));
+string compiledMaterials = File.ReadAllText(Path.Combine(root, "compiled", "render", "materials.json"));
+Check(compiledMaterials.Contains("authored", StringComparison.Ordinal) && compiledMaterials.Contains("authored_direction", StringComparison.Ordinal), "Compiled render material data carries authored properties and directional lighting");
+var repeat = new MapCompiler().Compile(project, Path.Combine(root, "compiled-repeat"), new CompileOptions { ProjectFolder = folder, FastLighting = true, Validate = false, WriteClassTable = false });
+Check(repeat.Ok && Directory.GetFiles(Path.Combine(root, "compiled", "sim"), "*", SearchOption.AllDirectories).Where(f => !f.EndsWith("manifest.json")).All(f => File.ReadAllBytes(f).SequenceEqual(File.ReadAllBytes(Path.Combine(root, "compiled-repeat", Path.GetRelativePath(Path.Combine(root, "compiled"), f))))), "Repeated compilation produces identical shared server/client simulation content");
+Check(File.ReadAllBytes(Path.Combine(root, "compiled/render/world.glb")).SequenceEqual(File.ReadAllBytes(Path.Combine(root, "compiled-repeat/render/world.glb"))), "Generated render geometry and lightmaps are deterministic");
+var tint = new TextureSetDraft { Name = "Tint", Material = new AuthoredMaterial { BaseColor = [.25f, .25f, .25f], Surface = "translucent", Opacity = .4f } };
+var tinted = TextureImporter.Import(folder, tint);
+var tintedLibrary = ProjectAssets.For(folder).FindMaterial(tinted.Path)!; var fallbackImage = RgbaImage.Decode(File.ReadAllBytes(Path.Combine(tintedLibrary.RenderDir, tintedLibrary.Texture!)));
+Check(fallbackImage.Pixels[0] is >= 136 and <= 138 && fallbackImage.Pixels[3] == 102, "Basic-reader fallback includes linear tint and opacity");
+var glow = new TextureSetDraft { Name = "Glow", Material = new AuthoredMaterial { EmissionEnergy = 2, EmissionColor = [0, 1, 0], BakeEmission = true } };
+var glowing = TextureImporter.Import(folder, glow);
+var legacyGlow = OpenScct.Editor.Core.Session.ProjectSnapshot.Take(project); foreach (var face in legacyGlow.Brushes.SelectMany(b => b.Shape.Faces)) { face.Material = glowing.Path; face.DisplacementCollision = false; }
+foreach (SdcLayout layout in Enum.GetValues<SdcLayout>())
+{
+    var written = SdcWriter.Write(legacyGlow, "MatGlow", new() { ProjectFolder = folder, Layout = layout, UseSource = false });
+    var package = UPackage.Parse("MatGlow", written.Package, 1);
+    Check(package.Exports.Any(e => package.ClassName(e) == "Shader" && package.PathOf(e.Index + 1) == "MatGlow.Textures.Glow") && package.Exports.Any(e => package.PathOf(e.Index + 1).EndsWith("Glow_EmissionMask", StringComparison.Ordinal)), layout + " carries native emissive Shader and mask objects");
+    File.WriteAllBytes(Path.Combine(root, "MatGlow-" + layout + ".sdc"), UPackageBuilder.Pack(written.Package));
+}
+var folderExport = new OpenScct.Editor.Core.Interop.Original.OriginalExporter().Export(legacyGlow, Path.Combine(root, "original-handoff"), new ExportOptions { ProjectFolder = folder });
+Check(folderExport.Ok && File.Exists(Path.Combine(root, "original-handoff", project.Id + "-Editor.sdc")), "Original-editor export folder carries the same native material conversion: " + string.Join(';', folderExport.Findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));
+Check(OpenScct.Editor.Core.Interop.Original.DdsFile.PowerOfTwo(1) == 4, "Native compressed textures have a Direct3D-compatible 4x4 minimum base level");
+Directory.CreateDirectory(Path.Combine(folder, "assets/meshes")); File.WriteAllBytes(Path.Combine(folder, "assets/meshes/Probe.glb"), quad.ToBytes(null));
+var meshAssets = ProjectAssets.For(folder).Edit(); (meshAssets["meshes"] ??= new JsonObject())["MyLevel.Meshes.Probe"] = new JsonObject { ["file"] = "meshes/Probe.glb", ["mesh"] = quadMesh }; ProjectAssets.Save(folder, meshAssets);
+var meshProject = OpenScct.Editor.Core.Session.ProjectSnapshot.Take(project); meshProject.Actors.Add(AssetEdits.MeshActor(meshProject, "MyLevel.Meshes.Probe", new(0,0,200)));
+meshProject.Actors.First(a => a.Class == "Engine.Light").Location = new(0,256,300);
+var meshCompile = new MapCompiler().Compile(meshProject, Path.Combine(root, "compiled-mesh"), new CompileOptions { ProjectFolder = folder, FastLighting = true, Validate = false, WriteClassTable = false });
+Check(meshCompile.Ok && Glb.Load(File.ReadAllBytes(Path.Combine(root, "compiled-mesh/render/world.glb"))).Array("meshes").Any(m => m?["primitives"]?.AsArray().Any(p => p?["attributes"]?["COLOR_1"] is not null) == true), "Compiled authored static meshes carry directional baked light independently of vertex irradiance");
+ProjectStore.Save(project, folder);
+Console.WriteLine($"Passed {checks} material checks. Fixture: {folder}");

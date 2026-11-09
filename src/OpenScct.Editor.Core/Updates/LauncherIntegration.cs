@@ -9,7 +9,7 @@ public static class LauncherIntegration
 {
     public const int Protocol = 1;
     public const string ManagedMark = ".launcher-managed";
-    public const string MinimumGameVersion = "0.8.117";
+    public const string MinimumGameVersion = "0.8.120-materials.1";
 
     public static bool IsManaged(string install) => File.Exists(Path.Combine(install, ManagedMark));
 

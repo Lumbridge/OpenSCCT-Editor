@@ -111,6 +111,7 @@ public sealed class SdcExporter : IMapExporter
         options.Progress?.Invoke($"writing {Path.GetFileName(path)} ({layout.ToString().ToLowerInvariant()} copy)");
         var writeOptions = new SdcWriteOptions
         {
+            ProjectFolder = options.ProjectFolder,
             Layout = layout,
             Schema = schema,
             ContentRoot = options.ContentRoot,
@@ -125,6 +126,11 @@ public sealed class SdcExporter : IMapExporter
         catch (SdcWriteRefusedException ex)
         {
             findings.Add(Finding.Error("sdc.refused", ex.Message));
+            return new ExportResult(false, [], findings);
+        }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or UnauthorizedAccessException)
+        {
+            findings.Add(Finding.Error("sdc.materialFailed", "Material export failed: " + ex.Message));
             return new ExportResult(false, [], findings);
         }
 

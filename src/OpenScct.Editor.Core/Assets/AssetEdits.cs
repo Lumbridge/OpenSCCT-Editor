@@ -14,6 +14,25 @@ public static class AssetEdits
     /// <summary>The class a placed mesh gets.</summary>
     public const string MeshActorClass = "Engine.StaticMeshActor";
 
+    public static ReplaceObjectsCommand? ApplyMeshMaterial(MapProject project, IEnumerable<ObjectRef> references, string material, AssetResolver resolver, int section = -1, bool? displacedCollision = null)
+    {
+        var refs = references.Where(r => r.Kind == ObjectKind.Actor && project.FindActor(r.Id) is { } a && PropValues.AssetPath(a.Props["StaticMesh"]) is { } path && resolver.FindMesh(path) is not null).ToList();
+        if (refs.Count == 0) return null;
+        return ReplaceObjectsCommand.Edit(project, refs, "Apply mesh material", actor: actor =>
+        {
+            var mesh = resolver.FindMesh(PropValues.AssetPath(actor.Props["StaticMesh"])!)!;
+            int count = resolver.Glb(mesh.GlbPath).ReadUePrimitives(mesh.Mesh).Count;
+            var skins = actor.Props["Skins"] is SvJsonArray existing ? existing.ToList() : new List<SvJsonNode>();
+            while (skins.Count < count) skins.Add(SvJsonNode.Null);
+            for (int i = 0; i < count; i++) if (section < 0 || i == section)
+            {
+                skins[i] = PropValues.AssetRef(material);
+                if (displacedCollision is bool collision) actor.DisplacementCollision[i] = collision; else actor.DisplacementCollision.Remove(i);
+            }
+            actor.Props["Skins"] = new SvJsonArray(skins);
+        });
+    }
+
     /// <summary>Sets every face of the given brushes to <paramref name="material"/> (one undo step). Null when no
     /// brush is among <paramref name="refs"/>.</summary>
     public static ReplaceObjectsCommand? ApplyMaterial(MapProject project, IEnumerable<ObjectRef> refs, string material)

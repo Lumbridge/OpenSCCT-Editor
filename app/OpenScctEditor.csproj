@@ -21,6 +21,10 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Use the same simulation and particle geometry as the game, without its full scene or render pipeline. -->
+    <Compile Include="$(OpenScctDir)game/Scripts/Render/Materials/AuthoredMaterialBinding.cs" Link="Shared/AuthoredMaterialBinding.cs" />
+    <Compile Include="$(OpenScctDir)game/Scripts/Render/Materials/AuthoredTextureImage.cs" Link="Shared/AuthoredTextureImage.cs" />
+    <Compile Include="$(OpenScctDir)game/Scripts/Render/Materials/AuthoredMeshLods.cs" Link="Shared/AuthoredMeshLods.cs" />
+    <EmbeddedResource Include="$(OpenScctDir)game/Shaders/svm_authored.gdshaderinc" LogicalName="AuthoredMaterialShader" />
     <Compile Include="$(OpenScctDir)game\Scripts\Render\Characters\StudioPoseBridge.cs" Link="Shared\Animation\StudioPoseBridge.cs" />
     <Compile Include="$(OpenScctDir)game\Scripts\Views\SpyFirstPersonRig.cs" Link="Shared\Animation\SpyFirstPersonRig.cs" />
     <Compile Include="$(OpenScctDir)game\Scripts\Render\Characters\FirstPersonFraming.cs" Link="Shared\Animation\FirstPersonFraming.cs" />
