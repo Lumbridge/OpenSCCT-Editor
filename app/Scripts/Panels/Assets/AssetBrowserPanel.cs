@@ -131,7 +131,7 @@ public partial class AssetBrowserPanel : EditorPanel
         _origin = PanelUi.Options(bar, "Where the assets come from: this map (MyLevel), shared content or a converted map");
         _origin.CustomMinimumSize = new Vector2(EditorTheme.NumberFieldWidth + EditorTheme.SpaceXxl, 0);
         _origin.ItemSelected += _ => KindChanged();
-        _inMap = PanelUi.Toggle(bar, "In this map", "Only the assets this map uses", false, _ => _rebuild.Queue());
+        _inMap = PanelUi.Toggle(bar, "In this map", "Assets imported into this project, plus library assets referenced by the map", false, _ => _rebuild.Queue());
         PanelUi.Button(bar, "Get Packs…", "Download asset libraries from OpenSCCT-Content", () => ContentPacksPart.Open());
         PanelUi.Button(bar, "Import Textures…", "Import a texture set and create a material", () => Context.Run("assets.importTextures"));
         PanelUi.Button(bar, "Create Material…", "Create a material with texture slots and a live preview", () => Context.Run("assets.createMaterial"));
@@ -420,8 +420,7 @@ public partial class AssetBrowserPanel : EditorPanel
             return list;
         }
 
-        Dictionary<string, int> used = AssetEdits.InUse(Context.Project);
-        return list.Where(e => used.ContainsKey(e.Path) || used.ContainsKey(AssetPaths.Short(e.Path)));
+        return AssetEdits.InMap(list, Context.Project);
     }
 
     /// <summary>Over an empty grid: why it is empty (the index still loading, a search with no match and where it
@@ -456,7 +455,7 @@ public partial class AssetBrowserPanel : EditorPanel
 
         if (_inMap.ButtonPressed)
         {
-            narrowed.Add("used in this map");
+            narrowed.Add("owned or used by this map");
         }
 
         string only = narrowed.Count > 0 ? $"Showing only assets {string.Join(", ", narrowed)}. " : "";

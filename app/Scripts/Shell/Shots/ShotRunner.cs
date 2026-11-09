@@ -33,7 +33,7 @@ public sealed partial class ShotRunner : Node, IShellPart
     {
         ["shot"] = ["name", "caption", "crop", "views"],
         ["wait"] = ["idle", "seconds"],
-        ["size"] = ["w", "h"],
+        ["size"] = ["w", "h", "window"],
         ["scale"] = ["factor"],
         ["open"] = ["path"],
         ["run"] = ["action"],
@@ -298,9 +298,13 @@ public sealed partial class ShotRunner : Node, IShellPart
     private async Task Size(SvJsonObject step)
     {
         var size = new Vector2I((int)ApiJson.Number(step, "w", 1600), (int)ApiJson.Number(step, "h", 900));
-        BackgroundWindow.Resize(size);
+        string? name = ApiJson.GetString(step, "window");
+        Window window = name is null ? GetTree().Root : GetTree().Root.FindChild(name, true, false) as Window
+            ?? throw new ApiException($"no window named {name}");
+        if (name is null) BackgroundWindow.Resize(size);
+        else window.PopupCentered(size);
         await _driver.Frames(4);
-        Vector2I real = GetTree().Root.Size;
+        Vector2I real = window.Size;
         if (real != size)
         {
             throw new ApiException($"the window is {real.X}x{real.Y}, not the {size.X}x{size.Y} asked for (Windows limits a window to the desktop size)");

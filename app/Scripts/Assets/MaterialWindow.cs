@@ -48,31 +48,34 @@ public partial class MaterialWindow : AcceptDialog
     {
         _folder = folder; _session = Context.Session; _drafts = drafts.ToList(); _imported = imported; _existing = existing;
         Title = existing is null ? "Import Textures & Create Materials" : "Edit Material";
-        Name = "MaterialAuthoring"; Exclusive = false; Unresizable = false; MinSize = new(900, 650);
+        Name = "MaterialAuthoring"; Exclusive = false; Transient = true; Unresizable = false; MinSize = new(900, 650);
         OkButtonText = existing is null ? "Import Materials" : "Save Material";
         DialogHideOnOk = false;
         AddCancelButton("Cancel");
-        var body = new VBoxContainer { CustomMinimumSize = new(1040, 700) }; AddChild(body);
-        var row = new HBoxContainer(); body.AddChild(row);
+        var body = new VBoxContainer { Name = "MaterialBody", CustomMinimumSize = new(860, 540), SizeFlagsVertical = Control.SizeFlags.ExpandFill }; AddChild(body);
+        var row = new HBoxContainer { Name = "MaterialColumns", SizeFlagsVertical = Control.SizeFlags.ExpandFill }; body.AddChild(row);
         _sets.CustomMinimumSize = new(170, 0); _sets.SizeFlagsVertical = Control.SizeFlags.ExpandFill; row.AddChild(_sets);
         foreach (TextureSetDraft draft in _drafts) _sets.AddItem(draft.Name);
         _sets.ItemSelected += i => { StoreName(); _current = (int)i; BuildProperties(); };
-        var middle = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; row.AddChild(middle);
+        var middle = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, SizeFlagsStretchRatio = 2 }; row.AddChild(middle);
         var header = new HBoxContainer(); middle.AddChild(header);
         header.AddChild(new Label { Text = "Name" }); _name.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; header.AddChild(_name);
         header.AddChild(new Label { Text = "Group" }); _group.CustomMinimumSize = new(130, 0); header.AddChild(_group);
         foreach (string c in new[] { "Keep both (unique name)", "Replace existing", "Skip existing" }) _conflict.AddItem(c);
         _conflict.TooltipText = "Replacing a material updates all surfaces already using it."; middle.AddChild(_conflict);
         middle.AddChild(_enabled); _enabled.Toggled += value => { if (!_building) Current.Enabled = value; };
-        var scroll = new ScrollContainer { SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(450, 500) };
+        var colourDefaults = new Button { Text = "Use recommended colour spaces", TooltipText = "Use sRGB for colour/emission/environment images and linear data for normal, height, roughness and masks. Save commits this change with Undo support." };
+        colourDefaults.Pressed += () => { foreach (var entry in Current.Material.Textures) entry.Value.Srgb = entry.Key is "baseColor" or "emission" or "detailColor" or "environment"; BuildProperties(); };
+        middle.AddChild(colourDefaults);
+        var scroll = new ScrollContainer { Name = "MaterialProperties", SizeFlagsVertical = Control.SizeFlags.ExpandFill, CustomMinimumSize = new(360, 300) };
         _properties.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill; scroll.AddChild(_properties); middle.AddChild(scroll);
-        var right = new VBoxContainer { CustomMinimumSize = new(330, 0) }; row.AddChild(right);
-        var viewportContainer = new SubViewportContainer { Stretch = true, CustomMinimumSize = new(330, 330), SizeFlagsVertical = Control.SizeFlags.ExpandFill };
+        var right = new VBoxContainer { CustomMinimumSize = new(260, 0), SizeFlagsHorizontal = Control.SizeFlags.ExpandFill }; row.AddChild(right);
+        var viewportContainer = new SubViewportContainer { Name = "MaterialPreview", Stretch = true, CustomMinimumSize = new(250, 250), SizeFlagsVertical = Control.SizeFlags.ExpandFill };
         var viewport = new SubViewport { Size = new(330, 380), OwnWorld3D = true, RenderTargetUpdateMode = SubViewport.UpdateMode.Always, TransparentBg = false };
         viewportContainer.AddChild(viewport); right.AddChild(viewportContainer);
         var world = new Node3D(); viewport.AddChild(world);
         world.AddChild(new WorldEnvironment { Environment = new Godot.Environment { BackgroundMode = Godot.Environment.BGMode.Color, BackgroundColor = new(0.12f, 0.12f, 0.14f), AmbientLightSource = Godot.Environment.AmbientSource.Color, AmbientLightColor = Colors.White, AmbientLightEnergy = 0.3f } });
-        var camera = new Camera3D { Position = new(0, 0, 3.0f), Current = true }; world.AddChild(camera);
+        var camera = new Camera3D { Position = new(0, 0, 3.0f), Fov = 45, KeepAspect = Camera3D.KeepAspectEnum.Width, Current = true }; world.AddChild(camera);
         _mesh.Mesh = new SphereMesh { Radius = 0.8f, Height = 1.6f, RadialSegments = 48, Rings = 32 }; world.AddChild(_mesh); world.AddChild(_light);
         var shapes = new OptionButton(); foreach (string s in new[] { "Sphere", "Cube", "Plane", "Current selection" }) shapes.AddItem(s);
         shapes.ItemSelected += i => { _selectionTriangles = 0; _mesh.Mesh = i switch { 1 => new BoxMesh { Size = Vector3.One * 1.4f }, 2 => new QuadMesh { Size = Vector2.One * 1.8f }, 3 => MaterialSelectionPreview.Build(out _selectionTriangles), _ => new SphereMesh { Radius = .8f, Height = 1.6f } }; RefreshPreview(); }; right.AddChild(shapes);
@@ -125,7 +128,7 @@ public partial class MaterialWindow : AcceptDialog
                 if (slot == "roughness") Current.Material.Roughness = 1;
                 if (slot == "emission" && Current.Material.EmissionEnergy == 0) Current.Material.EmissionEnergy = 1;
                 BuildProperties();
-            });
+            }, owner: this);
             var remove = new Button { Text = "×", TooltipText = "Remove map assignment" }; buttons.AddChild(remove);
             remove.Pressed += () => { Current.Sources.Remove(slot); Current.Generated.Remove(slot); Current.Material.Textures.Remove(slot); Current.Errors.Clear(); BuildProperties(); };
             if (Current.Material.Textures.TryGetValue(slot, out MaterialTexture? binding))
@@ -138,7 +141,9 @@ public partial class MaterialWindow : AcceptDialog
                     channel.ItemSelected += i => { binding.Channel = channel.GetItemText((int)i); RefreshPreview(); }; options.AddChild(channel);
                     AddToggle(options, "Invert", binding.Invert, v => { binding.Invert = v; RefreshPreview(); });
                 }
-                AddToggle(options, "sRGB colour", binding.Srgb, v => { binding.Srgb = v; RefreshPreview(); });
+                var colourSpace = new OptionButton { TooltipText = "Colour/emission images normally use sRGB. Normal, height, roughness, metallic and mask maps normally use linear data." };
+                colourSpace.AddItem("Linear (data)"); colourSpace.AddItem("sRGB (colour)"); colourSpace.Select(binding.Srgb ? 1 : 0);
+                colourSpace.ItemSelected += i => { binding.Srgb = i == 1; RefreshPreview(); }; options.AddChild(colourSpace);
             }
         }
         VBoxContainer surface = Tab("Surface"), depth = Tab("Depth"), animation = Tab("Texture Animation");
@@ -165,7 +170,7 @@ public partial class MaterialWindow : AcceptDialog
         }
         AddNumber(depth, "Parallax quality", 4, 64, 1, Current.Material.ParallaxSteps, v => { Current.Material.ParallaxSteps = (int)v; RefreshPreview(); });
         AddNumber(depth, "Subdivision level", 0, 6, 1, Current.Material.Subdivision, v => { Current.Material.Subdivision = (int)v; RefreshPreview(); });
-        depth.AddChild(new Label { Text = "Displacement uses map units. Collision is optional. Animated displacement is rejected during validation.", AutowrapMode = TextServer.AutowrapMode.WordSmart });
+        depth.AddChild(new Label { Text = "A height map needs Parallax Depth or Displacement to add relief. Normals and roughness need Lit Preview in the map view. Displacement uses map units; collision is optional.", AutowrapMode = TextServer.AutowrapMode.WordSmart });
         foreach (PropertyInfo p in typeof(MaterialAnimation).GetProperties())
         {
             if (p.Name == "Rotate") { AddNumber(animation, "Rotation speed (degrees/s)", -3600, 3600, 1, Current.Material.Animation.Rotate * 180 / Math.PI, v => { Current.Material.Animation.Rotate = (float)(v * Math.PI / 180); RefreshPreview(); }); continue; }
@@ -192,6 +197,10 @@ public partial class MaterialWindow : AcceptDialog
         if (_building || !IsInstanceValid(_mesh)) return;
         var problems = Current.Material.Problems();
         _status.Text = string.Join(" · ", Current.Errors.Concat(problems));
+        string[] dataAsColour = Current.Material.Textures.Where(pair => pair.Value.Srgb && pair.Key is not ("baseColor" or "emission" or "detailColor" or "environment")).Select(pair => Words(pair.Key)).ToArray();
+        if (dataAsColour.Length > 0) _status.Text += " Linear data recommended for: " + string.Join(", ", dataAsColour) + ". Use recommended colour spaces to correct them.";
+        if (Current.Material.Textures.ContainsKey("height") && Current.Material.ParallaxDepth == 0 && Current.Material.Displacement == 0)
+            _status.Text += " Height relief is off: set Parallax Depth for apparent depth, or Displacement and Subdivision for geometry.";
         GetOkButton().Disabled = (Current.Enabled && problems.Count > 0) || _writing;
         if (problems.Count == 0 && Current.Material.Displacement != 0)
             _status.Text += $" Geometry: {1L << (Current.Material.Subdivision * 2)} triangles per source triangle (patch limit 262144).";

@@ -23,8 +23,8 @@ public static class Dialogs
     /// <summary>The modal (exclusive) question while it is open: Godot lets a window have only one.</summary>
     private static Window? s_modal;
 
-    public static void OpenFile(string title, string[] filters, Action<string> done, string? startDir = null) =>
-        Show(FileDialog.FileModeEnum.OpenFile, title, filters, done, startDir);
+    public static void OpenFile(string title, string[] filters, Action<string> done, string? startDir = null, Window? owner = null) =>
+        Show(FileDialog.FileModeEnum.OpenFile, title, filters, done, startDir, owner: owner);
 
     public static void OpenFiles(string title, string[] filters, Action<string[]> done, string? startDir = null)
     {
@@ -372,7 +372,7 @@ public static class Dialogs
     }
 
     private static FileDialog? Show(FileDialog.FileModeEnum mode, string title, string[] filters, Action<string> done, string? startDir,
-        string? fileName = null, Action<FileDialog>? setUp = null)
+        string? fileName = null, Action<FileDialog>? setUp = null, Window? owner = null)
     {
         // A native dialog is a Windows window of its own, with focus, on the user's screen.
         if (Host is null || BackgroundMode.Refuse($"the file dialog '{title}'"))
@@ -385,6 +385,7 @@ public static class Dialogs
             FileMode = mode,
             Access = FileDialog.AccessEnum.Filesystem,
             UseNativeDialog = true,
+            Transient = true,
             Title = title,
             Filters = filters,
         };
@@ -403,12 +404,19 @@ public static class Dialogs
         {
             done(path);
             d.QueueFree();
+            RestoreOwner();
+        }
+
+        void RestoreOwner()
+        {
+            if (owner is not null && GodotObject.IsInstanceValid(owner) && owner.Visible && !owner.IsQueuedForDeletion())
+                owner.CallDeferred(Window.MethodName.GrabFocus);
         }
 
         d.FileSelected += Finish;
         d.DirSelected += Finish;
-        d.Canceled += d.QueueFree;
-        Host.AddChild(d);
+        d.Canceled += () => { d.QueueFree(); RestoreOwner(); };
+        (owner is null ? Host : owner).AddChild(d);
         d.PopupCentered(new Vector2I(960, 600));
         return d;
     }

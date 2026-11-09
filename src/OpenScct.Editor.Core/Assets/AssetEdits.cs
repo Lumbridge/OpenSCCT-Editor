@@ -114,8 +114,18 @@ public static class AssetEdits
             }
         }
 
+        foreach (Ge ge in project.Ges)
+            if (ge.Appearance?.Material is { Length: > 0 } material)
+                used[material] = used.GetValueOrDefault(material) + 1;
+
         foreach (Actor a in project.Actors)
         {
+            if (a.Shape is { } shape)
+                foreach (string material in shape.Faces.Select(f => f.Material).OfType<string>().Distinct(StringComparer.OrdinalIgnoreCase))
+                    used[material] = used.GetValueOrDefault(material) + 1;
+            if (a.Window is { } window)
+                foreach (string material in new[] { window.GlassMaterial, window.FrameMaterial }.Where(s => s.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
+                    used[material] = used.GetValueOrDefault(material) + 1;
             if (a.Door is { } door)
             {
                 foreach (string material in new[] { door.Material, door.Framed ? door.FrameMaterial : "" }.Where(s => s.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase))
@@ -131,6 +141,14 @@ public static class AssetEdits
         }
 
         return used;
+    }
+
+    /// <summary>Project-owned assets belong to the map even before their first placement.</summary>
+    public static IEnumerable<AssetEntry> InMap(IEnumerable<AssetEntry> entries, MapProject project)
+    {
+        var used = InUse(project).Keys.SelectMany(path => new[] { path, AssetPaths.Short(path) }).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return entries.Where(entry => entry.Origin.Equals(AssetPaths.LocalPackage, StringComparison.OrdinalIgnoreCase)
+            || used.Contains(entry.Path) || used.Contains(AssetPaths.Short(entry.Path)));
     }
 
     private static bool Same(string a, string b) =>

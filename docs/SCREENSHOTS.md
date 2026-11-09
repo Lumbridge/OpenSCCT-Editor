@@ -93,7 +93,7 @@ A shot script is a JSON array of steps run in order. Each step names its kind in
 |---|---|---|
 | `shot` | `name`, `caption`, `crop` (a target), `views` | Saves `NNN-name.png`, and `NNN-name.crop.png` for a crop. `views` also saves each view as shown (`.view-Top.png`) and its bare 3D frame (`.view-Top.raw.png`). |
 | `wait` | `frames`, `seconds`, `idle` | Waits; `idle` waits until background jobs (imports, the asset index) finish. |
-| `size` | `w`, `h` | Resizes the window. Fails if Windows will not make it that big (larger than the desktop). |
+| `size` | `w`, `h`, `window` | Resizes the main window, or a named child dialog when `window` is supplied. Fails if the requested size cannot be reached. |
 | `scale` | `factor` | Sets the UI scale (1.5 draws everything half as big again), as View > UI Scale does. |
 | `open` | `path` | Opens a map and waits until it has loaded. |
 | `run` | `action` | Runs an editor action by id (the command palette lists them). |

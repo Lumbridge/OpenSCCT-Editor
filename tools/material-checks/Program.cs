@@ -33,6 +33,17 @@ Check(imported.Path == "MyLevel.Textures.Stone", "Imported material has a map-lo
 var catalog = AssetCatalog.For(null, folder);
 Check(catalog.Find(AssetKind.Material, imported.Path) is not null && catalog.Find(AssetKind.Texture, imported.Path) is not null, "Both asset tabs expose an imported material");
 Check(catalog.SurfaceMaterial(catalog.Find(AssetKind.Texture, imported.Path)!) == imported.Path, "An imported texture resolves to its surface material");
+Check(AssetEdits.InMap(catalog.All, project).Any(e => e.Path == imported.Path), "In this map includes imported materials before their first placement");
+var shapeActor = new Actor("MaterialShape", "Engine.Mover") { Shape = project.Brushes[0].Shape.Clone() };
+shapeActor.Shape.Faces[0].Material = "Library.Bricks.Wall"; project.Actors.Add(shapeActor);
+var filterEntries = new[] { new AssetEntry { Kind = AssetKind.Material, Path = "library.wall", Origin = "shared" }, new AssetEntry { Kind = AssetKind.Material, Path = "Library.Unused", Origin = "shared" } };
+var filtered = AssetEdits.InMap(filterEntries, project).ToArray();
+Check(filtered.Length == 1 && filtered[0] == filterEntries[0], "In this map includes shaped-actor materials using case-insensitive short aliases and excludes unrelated library assets");
+project.Actors.Remove(shapeActor);
+var geMaterial = new Ge("MaterialLadder", "ladder") { Appearance = new() { Material = filterEntries[0].Path } }; project.Ges.Add(geMaterial);
+Check(AssetEdits.InMap(filterEntries, project).Single() == filterEntries[0], "In this map includes materials on generated traversal geometry"); project.Ges.Remove(geMaterial);
+var windowActor = new Actor("MaterialWindow", "Engine.StaticMeshActor") { Window = new() { GlassMaterial = filterEntries[0].Path } }; project.Actors.Add(windowActor);
+Check(AssetEdits.InMap(filterEntries, project).Single() == filterEntries[0], "In this map includes parametric window materials"); project.Actors.Remove(windowActor);
 Check(TextureImporter.Import(folder, set).Path == imported.Path + "_2", "Default conflicts keep both materials");
 string before = ProjectAssets.For(folder).Manifest.ToJsonString();
 Check(TextureImporter.Import(folder, set, conflict: TextureConflict.Skip).Skipped, "Skip leaves the existing material alone");

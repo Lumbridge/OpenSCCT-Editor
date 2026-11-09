@@ -2,6 +2,8 @@
 
 The Assets menu and command search provide **Import Textures…**, **Import Animated Texture…**, **Create Material…** and **Edit Material…**. Help → Browse Tutorials includes six material lessons: texture import, animation, lighting and shine, depth/collision, emissive baking and original-game export. Ctrl+Shift+P finds them by topic. These features require the matching advanced-materials OpenSCCT build for gameplay preview.
 
+Editor 0.2.35 and game 0.8.123 include the browser, repeat-filtering and authoring-window corrections described in [material fixes validation](MATERIAL-FIXES-VALIDATION.md).
+
 ## Import and edit
 
 1. Save the map. An unsaved map prompts for Save As before import starts.
@@ -12,6 +14,10 @@ The Assets menu and command search provide **Import Textures…**, **Import Anim
 6. Import or Save. The material is revealed in Assets. Import does not paint anything. Use the existing Surface controls to apply it to brush faces, or **Apply Material to Mesh Sections…** for static meshes. Section −1 applies to every section.
 
 Material edits and imports support Undo/Redo. Source images stay in the project so Undo can restore an earlier definition. Save As copies the material manifest and all its images. Replacing a material preserves its asset identity and gameplay metadata. Editing a library material creates a map-local copy.
+
+**In this map** includes every project-owned asset, even before placement, plus referenced library assets. Material windows expand their property list and preview when resized. Texture pickers return to their owning material window.
+
+Each texture explicitly shows **Linear (data)** or **sRGB (colour)**. **Use recommended colour spaces** corrects the draft's per-slot defaults; Save commits it with Undo support. Normal, height, roughness, metallic and AO should normally be linear. In the map view use **Lit Preview** to judge normal and shine response. Assigning a height map alone leaves relief off: enable Parallax Depth for apparent depth, or Displacement and Subdivision Level for geometry.
 
 PNG bytes are retained, including 16-bit data maps. CPU displacement and the editor/game data-texture decoder preserve the low bits of non-interlaced grayscale, RGB and RGBA PNGs. Colour-image previews do not replace those source files. The image budget is 64 million pixels; interlaced PNG data maps must be re-exported without interlacing.
 
@@ -24,6 +30,8 @@ Set FPS, Loop, Ping pong and Phase (in frames). FPS 0 freezes a frame. Non-loopi
 Surface texture slots share one frame layout and timeline; the reflection environment is a separate, static equirectangular image. Different per-slot timelines, GIF/video decoding and animated gameplay displacement are not provided. Real displacement requires a static texture set. Animated surface maps remain available for normal, shine, opacity and emission effects.
 
 Power-of-two frame dimensions receive independent colour, normal and scalar mip chains, clamped before frames would merge. Other frame dimensions use bilinear base-level sampling to avoid neighbouring-frame bleed. Colour mip generation uses linear values; normal mip generation renormalizes normals. Packed data maps share an image allocation when their interpretations match.
+
+Repeat filtering keeps continuous UV derivatives for ordinary textures and repeats within the selected atlas frame for animation, including parallax. The source image must itself tile: opposite-edge content mismatches remain visible and need a tileable source texture.
 
 ## Supported feature matrix
 
