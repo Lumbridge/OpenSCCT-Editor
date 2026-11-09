@@ -218,7 +218,7 @@ internal static class GeometryEditCommands
         Vec3? at = a.Has("at") ? Vec(a, "at") : null;
         WallAnchor anchor = WallPieces.Anchor(p, f, at)
             ?? throw new ArgumentException($"wall-add: {f} is not a wall of a carved (subtract) brush");
-        List<Brush> added = WallPieces.Build(p, anchor, piece, new WorldGeometry(p, session.Folder));
+        List<Brush> added = WallPieces.Build(p, anchor, piece, new WorldGeometry(p, session.Folder), cutOpening: a.Has("opening"));
         report.Add("placed", SvJsonNode.String(WallPieces.Describe(anchor, piece)));
         report.Add("added", Array(added.Select(b => b.Id)));
         return new AddObjectsCommand($"Add {piece} on wall", added);

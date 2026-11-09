@@ -1229,8 +1229,18 @@ editor:
   are written with no material (`sdc.untextured`).
 - The written file is read back with the native reader and checked: the layout, every brush and actor by name, the
   GEs, properties the class data types, and, for a write-back, what differs from the source by kind.
-- `--game <install>` is the install that new materials, meshes and sounds are looked up in (default: the install the
-  source `.sdc` sits in, else `SVM_GAME_ROOT`). A reference that is not found is written as None with a warning.
+- Saving in an installation's `Packages\Maps` or `Packages\MapsEd` identifies that installation as the asset target.
+  Otherwise `--game <install>`, the source installation or `SVM_GAME_ROOT` supplies the lookup location.
+- Export SDC automatically packages assets absent from the target installation and new map-local assets, including
+  the materials a custom static mesh needs. It writes one native `<Map>_Assets_<digest>.usx` in `Packages\StaticMeshes`
+  and rewrites the exported map's references. Textures carry DXT mips; static meshes carry render buffers, editable
+  triangles and collision; ordinary PCM WAV sounds carry their audio. Existing installed assets and unchanged
+  embedded source assets are retained. Converted materials without an original package use their base texture;
+  shader/two-sided/unlit differences are reported. Unsupported or missing source assets refuse the export instead
+  of clearing their references. An export needing a package must be saved under Maps/MapsEd.
+  The report lists the package to keep with the map. Different asset revisions use different content hashes, so an
+  earlier export's package is preserved; matching files are reused and unrelated files are never overwritten.
+  The project and its source assets are unchanged. Mesh lighting still needs a rebuild in RE+.
 - The package is named after its file, and the game finds the map by that name.
 - Player-count rules, outfits, the `<Map>-i.utc` pictures and settings and the `.int` texts are not written.
 

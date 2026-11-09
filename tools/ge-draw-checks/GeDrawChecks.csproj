@@ -4,6 +4,7 @@
     <AssemblyName>GeDrawChecks</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="GeInteractionChecks.cs" />
     <ProjectReference Include="../../src/OpenScct.Editor.Core/OpenScct.Editor.Core.csproj" />
     <ProjectReference Include="../../src/OpenScct.Editor.Cli/OpenScct.Editor.Cli.csproj" />
   </ItemGroup>

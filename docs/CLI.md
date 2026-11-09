@@ -288,6 +288,7 @@ Surfaces:
   surface <faces...> [--pan u,v] [--rotate deg] [--scale u,v] [--fit u,v]   set the mapping absolutely
   select-faces <material|coplanar|walls|floors|ceilings> [--mat m] [--face B:i] [--brushes ids]   list matching faces
   extrude <Brush:face> --by 64 [--new]        push the face out (negative: in), or grow a new brush from it
+  wall-add <Brush:face> --piece room [--opening]   add a room behind the surface; --opening also cuts its connecting doorway/hatch
 Vertices and edges:
   vertices <brush>                            list world vertices and convexity
   move-vertex <brush> --at p;p --by dx,dy,dz  move vertices (faces that bend are split into triangles)

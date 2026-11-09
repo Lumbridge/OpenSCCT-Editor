@@ -15,6 +15,9 @@ public sealed record SdcWriteOptions
     /// <summary>The original install, for the classes of assets the map refers to (from its packages).</summary>
     public string? GameRoot { get; init; }
 
+    /// <summary>Prepared map-specific assets, published by the exporter after the map passes validation.</summary>
+    public SdcAssetBundle? Assets { get; init; }
+
     public UeSchema? Schema { get; init; }
 
     /// <summary>The .content folder (class defaults and material sizes for a world built from the brushes); null

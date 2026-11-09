@@ -128,6 +128,10 @@ public sealed class SurfaceActions : IShellPart
 
         bool OnWall() => Geo.PrimaryFace is { } f && WallPieces.Anchor(_ctx.Project, f) is { Vertical: false };
         bool OnFloorOrCeiling() => Geo.PrimaryFace is { } f && WallPieces.Anchor(_ctx.Project, f) is { Vertical: true };
+        Add("surface.roomOpening", "Cut Opening When Adding Rooms", "Surface", 95,
+            () => WallPieceCommands.CutRoomOpening = !WallPieceCommands.CutRoomOpening, null, null,
+            "Also cut a doorway or hatch when adding a room from a surface. Off by default: keep the separating wall or floor.",
+            () => WallPieceCommands.CutRoomOpening);
         order = 100;
         foreach (string kind in WallPieces.Kinds)
         {
@@ -139,7 +143,7 @@ public sealed class SurfaceActions : IShellPart
         foreach (string kind in WallPieces.VerticalKinds)
         {
             string k = kind;
-            Add("surface.vertical." + k, k switch { "hatch" => "Add Hatch Opening", "shaft" => "Extend Shaft", "room" => "Add Connected Room", _ => "Connect Stairs…" },
+            Add("surface.vertical." + k, k switch { "hatch" => "Add Hatch Opening", "shaft" => "Extend Shaft", "room" => "Add Room", _ => "Connect Stairs…" },
                 "Surface/Add on Floor or Ceiling", order++, () => WallPieceCommands.AddOnPickedFace(k), OnFloorOrCeiling, null,
                 "Build a connector through the selected floor or ceiling; hover the surface for its contextual + menu");
         }

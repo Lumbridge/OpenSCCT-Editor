@@ -13,6 +13,15 @@ public static class WallPieceCommands
 {
     private static EditorContext Ctx => EditorContext.Instance;
 
+    /// <summary>Surface room additions keep the separating wall/slab unless explicitly enabled.</summary>
+    private static bool _cutRoomOpening;
+    public static bool CutRoomOpening
+    {
+        get => _cutRoomOpening;
+        set { if (_cutRoomOpening == value) return; _cutRoomOpening = value; RoomOpeningChanged?.Invoke(); }
+    }
+    public static event Action? RoomOpeningChanged;
+
     /// <summary>Adds a piece on the picked face's wall, at the face's centre.</summary>
     public static bool AddOnPickedFace(string kind)
     {
@@ -42,7 +51,7 @@ public static class WallPieceCommands
                 stairs.StartConnection(point);
                 return true;
             }
-            List<Brush> added = WallPieces.Build(Ctx.Project, anchor, kind);
+            List<Brush> added = WallPieces.Build(Ctx.Project, anchor, kind, cutOpening: CutRoomOpening);
             Ctx.Execute(new AddObjectsCommand($"Add {kind} on {anchor.Surface}", added));
             Ctx.Selection.Set(added.Select(b => ObjectRef.ForBrush(b)));
             Ctx.SetStatus($"Added {WallPieces.Describe(anchor, kind)}: {string.Join(", ", added.Select(b => b.Id))}");

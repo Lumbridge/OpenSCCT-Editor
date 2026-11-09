@@ -2,6 +2,7 @@ using Godot;
 using OpenScct.Editor.Core.Model;
 using OpenScctEditor.Shell;
 using OpenScctEditor.Viewports;
+using OpenScctEditor.Gameplay;
 
 namespace OpenScctEditor.Tools;
 
@@ -127,12 +128,14 @@ public sealed class ClickSelect
     private static Rect2 RectOf(Vector2 a, Vector2 b) => new Rect2(a, Vector2.Zero).Expand(b);
 }
 
-/// <summary>Selects without transform handles (Q).</summary>
+/// <summary>Click/box selection with adjustment handles for selected GEs.</summary>
 public sealed class SelectTool : IViewportTool
 {
     private readonly ClickSelect _select;
+    private readonly ToolManager _tools;
 
-    public SelectTool(ToolManager tools) => _select = new ClickSelect(tools);
+    public SelectTool(ToolManager tools) { _tools = tools; _select = new ClickSelect(tools); }
+    private GeDrawTool? GeHandles => _tools.Tools.OfType<GeDrawTool>().FirstOrDefault();
 
     public string Id => "select";
 
@@ -140,9 +143,13 @@ public sealed class SelectTool : IViewportTool
 
     public string Shortcut => "S";
 
-    public bool Input(EditorViewport view, InputEvent e) => _select.Input(view, e);
+    public void Activate() => GeHandles?.Activate();
 
-    public void Draw(EditorViewport view, Control canvas) => _select.Draw(view, canvas);
+    public bool Input(EditorViewport view, InputEvent e) => GeHandles?.InputSelected(view, e) == true || _select.Input(view, e);
 
-    public bool Cancel() => _select.Cancel();
+    public void Draw(EditorViewport view, Control canvas) { _select.Draw(view, canvas); GeHandles?.DrawSelected(view, canvas); }
+
+    public bool IsDragging => GeHandles?.IsDragging == true;
+    public bool Cancel() => GeHandles?.Cancel() == true || _select.Cancel();
+    public void Deactivate() { _select.Cancel(); GeHandles?.Deactivate(); }
 }

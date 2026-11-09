@@ -130,6 +130,17 @@ public sealed class UPackageBuilder
 
     public UImport ImportAt(int objref) => _imports[-objref - 1];
 
+    /// <summary>Redirects an existing import without moving its slot: opaque source objects keep their objrefs.</summary>
+    public void ReplaceImport(int objref, UImport replacement)
+    {
+        int index = -objref - 1;
+        UImport old = _imports[index];
+        if (_importIndex.TryGetValue(Key(old), out int previous) && previous == index) _importIndex.Remove(Key(old));
+        Name(replacement.ClassPackage); Name(replacement.ClassName); Name(replacement.Name);
+        _imports[index] = replacement;
+        _importIndex.TryAdd(Key(replacement), index);
+    }
+
     /// <summary>Zero bytes after the export table: a normal stock save ends with 64, an autosave with none. The loader
     /// never reads them.</summary>
     public int Trailer { get; set; } = 64;

@@ -35,7 +35,16 @@ public static class LedgeDetector
 
     public static LedgeResult Detect(TraversalWorld w, LedgeOptions o)
     {
-        List<(Vec3 A, Vec3 B, Vec3 Inner)> edges = BoundaryEdges(w, o);
+        return DetectEdges(w, o, CandidateEdges(w, o));
+    }
+
+    /// <summary>Candidate top edges without probing them, for pixel-based picking in an editor view.</summary>
+    public static IReadOnlyList<(Vec3 A, Vec3 B, Vec3 Inner)> CandidateEdges(TraversalWorld w, LedgeOptions o) => BoundaryEdges(w, o);
+
+    /// <summary>Validate only the edges near a cursor, using the same gameplay checks as full-map detection.</summary>
+    public static LedgeResult DetectEdges(TraversalWorld w, LedgeOptions o, IEnumerable<(Vec3 A, Vec3 B, Vec3 Inner)> candidates)
+    {
+        List<(Vec3 A, Vec3 B, Vec3 Inner)> edges = candidates.ToList();
         var refused = new Dictionary<LipProblem, int>();
         int probes = 0;
         var lips = new List<Lip>();

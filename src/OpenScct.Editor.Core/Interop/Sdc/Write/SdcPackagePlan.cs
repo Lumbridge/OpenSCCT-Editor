@@ -204,6 +204,8 @@ internal sealed partial class SdcPackagePlan
 
         for (int i = 0; i < src.Imports.Count; i++)
         {
+            if (_o.Assets?.RemappedImport(_b, ImportPath(src, -(i + 1)), src.Imports[i]) is < 0 and var replacement)
+                _b.ReplaceImport(-(i + 1), _b.ImportAt(replacement));
             _srcImports.TryAdd(ImportPath(src, -(i + 1)) + "|" + src.Imports[i].ClassName, -(i + 1));
             _srcImports.TryAdd(ImportPath(src, -(i + 1)), -(i + 1));
         }
@@ -1814,6 +1816,7 @@ internal sealed partial class SdcPackagePlan
 
     private int Asset(string path)
     {
+        if (_o.Assets?.Contains(path) == true) return _o.Assets.Import(_b, path);
         int dot = path.IndexOf('.');
         if (dot > 0 && IsLocalPackage(path[..dot]))
         {

@@ -17,6 +17,8 @@ public sealed class SdcAssetImports
 
     public SdcAssetImports(string? gameRoot) => _gameRoot = gameRoot;
 
+    public bool HasPackage(string name) => File(name) is not null;
+
     /// <summary>The object an asset path names in the install: its class and the groups between package and name;
     /// null when the install has no such package or object.</summary>
     public (string ClassPackage, string ClassName, string[] Groups)? Find(string path)

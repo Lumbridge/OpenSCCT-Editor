@@ -163,7 +163,7 @@ public partial class FirstMapPanel : EditorPanel
         PanelUi.Callout(_body, Severity.Info, selectedWall
             ? $"Hover near the floor on {wall}. Click the blue + on the wall and choose Add {piece}."
             : $"Click {wall} to select its surface. Stay in the Surface tool.");
-        PanelUi.Caption(_body, "Use the same wall opening for each part so the doorway, corridor and room connect. You can undo a misplaced part and try again. Map Check will check the finished layout.");
+        PanelUi.Caption(_body, "Rooms keep the separating wall by default. For this connection, enable 'Cut opening for rooms' in the Surface options before adding the room, or add a doorway afterwards. You can undo a misplaced part and try again. Map Check will check the finished layout.");
         if (MainWindow.Instance is { } window) GuideSpotlight.PointAt(window.ViewportArea);
     }
 

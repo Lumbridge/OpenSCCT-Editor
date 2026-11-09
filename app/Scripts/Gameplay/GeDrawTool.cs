@@ -1,4 +1,5 @@
 using Godot;
+using OpenScct.Editor.Core.Geometry;
 using OpenScct.Editor.Core.Commands;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Geometry.Snap;
@@ -20,7 +21,7 @@ namespace OpenScctEditor.Gameplay;
 /// </summary>
 public sealed class GeDrawTool : IViewportTool
 {
-    private const double LedgeSearch = 96;
+    private const double LedgePickPixels = 24;
 
     private readonly ToolManager _tools;
     private readonly GameplayState _state;
@@ -30,7 +31,11 @@ public sealed class GeDrawTool : IViewportTool
     private GameplayHit? _end;
     private Lip? _lip;
     private string _hint = "";
-    private Vec3? _lastQuery;
+    private TraversalWorld? _edgeWorld;
+    private LedgeOptions? _edgeOptions;
+    private IReadOnlyList<(Vec3 A, Vec3 B, Vec3 Inner)> _ledgeEdges = [];
+    private int _hoverCamera;
+    private Vector2 _hoverAt = new(float.PositiveInfinity, 0);
     private Vector2 _pressedAt;
     private bool _pressed;
     private bool _moved;
@@ -38,6 +43,7 @@ public sealed class GeDrawTool : IViewportTool
     private Ge? _draft;
     private int _pointIndex;
     private NeighbourDrag? _handleSnap;
+    private ScreenEdgeHit? _edgeTarget;
     private int? _previewShapeKey;
     private readonly List<(Vec3 A, Vec3 B)> _previewEdges = [];
 
@@ -83,7 +89,19 @@ public sealed class GeDrawTool : IViewportTool
 
     public void Deactivate() => Reset();
 
-    public bool Input(EditorViewport view, InputEvent e)
+    public bool IsDragging => _editing is not null && _moved;
+
+    /// <summary>Selection-tool editing only: consume selected endpoint drags, never start drawing a new GE.</summary>
+    public bool InputSelected(EditorViewport view, InputEvent e)
+    {
+        if (_editing is not null) return InputCore(view, e, selectedOnly: true);
+        return e is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true, ShiftPressed: false, CtrlPressed: false, MetaPressed: false } press
+            && HandleAt(view, press.Position, selectedOnly: true) is not null && InputCore(view, e, selectedOnly: true);
+    }
+
+    public bool Input(EditorViewport view, InputEvent e) => InputCore(view, e);
+
+    private bool InputCore(EditorViewport view, InputEvent e, bool selectedOnly = false)
     {
         switch (e)
         {
@@ -100,7 +118,7 @@ public sealed class GeDrawTool : IViewportTool
                     return true;
                 }
 
-                if (!press.ShiftPressed && HandleAt(view, press.Position) is { } handle)
+                if (!press.ShiftPressed && HandleAt(view, press.Position, selectedOnly) is { } handle)
                 {
                     _editing = handle.Ge.Clone();
                     _draft = handle.Ge.Clone();
@@ -185,12 +203,17 @@ public sealed class GeDrawTool : IViewportTool
         return false;
     }
 
-    public void Draw(EditorViewport view, Control canvas)
+    public void DrawSelected(EditorViewport view, Control canvas) => DrawCore(view, canvas, selectedOnly: true);
+
+    public void Draw(EditorViewport view, Control canvas) => DrawCore(view, canvas);
+
+    private void DrawCore(EditorViewport view, Control canvas, bool selectedOnly = false)
     {
+        if (!selectedOnly && Kind == GeKinds.LedgeGrab && _editing is null && _start is null && view == _view) Hover(view);
         var batch = new OverlayBatch();
         Color c = WorldScene.GeColor(Kind);
         List<string> lines = [];
-        foreach (Ge ge in Shown())
+        foreach (Ge ge in Shown(selectedOnly))
         {
             foreach (Vec3 point in ge.Points)
             {
@@ -202,6 +225,11 @@ public sealed class GeDrawTool : IViewportTool
         {
             Preview(batch, draft);
             lines.Add($"Reshape {draft.Id}");
+        }
+        if (_edgeTarget is { } target)
+        {
+            batch.Dot(target.Point, SceneStyle.SnapTarget, 7);
+            batch.Label(target.Point, target.Vertex ? "Corner" : "Edge", SceneStyle.SnapTarget, pinned: true);
         }
 
         if (_start is { } s && _end is { } e && Points(s, e) is { } pts)
@@ -219,13 +247,13 @@ public sealed class GeDrawTool : IViewportTool
                 Preview(batch, new Ge("Preview", Kind) { Points = pts, Appearance = Appearance() });
             }
         }
-        else if (_lip is { } lip)
+        else if (!selectedOnly && _lip is { } lip)
         {
             batch.Line(lip.A, lip.B, SceneStyle.Hover, 4);
             batch.Arrow(lip.Mid, lip.Mid + lip.Out * 24, SceneStyle.Hover, 2);
             lines.Add(_hint);
         }
-        else if (_hint.Length > 0)
+        else if (!selectedOnly && _hint.Length > 0)
         {
             lines.Add(_hint);
         }
@@ -370,7 +398,7 @@ public sealed class GeDrawTool : IViewportTool
         return new GameplayHit(point, Vec3.UnitZ);
     }
 
-    /// <summary>Finds the lip nearest the surface under the cursor (detector run in a small box round it).</summary>
+    /// <summary>Finds a visible top edge within a fixed pixel radius, even when the cursor ray misses its surface.</summary>
     private void Hover(EditorViewport view, bool wait = false)
     {
         if ((wait ? _state.World : _state.WorldIfBuilt) is not { } w)
@@ -382,25 +410,23 @@ public sealed class GeDrawTool : IViewportTool
             return;
         }
 
-        if (GameplayPicking.Surface(w, view.Cam, _mouse) is not { } hit)
+        var options = _state.Options with { Region = null };
+        bool changed = !ReferenceEquals(w, _edgeWorld) || options != _edgeOptions;
+        if (changed)
         {
-            _lip = null;
-            _hint = "";
-            return;
+            _edgeWorld = w; _edgeOptions = options;
+            _ledgeEdges = LedgeDetector.CandidateEdges(w, options);
         }
-
-        if (_lastQuery is { } last && (last - hit.Point).Length < 8)
-        {
-            return;
-        }
-
-        _lastQuery = hit.Point;
-        var box = new Vec3(LedgeSearch, LedgeSearch, LedgeSearch);
-        LedgeResult result = LedgeDetector.Detect(w, _state.Options with { Region = (hit.Point - box, hit.Point + box) });
-        _lip = result.Lips
-            .Where(l => Math.Abs(l.A.Z - hit.Point.Z) <= LedgeSearch)
-            .OrderBy(l => DistanceXY(l, hit.Point))
-            .FirstOrDefault(l => DistanceXY(l, hit.Point) <= LedgeSearch);
+        var camera = view.Cam;
+        int cameraKey = HashCode.Combine(camera.Location, camera.Yaw, camera.Pitch, camera.Center, camera.UnitsPerPixel, camera.ScreenSize, camera.PixelScale);
+        if (!wait && !changed && cameraKey == _hoverCamera && _hoverAt.DistanceTo(_mouse) < 2) return;
+        _hoverCamera = cameraKey; _hoverAt = _mouse;
+        var near = _ledgeEdges.Where(e => GeEdgePicking.Near(camera, _mouse, e.A, e.B, LedgePickPixels, vertices: false) is { } p
+            && GeEdgePicking.Visible(w, camera, p.Point)).ToList();
+        LedgeResult result = LedgeDetector.DetectEdges(w, options, near);
+        _lip = result.Lips.Select(l => (Lip: l, Hit: GeEdgePicking.Near(camera, _mouse, l.A, l.B, LedgePickPixels, vertices: false)))
+            .Where(p => p.Hit is not null && GeEdgePicking.Visible(w, camera, p.Hit.Value.Point))
+            .OrderBy(p => p.Hit!.Value.Pixels).ThenBy(p => (p.Hit!.Value.Point - camera.Location).Length).Select(p => p.Lip).FirstOrDefault();
         if (_lip is { } lip)
         {
             Ge? covering = GeEdits.Covering(lip, _tools.Context.Project.Ges);
@@ -417,7 +443,7 @@ public sealed class GeDrawTool : IViewportTool
 
     private void AddHoveredLedge(EditorViewport view)
     {
-        _lastQuery = null;
+        _hoverAt = new(float.PositiveInfinity, 0);
         Hover(view, wait: true);
         if (_lip is not { } lip)
         {
@@ -436,7 +462,7 @@ public sealed class GeDrawTool : IViewportTool
             Commit(cmd, $"Added an LG {lip.Length:0} long over a {lip.Drop:0} drop");
         }
 
-        _lastQuery = null;
+        _hoverAt = new(float.PositiveInfinity, 0);
     }
 
     private void Finish()
@@ -536,20 +562,20 @@ public sealed class GeDrawTool : IViewportTool
         return GeShapes.ClimbPoints(foot, top, n);
     }
 
-    private IEnumerable<Ge> Shown()
+    private IEnumerable<Ge> Shown(bool selectedOnly = false)
     {
         MapProject project = _tools.Context.Project;
         var pickable = ObjectFilter.Pickable(project).Where(r => r.Kind == ObjectKind.Ge).Select(r => r.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
         List<Ge> selected = _tools.Context.Selection.Items.Where(r => r.Kind == ObjectKind.Ge && pickable.Contains(r.Id))
             .Select(r => project.FindGe(r.Id)).OfType<Ge>().ToList();
-        return selected.Count > 0 ? selected : project.Ges.Where(g => pickable.Contains(g.Id));
+        return selectedOnly || selected.Count > 0 ? selected : project.Ges.Where(g => pickable.Contains(g.Id));
     }
 
-    private (Ge Ge, int Index)? HandleAt(EditorViewport view, Vector2 mouse)
+    private (Ge Ge, int Index)? HandleAt(EditorViewport view, Vector2 mouse, bool selectedOnly = false)
     {
         (Ge Ge, int Index)? best = null;
         float distance = 8;
-        foreach (Ge ge in Shown())
+        foreach (Ge ge in Shown(selectedOnly))
         {
             if (ge.Points.Count != (GeKinds.HasThirdPoint(ge.Kind) ? 3 : 2))
             {
@@ -575,6 +601,8 @@ public sealed class GeDrawTool : IViewportTool
         Ge source = _editing!;
         Ge draft = source.Clone();
         Vec3 anchor = source.Points[_pointIndex];
+        bool facing = GeKinds.HasThirdPoint(source.Kind) && _pointIndex == 2;
+        bool verticalTop = _pointIndex == 1 && (GeKinds.HasThirdPoint(source.Kind) || source.Kind == GeKinds.Pole);
         Vec3 at;
         if (view.Cam.IsOrtho)
         {
@@ -592,9 +620,17 @@ public sealed class GeDrawTool : IViewportTool
             }
 
             at = origin + direction * (Vec3.Dot(anchor - origin, normal) / denominator);
+            if (verticalTop && 1 - direction.Z * direction.Z > 1e-5)
+            {
+                Vec3 offset = origin - anchor;
+                double height = (offset.Z - direction.Z * Vec3.Dot(direction, offset)) / (1 - direction.Z * direction.Z);
+                at = anchor + Vec3.UnitZ * height;
+            }
+            else if (facing && Math.Abs(direction.Z) > .05)
+                at = origin + direction * ((anchor.Z - origin.Z) / direction.Z);
         }
 
-        bool facing = GeKinds.HasThirdPoint(source.Kind) && _pointIndex == 2;
+        _edgeTarget = null;
         if (facing)
         {
             Vec3 direction = at - source.Points[0];
@@ -614,16 +650,27 @@ public sealed class GeDrawTool : IViewportTool
         }
         else
         {
-            bool verticalTop = _pointIndex == 1 && (GeKinds.HasThirdPoint(source.Kind) || source.Kind == GeKinds.Pole);
             int depth = view.Cam.IsOrtho ? ViewAxes.DepthAxis(view.Cam.Kind) : -1;
             int[] free = Enumerable.Range(0, 3).Where(a => a != depth && (!verticalTop || a == 2)).ToArray();
-            Vec3 raw = at - anchor;
-            foreach (int axis in Enumerable.Range(0, 3).Except(free)) raw = raw.With(axis, 0);
-            MoveSnap stick = _handleSnap!.Move(raw, free);
-            at = anchor;
-            foreach (int axis in free)
-                at = at.With(axis, stick.Stuck(axis) ? anchor[axis] + stick.Offset[axis] : _tools.SnapValue(anchor[axis] + raw[axis]));
-            _handleSnap.Moved(at - anchor);
+            if (_handleSnap!.Effective && _state.WorldIfBuilt is { } world
+                && GeEdgePicking.Pick(world, view.Cam, mouse, _tools.NeighbourSnapPx, source.Id,
+                    source.Kind == GeKinds.LedgeGrab, verticalTop ? anchor : null) is { } target)
+            {
+                at = target.Point;
+                if (depth >= 0) at = at.With(depth, anchor[depth]);
+                _edgeTarget = target with { Point = at };
+                _handleSnap.Release(); _handleSnap.Note = target.Vertex ? "corner" : "edge";
+            }
+            else
+            {
+                Vec3 raw = at - anchor;
+                foreach (int axis in Enumerable.Range(0, 3).Except(free)) raw = raw.With(axis, 0);
+                MoveSnap stick = _handleSnap.Move(raw, free);
+                at = anchor;
+                foreach (int axis in free)
+                    at = at.With(axis, stick.Stuck(axis) ? anchor[axis] + stick.Offset[axis] : _tools.SnapValue(anchor[axis] + raw[axis]));
+                _handleSnap.Moved(at - anchor);
+            }
         }
 
         if (GeKinds.HasThirdPoint(source.Kind) && source.Points.Count == 3)
@@ -653,7 +700,7 @@ public sealed class GeDrawTool : IViewportTool
         }
         else
         {
-            if (source.Kind == GeKinds.HandOverHand)
+            if (source.Kind is GeKinds.HandOverHand or GeKinds.LedgeGrab)
             {
                 draft.Points[1 - _pointIndex] = draft.Points[1 - _pointIndex] with { Z = at.Z };
             }
@@ -739,22 +786,14 @@ public sealed class GeDrawTool : IViewportTool
         }
     }
 
-    private static double DistanceXY(Lip l, Vec3 p)
-    {
-        Vec3 d = new Vec3(l.B.X - l.A.X, l.B.Y - l.A.Y, 0);
-        double len2 = d.LengthSquared;
-        double t = len2 < 1e-9 ? 0 : Math.Clamp(Vec3.Dot(new Vec3(p.X - l.A.X, p.Y - l.A.Y, 0), d) / len2, 0, 1);
-        Vec3 q = l.A + d * t;
-        return Math.Sqrt((p.X - q.X) * (p.X - q.X) + (p.Y - q.Y) * (p.Y - q.Y));
-    }
-
     private void Reset()
     {
         _start = null;
         _end = null;
         _lip = null;
         _hint = "";
-        _lastQuery = null;
+        _hoverAt = new(float.PositiveInfinity, 0);
+        _edgeTarget = null;
         _editing = null;
         _draft = null;
         _handleSnap = null;

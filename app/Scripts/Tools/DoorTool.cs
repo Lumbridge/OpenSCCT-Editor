@@ -90,7 +90,13 @@ public sealed class DoorTool : IViewportTool
                 { var vertices = source.WorldFaces().SelectMany(f => f.Vertices).ToArray(); depth = vertices.Max(v => Vec3.Dot(v, wall.Normal)) - vertices.Min(v => Vec3.Dot(v, wall.Normal)); }
                 else depth = WallPieces.WallDepth(new WorldGeometry(ctx.Project, ctx.Session.Folder), new WallAnchor(default, point, -wall.Normal, null), 0);
                 if (depth <= 0 || depth > 2048) problem = "This wall has no nearby back face. Carve a doorway first, then place the door in the opening.";
-                else { d.CutDepth = depth + 2; d.FrameDepth = Math.Max(d.FrameDepth, depth + 4); point -= wall.Normal * depth / 2; }
+                else
+                {
+                    d.CutDepth = depth + 2;
+                    d.Thickness = Math.Max(1, depth);
+                    d.FrameDepth = depth + 4;
+                    point -= wall.Normal * depth / 2;
+                }
             }
         }
         if (ToolManager.Instance is { GridSnap: true } tools)

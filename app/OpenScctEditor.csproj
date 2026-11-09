@@ -18,6 +18,7 @@
   <ItemGroup>
     <Compile Include="../tools/material-window-checks/NativeMaterialChecks.cs" Condition="'$(MaterialWindowChecks)' == 'true'" />
     <Compile Include="../tools/animation-checks/StudioInteractionChecks.cs" Link="Checks/StudioInteractionChecks.cs" />
+    <Compile Include="../tools/ge-draw-checks/GeInteractionChecks.cs" Link="Checks/GeInteractionChecks.cs" />
     <ProjectReference Include="..\src\OpenScct.Editor.Core\OpenScct.Editor.Core.csproj" />
   </ItemGroup>
   <ItemGroup>

@@ -19,7 +19,7 @@ public readonly record struct WallAnchor(FaceRef Face, Vec3 Point, Vec3 Into, st
 /// <summary>
 /// The RE+ hover "+" on a wall of a carved room: a doorway or window through the wall (as deep as the wall is thick),
 /// a doorway with a zone portal sheet in it, a corridor, vent or crawlway leading away from it, or a new room behind it
-/// joined by a doorway. Pieces are the parametric blockout builders, stand on the room's floor, face away from the room
+/// with an optional connecting opening. Pieces are the parametric blockout builders, stand on the room's floor, face away from the room
 /// and take the wall's material.
 /// </summary>
 public static class WallPieces
@@ -84,10 +84,10 @@ public static class WallPieces
     }
 
     /// <summary>The brushes of <paramref name="kind"/> placed at the anchor (not yet added to the map).</summary>
-    public static List<Brush> Build(MapProject p, WallAnchor a, string kind, WorldGeometry? world = null)
+    public static List<Brush> Build(MapProject p, WallAnchor a, string kind, WorldGeometry? world = null, bool cutOpening = false)
     {
         string k = kind.ToLowerInvariant();
-        if (a.Vertical) return BuildVertical(p, a, k, world ?? new WorldGeometry(p, null));
+        if (a.Vertical) return BuildVertical(p, a, k, world ?? new WorldGeometry(p, null), cutOpening);
         switch (k)
         {
             case "doorway" or "window":
@@ -111,6 +111,7 @@ public static class WallPieces
             case "room":
             {
                 double length = BuilderCatalog.Get("room").Defaults().Get("length", 1024);
+                if (!cutOpening) return Piece(p, a, "room", RoomGap + length / 2);
                 List<Brush> door = Piece(p, a, "doorway", RoomGap / 2, ("depth", RoomGap));
                 // The room's ids must not clash with the doorway's, which are not in the map yet.
                 var scratch = new MapProject { Brushes = [.. p.Brushes, .. door], Actors = p.Actors, Ges = p.Ges };
@@ -122,7 +123,7 @@ public static class WallPieces
         }
     }
 
-    private static List<Brush> BuildVertical(MapProject p, WallAnchor a, string kind, WorldGeometry world)
+    private static List<Brush> BuildVertical(MapProject p, WallAnchor a, string kind, WorldGeometry world, bool cutOpening)
     {
         if (kind is not ("hatch" or "shaft" or "room")) throw new ArgumentException("Choose a hatch opening, shaft or connected room on this floor/ceiling");
         var ids = new FreshIds(p);
@@ -138,8 +139,10 @@ public static class WallPieces
         if (kind == "room")
         {
             const double height = 384;
-            return [Cut("Hatch", new(256, 256, RoomGap + 2 * overlap), a.Point + a.Into * RoomGap / 2),
-                Cut("Room", new(1024, 1024, height), a.Point + a.Into * (RoomGap + height / 2))];
+            var room = Cut("Room", new(1024, 1024, height), a.Point + a.Into * (RoomGap + height / 2));
+            return cutOpening
+                ? [Cut("Hatch", new(256, 256, RoomGap + 2 * overlap), a.Point + a.Into * RoomGap / 2), room]
+                : [room];
         }
         return [Cut(kind == "hatch" ? "Hatch" : "Shaft", new(256, 256, depth + 2 * overlap), a.Point + a.Into * depth / 2)];
     }

@@ -22,7 +22,10 @@ public enum SurfaceSource
 }
 
 /// <summary>A world-space surface polygon, wound so <see cref="Normal"/> faces into open space.</summary>
-public readonly record struct SurfacePoly(Vec3[] Verts, Vec3 Normal, SurfaceSource Source);
+public readonly record struct SurfacePoly(Vec3[] Verts, Vec3 Normal, SurfaceSource Source)
+{
+    public string? BrushId { get; init; }
+}
 
 /// <summary>A line trace hit.</summary>
 public readonly record struct TraceHit(Vec3 Point, Vec3 Normal, double Distance);
@@ -158,7 +161,7 @@ public sealed class TraversalWorld
             }
 
             Vec3 n = p.Plane.N;
-            surfaces.Add(new SurfacePoly(p.Verts, n, SurfaceSource.Brushes));
+            surfaces.Add(new SurfacePoly(p.Verts, n, SurfaceSource.Brushes) { BrushId = p.Surface.BrushId });
             for (int i = 1; i + 1 < p.Verts.Length; i++)
             {
                 Vec3 a = p.Verts[0], b = p.Verts[i], c = p.Verts[i + 1];

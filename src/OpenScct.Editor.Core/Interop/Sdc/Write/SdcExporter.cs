@@ -72,7 +72,7 @@ public sealed class SdcExporter : IMapExporter
             return new ExportResult(false, [], [Finding.Error("mover.original-limit", "This map uses mover paths longer than eight stops. Build for OpenSCCT, or shorten those paths before exporting to the original game.")]);
 
         var findings = new List<Finding>();
-        string? gameRoot = GameRoot(project, options, findings);
+        string? gameRoot = GameRoot(project, path, options, findings);
         options.Progress?.Invoke("applying original-game compatible replacements");
         project = SdcCompatibility.Prepare(project, options.ContentRoot ?? EditorServices.ContentRoot, gameRoot, findings);
         try
@@ -99,6 +99,10 @@ public sealed class SdcExporter : IMapExporter
         Lint(project, schema, fromSource, packageName, findings);
         if (findings.Any(f => f.Severity == Severity.Error)) return new ExportResult(false, [], findings);
 
+        options.Progress?.Invoke("packaging assets for the destination installation");
+        SdcAssetBundle assets = SdcAssetBundle.Prepare(project, path, gameRoot, options, schema, findings);
+        if (findings.Any(f => f.Severity == Severity.Error)) return new ExportResult(false, [], findings);
+
         findings.Add(Finding.Info("sdc.mapSettings",
             "map settings per mode, interface pictures and briefing texts live in the <Map>-i.utc package, which this export does not write"));
 
@@ -116,6 +120,7 @@ public sealed class SdcExporter : IMapExporter
             Schema = schema,
             ContentRoot = options.ContentRoot,
             GameRoot = gameRoot,
+            Assets = assets,
             Progress = options.Progress,
         };
         SdcWriteResult result;
@@ -146,6 +151,26 @@ public sealed class SdcExporter : IMapExporter
         bool ok = !findings.Any(f => f.Severity == Severity.Error);
         if (!ok) return new ExportResult(false, [], findings);
         string fullPath = Path.GetFullPath(path);
+        if (assets.FilePath is { } assetFile)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(assetFile)!);
+            if (File.Exists(assetFile))
+            {
+                if (!File.ReadAllBytes(assetFile).AsSpan().SequenceEqual(assets.Package))
+                    throw new IOException($"The asset package {assetFile} already exists with different data. It was not overwritten.");
+            }
+            else
+            {
+                string staged = assetFile + "." + Guid.NewGuid().ToString("N") + ".tmp";
+                try
+                {
+                    File.WriteAllBytes(staged, assets.Package);
+                    try { File.Move(staged, assetFile); }
+                    catch (IOException) when (File.Exists(assetFile) && File.ReadAllBytes(assetFile).AsSpan().SequenceEqual(assets.Package)) { }
+                }
+                finally { if (File.Exists(staged)) File.Delete(staged); }
+            }
+        }
         Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         string temporary = fullPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
@@ -157,7 +182,7 @@ public sealed class SdcExporter : IMapExporter
         {
             if (File.Exists(temporary)) File.Delete(temporary);
         }
-        return new ExportResult(true, [fullPath], findings);
+        return new ExportResult(true, assets.FilePath is { } bundled ? [fullPath, bundled] : [fullPath], findings);
     }
 
     /// <summary>
@@ -256,10 +281,13 @@ public sealed class SdcExporter : IMapExporter
 
     /// <summary>The install the map's new references are looked up in: given, else the one the source .sdc sits in,
     /// else SVM_GAME_ROOT or the default install; null (with a warning) when there is none.</summary>
-    private static string? GameRoot(MapProject p, ExportOptions options, List<Finding> findings)
+    private static string? GameRoot(MapProject p, string path, ExportOptions options, List<Finding> findings)
     {
         try
         {
+            string? destination = SdcAssetBundle.DestinationRoot(path);
+            if (destination is not null && File.Exists(Path.Combine(destination, "System", "_PC_", "Core.u")))
+                return SdcImporter.GameRoot(null, destination);
             return SdcImporter.GameRoot(p.Source.Kind == "sdc" ? p.Source.File : null, options.GameRoot);
         }
         catch (DirectoryNotFoundException)

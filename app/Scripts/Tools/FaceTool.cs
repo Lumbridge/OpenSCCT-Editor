@@ -204,6 +204,16 @@ public sealed class FaceTool : IViewportTool
             () => SurfaceCommands.SelectAdjacent("all"));
         ToolOptions.Command(bar, "Whole brush", "Pick every face of the picked faces' brushes", SurfaceCommands.SelectAllFaces);
         ToolOptions.Command(bar, "Select brushes", "Select the brushes of the picked faces", SurfaceCommands.SelectBrushes);
+        var opening = new CheckButton
+        {
+            Text = "Cut opening for rooms", ButtonPressed = WallPieceCommands.CutRoomOpening,
+            TooltipText = "When adding a room with Surface, also cut a doorway (or a hatch through a floor/ceiling). Leave off to keep the separating wall."
+        };
+        opening.Toggled += value => WallPieceCommands.CutRoomOpening = value;
+        void UpdateOpening() => opening.SetPressedNoSignal(WallPieceCommands.CutRoomOpening);
+        WallPieceCommands.RoomOpeningChanged += UpdateOpening;
+        opening.TreeExiting += () => WallPieceCommands.RoomOpeningChanged -= UpdateOpening;
+        bar.AddChild(opening);
         ToolOptions.Hint(bar, "Alt+click applies the Assets material", "Drag a picked face to extrude it (Alt while dragging flips Neighbour Snap)",
             "Click the + on a wall, floor or ceiling to add a connector");
     }
@@ -414,7 +424,20 @@ public sealed class FaceTool : IViewportTool
             menu.AddItem((kind == "stairs" ? "" : "Add ") + WallPieces.Title(kind, wall));
         }
 
-        menu.IndexPressed += i => WallPieceCommands.Add(kinds[(int)i], wall);
+        menu.AddSeparator();
+        int openingIndex = menu.ItemCount;
+        menu.AddCheckItem("Cut opening for rooms");
+        menu.SetItemChecked(openingIndex, WallPieceCommands.CutRoomOpening);
+        menu.HideOnCheckableItemSelection = false;
+        menu.IndexPressed += i =>
+        {
+            if (i == openingIndex)
+            {
+                WallPieceCommands.CutRoomOpening = !WallPieceCommands.CutRoomOpening;
+                menu.SetItemChecked(openingIndex, WallPieceCommands.CutRoomOpening);
+            }
+            else if (i < kinds.Count) WallPieceCommands.Add(kinds[(int)i], wall);
+        };
         menu.PopupHide += () => menu.QueueFree();
         view.AddChild(menu);
         menu.Position = PanelUi.ScreenPoint(view, at);
