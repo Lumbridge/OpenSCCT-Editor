@@ -21,3 +21,7 @@ Direct cooked fixtures run in a task-owned isolated Reloaded install as both tea
 These checks establish the tested workflows and synthetic lighting cases. They do not establish visual parity for every stock map, all overlapping transparent/refraction arrangements, every possible seam/LOD transition or a minimum-hardware performance target. Broad stock-map capture comparisons, long multiplayer sessions and low-end GPU performance acceptance remain separate from this local feature package. The actual rendering/export limitations are listed in `ADVANCED-MATERIALS.md`.
 
 Run the checks from this editor checkout, then run the GPU smoke in the pinned game checkout. Native acceptance requires an installed original game and a separately isolated RE+ harness; those binaries and assets are not redistributed.
+
+## Supplemental stock checks
+
+See [the post-build stock report](ADVANCED-MATERIALS-STOCK-VALIDATION.md). Normal/night/thermal comparisons and matching draw-call counts were observed, but additional stock tests have unresolved first-use, shutdown and EMF capture failures. These are separate from the successful authored-material and native-export checks.
