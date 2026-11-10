@@ -38,11 +38,11 @@ public static class InteropCommands
             + "map package (.sdc) written natively, or a folder for RE+. An .sdc is the editor copy for Packages\\MapsEd "
             + "(--layout editor) or the cooked copy the game loads from Packages\\Maps (--layout cooked, the default); it is "
             + "read back and checked, and a map imported from an .sdc keeps that file's objects it does not edit. --game is the "
-            + "install new materials and meshes are looked up in. --format original writes the folder for RE+ to <out> instead: "
-            + "the T3D, the actors of the map's own classes and their sources, the map's own textures, meshes and sounds with a "
-            + "script that imports them, the map's texts (.int) and a README of the steps in RE+. --only writes just those "
+            + "install new materials and meshes are looked up in. --format original writes a Reloaded installation folder to <out>: "
+            + "playable and editable maps, native asset packages, settings, pictures and System/_PC_ texts. Drag System and Packages "
+            + "into a compatible Reloaded install. Missing textures warn and use a checkerboard. --only writes just those "
             + "objects (Brush:Id, Actor:Id, Ge:Id or a bare id) in the T3D Edit > Copy form, without LevelInfo and builder "
-            + "brush. Writes even with lint errors; the exit code is 1 then.",
+            + "brush. T3D writes even with lint errors; the exit code is 1 then. Failed native/folder exports preserve the previous output.",
             ExportAsync),
         new CliCommand("export-t3d",
             "export-t3d <project.osmap> <out.t3d> [--only Kind:Id,...] [--content <.content>] [--json]",
