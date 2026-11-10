@@ -94,8 +94,4 @@ public static class PropertyHelp
         }
         return null;
     }
-
-    public static bool Common(string property) => property is "TeamNumber" or "LightBrightness" or "LightRadius" or
-        "LightHue" or "LightSaturation" or "ObjectiveName" or "CaptureTime" or "TriggerName" or "Duration" or
-        "AlarmName" or "DetectionDelay" or "VisibilityMaxDistance" or "PatrolAngle" or "LaserLength" or "MoveTime" or "StayOpenTime" or "sDescriptionText";
 }

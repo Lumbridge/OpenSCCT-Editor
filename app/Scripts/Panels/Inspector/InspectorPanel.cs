@@ -12,10 +12,12 @@ using OpenScctEditor.Viewports;
 namespace OpenScctEditor.Panels;
 
 /// <summary>
-/// The docked, non-modal inspector for the selection: transform (location, rotation in degrees, scales, pre-pivot),
-/// brush CSG, flags, material and builder parameters, GE kind, points, ID bit and platform, editor state (layer,
-/// folder, hidden, locked, note), and the class properties (see <see cref="PropertyGrid"/>). Several objects edit
-/// together; differing values show as mixed. Every edit is an undoable command; typing merges into one step.
+/// The docked, non-modal inspector for the selection, what is specific to the object first: transform (location,
+/// rotation in degrees, scales, pre-pivot), brush CSG, flags, material and builder parameters, GE kind, points, ID bit
+/// and platform, then the class properties (see <see cref="PropertyGrid"/>: the class's key properties open, the rest
+/// in folded categories), and under them what every object shares: match size and editor state (layer, folder,
+/// hidden, locked, note). Several objects edit together; differing values show as mixed. Every edit is an undoable
+/// command; typing merges into one step.
 /// </summary>
 [Panel("Inspector", DockSide.Right, Order = 0)]
 public partial class InspectorPanel : EditorPanel
@@ -40,7 +42,10 @@ public partial class InspectorPanel : EditorPanel
     private TextureRect _icon = null!;
     private Control _empty = null!;
     private ScrollContainer _scroll = null!;
+    /// <summary>Where section rows are added: <see cref="_above"/> or <see cref="_below"/> the class properties.</summary>
     private VBoxContainer _sections = null!;
+    private VBoxContainer _above = null!;
+    private VBoxContainer _below = null!;
     private Label _propsHeader = null!;
     private PropertyGrid _grid = null!;
     private LiveEdit _live = null!;
@@ -99,9 +104,8 @@ public partial class InspectorPanel : EditorPanel
         _bar = bar;
 
         VBoxContainer content = PanelUi.Scroll(this);
-        _sections = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        _sections.AddThemeConstantOverride("separation", 2);
-        content.AddChild(_sections);
+        _above = SectionBox(content);
+        _sections = _above;
         _propsHeader = PanelUi.Header(content, "Properties");
         _grid = new PropertyGrid();
         _grid.Init(Context);
@@ -109,6 +113,7 @@ public partial class InspectorPanel : EditorPanel
         // Rows a colour drag stored under "Changed only" show once its picker closes.
         _grid.PickerClosed += () => _sync.Queue();
         content.AddChild(_grid);
+        _below = SectionBox(content);
         _scroll = PanelUi.ScrollOf(content);
 
         // Nothing selected: the panel's empty state in place of the (empty) scroll area, centred in the dock.
@@ -138,6 +143,14 @@ public partial class InspectorPanel : EditorPanel
         _rebuild.Queue();
     }
 
+    private static VBoxContainer SectionBox(Control parent)
+    {
+        var box = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+        box.AddThemeConstantOverride("separation", 2);
+        parent.AddChild(box);
+        return box;
+    }
+
     // ---- build ----------------------------------------------------------------------------------------------------
 
     private void Rebuild()
@@ -148,11 +161,16 @@ public partial class InspectorPanel : EditorPanel
         _live.Flush();
         _grid.Flush();
         _scaleSeries.Clear();
-        foreach (Node child in _sections.GetChildren())
+        foreach (VBoxContainer box in (VBoxContainer[])[_above, _below])
         {
-            _sections.RemoveChild(child);
-            child.QueueFree();
+            foreach (Node child in box.GetChildren())
+            {
+                box.RemoveChild(child);
+                child.QueueFree();
+            }
         }
+
+        _sections = _above;
 
         _syncers.Clear();
         _builtFor = Context.Project;
@@ -163,7 +181,7 @@ public partial class InspectorPanel : EditorPanel
         _scroll.Visible = _refs.Count > 0;
         _empty.Visible = _refs.Count == 0;
         bool props = _refs.Any(r => r.Kind is ObjectKind.Actor or ObjectKind.Brush or ObjectKind.Stair);
-        _grid.CommonOnly = Compact;
+        _grid.KeyOnly = Compact;
         _propsHeader.Visible = props;
         if (_refs.Count == 0)
         {
@@ -209,10 +227,16 @@ public partial class InspectorPanel : EditorPanel
             GeSection();
         }
 
-        if (_refs.Any(r => r.Kind == ObjectKind.Actor))
+        if (!Compact && _refs.Any(r => r.Kind == ObjectKind.Actor))
         {
-            if (!Compact) MatchSection();
-            if (!Compact) RecoveredSection();
+            RecoveredSection();
+        }
+
+        // Under the class properties: what every object has, whatever it is.
+        _sections = _below;
+        if (!Compact && _refs.Any(r => r.Kind == ObjectKind.Actor))
+        {
+            MatchSection();
         }
 
         if (!Compact) EditorSection();

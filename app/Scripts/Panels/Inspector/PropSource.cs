@@ -33,6 +33,10 @@ internal abstract class PropSource
     /// settings); null to use the owners' class schema.</summary>
     public virtual IReadOnlyList<PropInfo>? Schema => null;
 
+    /// <summary>True when the grid lists the classes' key properties first, above the categories (see
+    /// <see cref="OpenScct.Editor.Core.Classes.KeyProperties"/>).</summary>
+    public virtual bool KeyFirst => false;
+
     /// <summary>Properties the grid leaves out (the inspector edits the typed transform itself).</summary>
     public virtual IReadOnlySet<string> Skip { get; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 }
@@ -57,6 +61,8 @@ internal sealed class ObjectPropSource : PropSource
     public override IReadOnlySet<string> Skip => s_skip;
 
     public override bool AllowAdd => true;
+
+    public override bool KeyFirst => true;
 
     public override IReadOnlyList<PropOwner> Owners(MapProject project)
     {
