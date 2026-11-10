@@ -87,16 +87,16 @@ public static class KeyProperties
         ["SGPOControl"] = ["ZoneDescription", "CylinderWidth", "CylinderHeight", "Tag"],
 
         // Objectives.
-        ["SObjectiveTrigger"] = ["TriggerName", "CaptureTime", .. s_interaction, .. s_events],
+        ["SObjectiveTrigger"] = ["TriggerName", "CaptureTime", "HideWhileInactive", .. s_interaction, .. s_events],
         ["SComputerObjectiveTrigger"] =
-            ["TriggerName", "CaptureTime", "DominationCaptureTime", "InteractionDistanceToCenter", "StaticMesh", .. s_events],
-        ["SBombTargetObjectiveTrigger"] = ["TriggerName", "CaptureTime", "StaticMesh", .. s_events],
-        ["SDisk"] = ["TriggerName", "CaptureTime", "Group", "ResetTime", .. s_events],
-        ["SFlag"] = ["TriggerName", "DropZone", "ResetTime", .. s_interaction, .. s_events],
+            ["TriggerName", "CaptureTime", "DominationCaptureTime", "HideWhileInactive", "InteractionDistanceToCenter", "StaticMesh", .. s_events],
+        ["SBombTargetObjectiveTrigger"] = ["TriggerName", "CaptureTime", "HideWhileInactive", "StaticMesh", .. s_events],
+        ["SDisk"] = ["TriggerName", "CaptureTime", "HideWhileInactive", "Group", "ResetTime", .. s_events],
+        ["SFlag"] = ["TriggerName", "DropZone", "HideWhileInactive", "ResetTime", .. s_interaction, .. s_events],
         ["SFlagDropZone"] = ["TriggerName", "CaptureTime", .. s_interaction, .. s_cylinder, .. s_events],
         ["SObjective"] =
         [
-            "ObjectiveName", "Description", "DescriptionDEF", "Triggers", "RandomTriggers", "RespawnTime", "ActivationTime",
+            "ObjectiveName", "Description", "DescriptionDEF", "Triggers", "HideWhileInactive", "RandomTriggers", "RespawnTime", "ActivationTime",
             "TriggersERVisibilityZones", .. s_events,
         ],
         ["SMission"] =

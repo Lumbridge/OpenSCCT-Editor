@@ -1374,6 +1374,13 @@ are derived for previews and builds. They are not additional authored objects. S
 Mover KeyPos/KeyRot and NumKeys retain the complete native path, up to 65,536 stops. Builds with more than eight stops write `sim/mover-paths.json` (`svm.mover-paths/1`) with all relative poses and the start index; the gameplay UC properties retain only an eight-key compatibility subset. The native path is authoritative on updated OpenSCCT servers and clients. SVMap import restores it. Original-game file exports refuse longer paths before writing. See [MOVERS.md](MOVERS.md).
 
 
+## Inactive objective visibility
+
+Objective and device properties can store boolean `HideWhileInactive` (default false). OpenSCCT builds lower
+objective settings onto their devices in `sim/gameplay.json`, including an explicit false for unlinked devices.
+An explicit device setting wins; shared devices otherwise hide only when all owning objectives choose hiding.
+Inactive devices remain unusable. Original-game exports omit this OpenSCCT-only property.
+
 ## Authored material data
 
 Project material flags may contain `authored`, a version 1 Godot-independent material definition. Existing flags and a basic texture fallback remain. Brush faces support optional `displacementCollision`; actors support per-section `displacementCollision` dictionaries. See [the authored material contract and limits](ADVANCED-MATERIALS.md).
