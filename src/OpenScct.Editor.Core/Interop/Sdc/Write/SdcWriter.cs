@@ -75,7 +75,7 @@ public static class SdcWriter
             throw new SdcWriteRefusedException(string.Join(Environment.NewLine, findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));
         try
         {
-            project = Stairs.StairGeometry.Lower(GeGeometry.Expand(project));
+            project = BrushTransformExport.Prepare(Stairs.StairGeometry.Lower(GeGeometry.Expand(project)));
         }
         catch (ArgumentException ex)
         {

@@ -9,8 +9,8 @@ using OpenScct.Editor.Core.Services;
 namespace OpenScct.Editor.Core.Interop.Sdc;
 
 /// <summary>Assets absent from the destination install, written as one native, map-specific package.
-/// No project or installed package is edited. The content hash gives each revision its own file, so publishing
-/// a new dependency cannot invalidate an existing map if the subsequent map save fails.</summary>
+/// No project or installed package is edited. Standalone SDC exports use immutable content-hashed names;
+/// a folder export uses stable names and publishes the complete folder atomically.</summary>
 public sealed class SdcAssetBundle
 {
     private sealed record Asset(string Relative, string ClassName, int Ref, Part Part);
@@ -97,7 +97,7 @@ public sealed class SdcAssetBundle
             if (part.Builder.Exports.Count == 0) continue;
             byte[] data = part.Builder.Build();
             string previous = part.Name;
-            part.Name += "_" + Convert.ToHexStringLower(SHA256.HashData(data))[..12];
+            if (!options.PortableAssets) part.Name += "_" + Convert.ToHexStringLower(SHA256.HashData(data))[..12];
             // Mesh material objrefs already target imports; rename their package roots after hashing textures.
             if (part != bundle._main)
                 for (int i = 0; i < bundle._builder.Imports.Count; i++)

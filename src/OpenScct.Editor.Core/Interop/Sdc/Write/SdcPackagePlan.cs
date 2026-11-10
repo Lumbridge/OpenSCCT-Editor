@@ -1851,11 +1851,11 @@ internal sealed partial class SdcPackagePlan
 
     // ---- properties -------------------------------------------------------------------------------------------
 
-    private List<KeyValuePair<string, SvJsonNode>> LevelInfoProps() => _p.LevelInfo.ToList();
+    private List<KeyValuePair<string, SvJsonNode>> LevelInfoProps() => EditorGroups.LevelInfo(_p).ToList();
 
     private List<KeyValuePair<string, SvJsonNode>> ActorProps(Actor a, SdcActor? n)
     {
-        var props = a.Props.Where(kv => !s_engineState.Contains(kv.Key)).ToList();
+        var props = a.Props.Where(kv => !s_engineState.Contains(kv.Key) && !EditorGroups.IsCachedHiddenFlag(kv.Key)).ToList();
         if (EmitterBuild.SystemsOf(a, _p) is { Count: > 0 } &&
             (n is null || n.SubObjects.Count == 0 || T3dImport.ObjectsOf(a).Count == 0))
         {
@@ -1940,7 +1940,7 @@ internal sealed partial class SdcPackagePlan
 
     private List<KeyValuePair<string, SvJsonNode>> BrushProps(Brush b, SdcActor? n)
     {
-        var props = b.Props.Where(kv => kv.Key is not ("MainScale" or "PostScale")).ToList();
+        var props = b.Props.Where(kv => kv.Key is not ("MainScale" or "PostScale") && !EditorGroups.IsCachedHiddenFlag(kv.Key)).ToList();
         props.Add(new("CsgOper", SvJsonNode.Integer(b.Oper == CsgOper.Add ? 1 : 2)));
         if (b.PolyFlags != 0)
         {

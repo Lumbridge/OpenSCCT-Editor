@@ -8,19 +8,21 @@ namespace OpenScct.Editor.Core.Interop.Original;
 /// <summary>A staged install overlay. Nothing is published until both maps and every dependency pass export.</summary>
 internal sealed class ReloadedBundleWriter(MapProject project, string folder, ExportOptions options, string stage)
 {
-    public static readonly string[] Directories = ["System/_PC_", "Packages/Animations", "Packages/Assets", "Packages/Maps",
-        "Packages/MapsEd", "Packages/Sounds", "Packages/StaticMeshes", "Packages/Textures"];
     public List<string> Files { get; } = [];
     public List<Finding> Findings { get; } = [];
 
     public void Run()
     {
-        foreach (string directory in Directories) Directory.CreateDirectory(Path.Combine(stage, directory));
         string? game = null;
         try { game = SdcImporter.GameRoot(project.Source.File ?? stage, options.GameRoot); }
         catch (DirectoryNotFoundException) { /* SDC export reports absent install information. */ }
+        MapProject prepared = SdcCompatibility.Prepare(project, options.ContentRoot ?? EditorServices.ContentRoot, game, Findings);
+        if (Findings.Any(f => f.Severity == Severity.Error)) return;
+        prepared = Stairs.StairGeometry.Lower(Gameplay.GeGeometry.Expand(prepared));
         var dependencies = new NativeDependencies();
-        MapProject copy = dependencies.Prepare(project, stage, options, game);
+        MapProject copy = dependencies.Prepare(prepared, stage, options, game);
+        Findings.AddRange(dependencies.Findings);
+        Finding[] preparationFindings = Findings.ToArray();
         foreach (string name in copy.MapSettings.Keys.ToArray())
             if (!copy.MapSettings[name].Contains("GameModeId"))
                 copy.MapSettings[name].Set("GameModeId", SvJsonNode.Integer(ReloadedInterface.ModeId(name)));
@@ -37,7 +39,8 @@ internal sealed class ReloadedBundleWriter(MapProject project, string folder, Ex
             foreach (Finding finding in result.Findings)
                 if (!Findings.Any(f => f.Code == finding.Code && f.Message == finding.Message)) Findings.Add(finding);
             if (!result.Ok) return;
-            File.WriteAllText(path + ".export-report.md", SdcExportReport.Text(result with { Files = result.Files.Select(Published).ToArray() }));
+            File.WriteAllText(path + ".export-report.md", SdcExportReport.Text(result with
+                { Files = result.Files.Select(Published).ToArray(), Findings = preparationFindings.Concat(result.Findings).ToArray() }));
             foreach (string file in result.Files) Add(file);
         }
         foreach (string file in dependencies.Written) Add(file);

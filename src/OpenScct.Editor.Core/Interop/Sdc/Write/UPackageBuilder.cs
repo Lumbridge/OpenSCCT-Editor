@@ -163,13 +163,28 @@ public sealed class UPackageBuilder
 
     /// <summary>Appends replacement objects and tables while retaining every untouched object at its original
     /// offset. This preserves native skeletal meshes, animations, shaders and lazy-array offsets losslessly.</summary>
-    public byte[] BuildPreservingSource(UPackage source)
+    public byte[] BuildPreservingSource(UPackage source, IReadOnlySet<int>? retained = null)
     {
         if (Exports.Count < source.Exports.Count || _names.Count < source.Names.Count ||
             !source.Names.Select((name, i) => name == _names[i].Name).All(same => same))
             throw new InvalidOperationException("Source object and name slots must remain stable when carrying native assets.");
         var w = new UWriter(this);
-        w.Bytes(source.Data);
+        if (retained is null) w.Bytes(source.Data);
+        else
+        {
+            // Native lazy arrays contain absolute positions. Keep the positions of live objects, but discard
+            // unused payloads rather than carrying the complete source package behind a new export table.
+            int sourceGenerations = BinaryPrimitives.ReadInt32LittleEndian(source.Data.AsSpan(52));
+            int headerSize = Math.Max(64, checked(56 + sourceGenerations * 8));
+            if (headerSize > source.Data.Length) throw new InvalidDataException("Invalid source generation table.");
+            int end = source.Exports.Where(e => retained.Contains(e.Index + 1) && Exports[e.Index].Write is null)
+                .Select(e => e.Offset + e.Size).DefaultIfEmpty(headerSize).Max();
+            byte[] kept = new byte[Math.Max(end, headerSize)];
+            source.Data.AsSpan(0, headerSize).CopyTo(kept);
+            foreach (UExport e in source.Exports.Where(e => retained.Contains(e.Index + 1) && Exports[e.Index].Write is null && e.Size > 0))
+                source.Data.AsSpan(e.Offset, e.Size).CopyTo(kept.AsSpan(e.Offset));
+            w.Bytes(kept);
+        }
         var offsets = new int[Exports.Count]; var sizes = new int[Exports.Count];
         for (int i = 0; i < Exports.Count; i++)
         {

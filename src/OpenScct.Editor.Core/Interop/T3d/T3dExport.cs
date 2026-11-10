@@ -20,7 +20,7 @@ public static partial class T3dExport
     /// <summary>Properties not written: the name is the Begin line, the brush model is the shape, the rest is derived.</summary>
     private static readonly HashSet<string> s_skipped = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Name", "Brush", "Region", "StaticMeshInstance", "StaticMeshInstanceOnPSX2", "StaticMeshInstanceOnXBOX", "NavigationPointList",
+        "Name", "Brush", "Region", "StaticMeshInstance", "StaticMeshInstanceOnPSX2", "StaticMeshInstanceOnXBOX", "NavigationPointList", "bHiddenEdGroup",
     };
 
     /// <summary>True for a property a T3D carries (the others the original editor works out itself).</summary>
@@ -67,6 +67,7 @@ public static partial class T3dExport
             p = Stairs.StairGeometry.Lower(GeGeometry.Expand(p));
         }
 
+        p = BrushTransformExport.Prepare(p);
         var doc = new T3dDocument();
         var types = new T3dTypes(schema, p.Id);
         SvJsonObject extra = p.Extra[T3dImport.ExtraKey] as SvJsonObject ?? new SvJsonObject();
@@ -157,7 +158,7 @@ public static partial class T3dExport
 
     private static T3dActor LevelInfoActor(MapProject p, string name, T3dTypes types)
     {
-        var props = p.LevelInfo.Clone();
+        var props = EditorGroups.LevelInfo(p);
         // The title defaults to the map id on import; only a real one goes back into the LevelInfo. The shared catalog's
         // name an import gave the map (IdentityImport) gives way to the title the map came with, until the map is renamed.
         string title = Svmap.IdentityImport.ImportedTitle(p);

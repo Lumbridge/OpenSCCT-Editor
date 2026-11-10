@@ -74,6 +74,9 @@ public sealed class UPropertyReader
     /// written again with their references moved (<see cref="UPropertyTrace"/>).</summary>
     public UPropertyTrace? Trace { get; set; }
 
+    /// <summary>Native object arrays of tagged structs absent from the script schema (UStaticMesh.Materials).</summary>
+    public IReadOnlySet<string>? TaggedStructArrays { get; init; }
+
     /// <summary>Skips an FStateFrame when the export has one (RF_HasStack).</summary>
     public static void SkipStateFrame(UReader r, uint objectFlags)
     {
@@ -151,7 +154,14 @@ public sealed class UPropertyReader
             UeProp? prop = find(name);
             int start = r.Pos, extra0 = r.NameExtra;
             SvJsonNode value;
-            if (type == TagBool)
+            if (type == TagArray && depth == 0 && TaggedStructArrays?.Contains(name) == true)
+            {
+                int count = r.Count(2, "tagged struct elements");
+                var elements = new SvJsonArray();
+                for (int i = 0; i < count; i++) elements.Add(Tagged(r, _ => null, $"{where}.{name}[{i}]", depth + 1));
+                value = elements;
+            }
+            else if (type == TagBool)
             {
                 value = SvJsonNode.Bool(flag);
                 if (prop is not null && prop.Type != "bool")

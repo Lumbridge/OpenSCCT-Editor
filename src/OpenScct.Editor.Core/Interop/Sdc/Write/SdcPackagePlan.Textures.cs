@@ -22,8 +22,11 @@ internal sealed partial class SdcPackagePlan
         foreach ((string path, _) in assets.Materials)
         {
             if (!references.Contains(path) || assets.FindMaterial(path) is not { } material) continue;
-            RgbaImage image = LegacyMaterialBake.Base(material);
             AuthoredMaterial? authored = AuthoredMaterial.From(material.Flags["authored"]);
+            // Plain materials already live in the dependency package. Duplicating them in MyLevel leaves
+            // unreachable map assets that the native texture browser tries to load again by that temporary alias.
+            if (authored is null && _o.Assets?.Contains(path) == true) continue;
+            RgbaImage image = LegacyMaterialBake.Base(material);
             if (authored is not null) foreach (string difference in LegacyMaterialBake.Differences(authored)) _findings.Add(Finding.Warning("sdc.materialApproximation", path + ": " + difference + "."));
             bool masked = material.Flags["masked"]?.GetValue<bool>() == true, translucent = material.Flags["translucent"]?.GetValue<bool>() == true;
             AlphaKind alpha = translucent ? AlphaKind.Blend : masked ? AlphaKind.Mask : AlphaKind.None;

@@ -3,6 +3,11 @@ param(
     [Parameter(Mandatory)][string]$Bundle,
     [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9_]+$')][string]$MapId,
     [string]$Out = '',
+    [string]$EditorDll = '',
+    [string]$ExpectedEditorSha256 = '',
+    [switch]$Rebuild,
+    [string[]]$ExpectedGroups = @(),
+    [switch]$PauseBeforeLoad,
     [int]$TimeoutSeconds = 180
 )
 $ErrorActionPreference = 'Stop'
@@ -23,16 +28,34 @@ foreach ($name in 'EditorRes','_PC_') {
 }
 foreach ($name in 'Textures','StaticMeshes','Animations','Sounds','Assets') {
     $source = Join-Path $GameRoot "Packages/$name"
-    if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination (Join-Path $testPackages $name) -Recurse }
+    if (Test-Path -LiteralPath $source) {
+        Get-ChildItem -LiteralPath $source -Recurse -File | Where-Object { !$_.Name.StartsWith($MapId + '_',[StringComparison]::OrdinalIgnoreCase) -and $_.Name -ne "$MapId-i.utc" } |
+            ForEach-Object {
+                $destination = Join-Path (Join-Path $testPackages $name) ([IO.Path]::GetRelativePath($source,$_.FullName))
+                New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+                Copy-Item -LiteralPath $_.FullName -Destination $destination
+            }
+    }
 }
 Copy-Item -LiteralPath (Join-Path $Bundle 'Packages') -Destination $Out -Recurse -Force
 if (Test-Path -LiteralPath (Join-Path $Bundle 'System')) { Copy-Item -LiteralPath (Join-Path $Bundle 'System') -Destination $Out -Recurse -Force }
+if ($EditorDll) { Copy-Item -LiteralPath (Resolve-Path -LiteralPath $EditorDll).Path -Destination (Join-Path $testSystem 'Reloaded.Editor.dll') -Force }
+$actualEditorHash = (Get-FileHash -LiteralPath (Join-Path $testSystem 'Reloaded.Editor.dll') -Algorithm SHA256).Hash
+if ($ExpectedEditorSha256 -and $actualEditorHash -ne $ExpectedEditorSha256) { throw 'The test DLL does not match the requested native editor.' }
+Write-Output "EditorSha256=$actualEditorHash"
+if ($PauseBeforeLoad) { New-Item -ItemType File -Path (Join-Path $testSystem 'package-load-wait.txt') | Out-Null }
 if (Test-Path -LiteralPath (Join-Path $GameRoot 'Menus')) { Copy-Item -LiteralPath (Join-Path $GameRoot 'Menus') -Destination $Out -Recurse }
 $interface = Join-Path $testPackages "Textures/$MapId-i.utc"
 $map = Join-Path $testPackages "MapsEd/$MapId.sdc"
 if (!(Test-Path -LiteralPath $interface) -or !(Test-Path -LiteralPath $map)) { throw 'Bundle must contain the interface and editable map.' }
-@("OBJ LOAD PACKAGE=`"$MapId-i`" FILE=`"$interface`"", "MAP LOAD FILE=`"$map`"",
-  'MAP NEW', "MAP LOAD FILE=`"$map`"") |
+$commands = @("OBJ LOAD PACKAGE=`"$MapId-i`" FILE=`"$interface`"", "MAP LOAD FILE=`"$map`"", 'MAP NEW', "MAP LOAD FILE=`"$map`"")
+if ($Rebuild) {
+    $rebuilt = Join-Path $testPackages "MapsEd/$MapId-rebuilt.sdc"
+    $commands += @('MAP REBUILD', "MAP SAVE FILE=`"$rebuilt`"", 'MAP NEW', "MAP LOAD FILE=`"$rebuilt`"")
+}
+$nativeText = Join-Path $testSystem 'native-loaded.t3d'
+if ($ExpectedGroups.Count) { $commands += "MAP EXPORT FILE=`"$nativeText`"" }
+$commands |
     Set-Content -LiteralPath (Join-Path $testSystem 'package-load-commands.txt') -Encoding ascii
 $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio/Installer/vswhere.exe'
 $vs = & $vswhere -latest -prerelease -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
@@ -60,6 +83,7 @@ $launched = & (Join-Path $testSystem 'PackageLoadDriver.exe') $executable (Join-
 if ($LASTEXITCODE) { throw 'Native editor launch failed.' }
 $ownedId = [int]($launched | Select-Object -Last 1)
 Write-Output "TestRoot=$Out"
+Write-Output "EditorPid=$ownedId"
 try {
     $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
     $report = Join-Path $testSystem 'package-load-report.txt'
@@ -69,7 +93,18 @@ try {
             $lines = @(Get-Content -LiteralPath $report)
             if ($lines.Count -gt $shown) { $lines[$shown..($lines.Count-1)] | Write-Output; $shown = $lines.Count }
             if ($lines -match '^FAIL ') { throw 'Native package load failed.' }
-            if ($lines -match '^PASS ') { return }
+            if ($lines -match '^PASS ') {
+                if ($ExpectedGroups.Count) {
+                    $text = Get-Content -LiteralPath $nativeText -Raw
+                    $visible = [regex]::Match($text,'(?m)^\s*VisibleGroups=(.*)$').Groups[1].Value
+                    foreach ($group in $ExpectedGroups) {
+                        if (!$visible.Contains($group)) { throw "Native editor disabled group $group." }
+                    }
+                    if ($text -match 'bHiddenEdGroup=True') { throw 'Native editor hid grouped actors.' }
+                    Write-Output 'PASS Native groups remain enabled after load/rebuild/save/reopen.'
+                }
+                return
+            }
         }
         if (!(Get-Process -Id $ownedId -ErrorAction SilentlyContinue)) { throw 'Native editor exited before completing the package test.' }
         Start-Sleep -Milliseconds 500
