@@ -26,7 +26,7 @@ public sealed record LedgeOptions
     /// <summary>Most rise per unit of length for an edge to count as level.</summary>
     public double MaxSlope { get; init; } = 0.02;
 
-    /// <summary>Also look for lips on static meshes (props) of a baked map, not only on its architecture.</summary>
+    /// <summary>Also look for lips on static meshes (props placed in the map or baked into it), not only on its architecture.</summary>
     public bool IncludeMeshes { get; init; }
 
     /// <summary>Only look inside this box (null: the whole map).</summary>

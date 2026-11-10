@@ -98,9 +98,17 @@ public static class VisualLayers
     public const uint SkyLit = 1u << 15;
     public const uint SkyBackdrop = 1u << 16;
 
+    /// <summary>The bounds box drawn round an actor's mesh. The textured modes draw it only while View > Overlays >
+    /// Mesh Outlines is on (<see cref="MeshOutlinesShown"/>); the modes that draw no mesh surfaces always do, as the
+    /// box is all they show of a mesh. Selected, it joins <see cref="Selected"/> like every outline.</summary>
+    public const uint MeshOutlines = 1u << 17;
+
+    /// <summary>Whether the textured modes draw the boxes round meshes (View > Overlays > Mesh Outlines).</summary>
+    public static bool MeshOutlinesShown { get; set; } = true;
+
     public static uint SkyForMode(RenderMode mode) => mode == RenderMode.Unlit ? SkyUnlit : mode == RenderMode.Lit ? SkyLit : 0;
 
-    public static uint ForMode(RenderMode mode) => Common | Selected | mode switch
+    public static uint ForMode(RenderMode mode) => Common | Selected | (MeshOutlinesShown || mode is not (RenderMode.Unlit or RenderMode.Lit) ? MeshOutlines : 0) | mode switch
     {
         RenderMode.Wireframe => BrushWire,
         RenderMode.BrushColors => BrushWire | CsgVolumes,

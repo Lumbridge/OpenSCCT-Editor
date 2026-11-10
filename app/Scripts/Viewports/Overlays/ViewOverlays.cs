@@ -156,6 +156,25 @@ public sealed class OverlayPart : IShellPart
             });
         }
 
+        VisualLayers.MeshOutlinesShown = AppSettings.GetBool("overlays", "meshOutlines", true);
+        context.AddAction(new EditorAction("view.overlay.meshOutlines", "Mesh Outlines", "View/Overlays", () =>
+        {
+            VisualLayers.MeshOutlinesShown = !VisualLayers.MeshOutlinesShown;
+            AppSettings.Set("overlays", "meshOutlines", VisualLayers.MeshOutlinesShown);
+            foreach (EditorViewport view in ViewportLayout.Instance?.Views ?? [])
+            {
+                view.ApplyCullMask();
+                view.Redraw();
+            }
+
+            context.SetStatus($"Mesh outlines {(VisualLayers.MeshOutlinesShown ? "on" : "off")}");
+        })
+        {
+            Order = 190,
+            IsChecked = () => VisualLayers.MeshOutlinesShown,
+            Description = "Draws the white box round each static mesh in the textured views (a selected mesh keeps its outline; wireframe views always draw it)",
+        });
+
         context.AddAction(new EditorAction("view.overlays.report", "Report Overlay Shapes", "View/Overlays",
             () => context.SetStatus(ViewOverlays.Report()))
         {

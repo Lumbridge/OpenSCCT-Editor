@@ -410,7 +410,8 @@ public sealed class GeDrawTool : IViewportTool
             return;
         }
 
-        var options = _state.Options with { Region = null };
+        // Clicking an edge is a deliberate choice, so props count here whatever the map-wide detection setting says.
+        var options = _state.Options with { Region = null, IncludeMeshes = true };
         bool changed = !ReferenceEquals(w, _edgeWorld) || options != _edgeOptions;
         if (changed)
         {

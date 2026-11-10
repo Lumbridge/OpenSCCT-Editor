@@ -17,7 +17,7 @@ public enum SurfaceSource
     /// <summary>A baked map's world BSP.</summary>
     WorldBsp,
 
-    /// <summary>A baked map's static mesh collision.</summary>
+    /// <summary>Static mesh collision: a baked map's, or that of the meshes placed in the project.</summary>
     Mesh,
 }
 
@@ -32,7 +32,8 @@ public readonly record struct TraceHit(Vec3 Point, Vec3 Normal, double Distance)
 
 /// <summary>
 /// The level geometry as the traversal tools see it: OpenSCCT's own collision world (the engine's line and box traces)
-/// over the CSG of the project's brushes and, for imported maps, the baked <c>collision.bin</c>. Also keeps the surface
+/// over the CSG of the project's brushes, the static meshes placed in it and, for imported maps, the baked
+/// <c>collision.bin</c>. Also keeps the surface
 /// polygons the ledge detector walks. Build once per question; the baked collision is cached per file.
 /// </summary>
 public sealed class TraversalWorld
@@ -42,6 +43,9 @@ public sealed class TraversalWorld
 
     private static readonly ConcurrentDictionary<string, (DateTime Stamp, CollisionData Data, CollisionWorld World)?> s_baked =
         new(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly object s_meshLock = new();
+    private static ((int Key, string Folder, CollisionData? Baked) Key, (CollisionData Data, CollisionWorld World)? Built)? s_meshes;
 
     private readonly List<(CollisionWorld World, CollisionData Data)> _worlds;
 
@@ -87,7 +91,60 @@ public sealed class TraversalWorld
             worlds.Add(csg);
         }
 
+        if (PlacedMeshes(project, projectFolder, worlds.Count > 0 && project.Baked is { KeepCollision: true } ? worlds[0].Item2 : null) is { } meshes)
+        {
+            worlds.Add((meshes.World, meshes.Data));
+            BakedSurfaces(meshes.Data, surfaces);
+        }
+
         return new TraversalWorld(worlds, surfaces);
+    }
+
+    /// <summary>
+    /// The collision of the static meshes placed in the project (<see cref="CollisionBuild.PlacedMeshes"/>), so ledges
+    /// can sit on props and the clearance checks see them. Those a kept baked collision already holds are left to it.
+    /// The last one built is kept: brush edits rebuild the world far more often than a mesh is moved.
+    /// </summary>
+    private static (CollisionData Data, CollisionWorld World)? PlacedMeshes(MapProject project, string? projectFolder, CollisionData? baked)
+    {
+        int key = CollisionBuild.PlacedMeshKey(project);
+        if (key == 0)
+        {
+            return null;
+        }
+
+        var cacheKey = (key, projectFolder ?? "", baked);
+        lock (s_meshLock)
+        {
+            if (s_meshes is { } cached && cached.Key.Equals(cacheKey))
+            {
+                return cached.Built;
+            }
+        }
+
+        HashSet<string>? skip = null;
+        if (baked is not null)
+        {
+            skip = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            string?[] sources = BakedSource.ColliderSources(baked);
+            for (int i = 0; i < baked.Colliders.Length; i++)
+            {
+                if ((baked.GetString(baked.Colliders[i].Actor) ?? sources[i]) is { } id)
+                {
+                    skip.Add(id);
+                }
+            }
+        }
+
+        (CollisionData, CollisionWorld)? built = CollisionBuild.PlacedMeshes(project, projectFolder, skip) is { } data
+            ? (data, CollisionWorld.Build(data))
+            : null;
+        lock (s_meshLock)
+        {
+            s_meshes = (cacheKey, built);
+        }
+
+        return built;
     }
 
     /// <summary>The first thing a line from <paramref name="from"/> to <paramref name="to"/> hits, at the surface itself
@@ -192,7 +249,7 @@ public sealed class TraversalWorld
         foreach (Collider c in data.Colliders)
         {
             if (c.Kind is not (ColliderKind.WorldBsp or ColliderKind.MeshPoly or ColliderKind.MeshHull) ||
-                (c.Flags & ColliderFlags.BlockPlayers) == 0)
+                (c.Flags & ColliderFlags.BlockPlayers) == 0 || (c.Flags & ColliderFlags.StartsDisabled) != 0)
             {
                 continue;
             }

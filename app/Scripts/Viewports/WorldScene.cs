@@ -1041,7 +1041,9 @@ public sealed partial class WorldScene : Node3D
         BuildActorLines(lines, a, look);
         // An actor drawn as an icon in the perspective view keeps its box in the 2D views (and when selected).
         IconUse use = ActorIconBatch.Use(a);
-        e.Wire = AddMesh(e.Root, lines.Build(), SceneStyle.Lines, use == IconUse.Always ? VisualLayers.ActorBoxes : VisualLayers.Common);
+        // The box round a drawn mesh has a layer of its own, so View > Overlays > Mesh Outlines can hide it.
+        e.Wire = AddMesh(e.Root, lines.Build(), SceneStyle.Lines, use == IconUse.Always ? VisualLayers.ActorBoxes
+            : Render.StaticMeshDrawing.DrawsMesh(a) ? VisualLayers.MeshOutlines : VisualLayers.Common);
         SetIcon(e, a, look, use);
         if (e.Wire is not null)
         {
@@ -1050,13 +1052,25 @@ public sealed partial class WorldScene : Node3D
             MeshInstance3D wire = e.Wire;
             Render.StaticMeshDrawing.Attach(e.Root, a, wire, look.Color, () => _meshLight.GetValueOrDefault(a.Id), () =>
             {
-                if (ReferenceEquals(e.Wire, wire) && e.Icon != IconUse.Always && ActorIconBatch.Use(a) == IconUse.Always)
+                if (!ReferenceEquals(e.Wire, wire))
+                {
+                    return;
+                }
+
+                if (e.Icon != IconUse.Always && ActorIconBatch.Use(a) == IconUse.Always)
                 {
                     wire.Layers = VisualLayers.ActorBoxes;
                     e.Wire = wire;
                     SetIcon(e, a, look, IconUse.Always);
                     SetSelected(e, e.Selected);
                     _iconsDirty = true;
+                }
+                else if (e.WireLayers == VisualLayers.MeshOutlines)
+                {
+                    // No mesh after all: the box is all there is to see of it, whatever the outline switch says.
+                    wire.Layers = VisualLayers.Common;
+                    e.Wire = wire;
+                    SetSelected(e, e.Selected);
                 }
             }, () => e.Source is Actor current && Sky?.Contains(current.Location) == true);
         }

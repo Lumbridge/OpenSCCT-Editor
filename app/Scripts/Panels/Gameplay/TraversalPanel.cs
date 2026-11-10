@@ -47,7 +47,7 @@ public partial class TraversalPanel : EditorPanel
             v => State.Options = State.Options with { ClimbHeadroom = v });
         Number(box, "Probe step", "Distance between probes along an edge", () => State.Options.Step,
             v => State.Options = State.Options with { Step = Math.Max(1, v) });
-        _meshes = new CheckBox { Text = "Static meshes too", TooltipText = "Detect on static meshes as well as brushes (baked maps)", ButtonPressed = State.Options.IncludeMeshes };
+        _meshes = new CheckBox { Text = "Static meshes too", TooltipText = "Detect on static meshes as well as brushes", ButtonPressed = State.Options.IncludeMeshes };
         _meshes.Toggled += on => State.Options = State.Options with { IncludeMeshes = on };
         box.AddChild(_meshes);
 

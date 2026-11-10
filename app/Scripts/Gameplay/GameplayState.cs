@@ -130,7 +130,12 @@ public sealed class GameplayState
         }
 
         // Brushes are replaced, never changed in place, by edits: a copy of the list is a stable snapshot.
-        var snapshot = new MapProject { Brushes = [.. p.Brushes], Baked = p.Baked };
+        // The placed meshes are copied: their collision is built from where they are now.
+        var snapshot = new MapProject
+        {
+            Id = p.Id, Brushes = [.. p.Brushes], Baked = p.Baked, Extra = p.Extra,
+            Actors = p.Actors.Where(OpenScct.Editor.Core.Compile.CollisionBuild.PlacesMesh).Select(a => a.Clone()).ToList(),
+        };
         string? folder = _ctx.Session.Folder;
         _buildingKey = key;
         Task<TraversalWorld> task = BackgroundJobs.StartTask(_ => TraversalWorld.Build(snapshot, folder));
@@ -207,7 +212,8 @@ public sealed class GameplayState
         Changed?.Invoke();
     }
 
-    /// <summary>Changes when a brush is replaced, moved or reshaped, or the baked map changes; GE and actor edits keep it.</summary>
+    /// <summary>Changes when a brush is replaced, moved or reshaped, a placed static mesh changes, or the baked map
+    /// changes; GE and other actor edits keep it.</summary>
     private static int WorldKey(MapProject p)
     {
         var h = new HashCode();
@@ -220,6 +226,8 @@ public sealed class GameplayState
             h.Add(b.Location);
             h.Add(b.Shape.Faces.Count);
         }
+
+        h.Add(OpenScct.Editor.Core.Compile.CollisionBuild.PlacedMeshKey(p));
 
         return h.ToHashCode();
     }
