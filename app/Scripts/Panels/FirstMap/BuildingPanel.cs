@@ -59,6 +59,9 @@ public partial class BuildingPanel : PrefabsPanel
         // The entire kit can scroll on short/high-DPI windows, including its headings and selected-piece settings.
         var controls = GetChildren().OfType<Control>().ToList();
         VBoxContainer body = PanelUi.Scroll(this);
+        // Expand through both scroll-content containers so the prefab grid can use a tall dock's spare height.
+        body.SizeFlagsVertical = SizeFlags.ExpandFill;
+        body.GetParent<MarginContainer>().SizeFlagsVertical = SizeFlags.ExpandFill;
         _scroll = PanelUi.ScrollOf(body);
         foreach (Control control in controls) { RemoveChild(control); body.AddChild(control); }
     }
