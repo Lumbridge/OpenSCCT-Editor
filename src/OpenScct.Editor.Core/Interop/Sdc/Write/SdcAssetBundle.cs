@@ -13,9 +13,21 @@ namespace OpenScct.Editor.Core.Interop.Sdc;
 /// a new dependency cannot invalidate an existing map if the subsequent map save fails.</summary>
 public sealed class SdcAssetBundle
 {
-    private sealed record Asset(string Relative, string ClassName, int Ref);
+    private sealed record Asset(string Relative, string ClassName, int Ref, Part Part);
+    private sealed class Part(string name, string folder, string extension)
+    {
+        public UPackageBuilder Builder { get; } = new(name);
+        public Dictionary<string, int> Groups { get; } = new(StringComparer.OrdinalIgnoreCase);
+        public string Name { get; set; } = name;
+        public string Folder { get; } = folder;
+        public string Extension { get; } = extension;
+    }
+    public sealed record Output(string File, byte[] Data);
+    private readonly Part _main;
+    private readonly Part _textures;
+    private readonly Part _sounds;
+    public List<Output> Outputs { get; } = [];
     private readonly Dictionary<string, Asset> _assets = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, int> _groups = new(StringComparer.OrdinalIgnoreCase);
     private readonly UPackageBuilder _builder;
     private readonly SdcAssetImports _stock;
     private readonly AssetResolver _resolver;
@@ -27,12 +39,19 @@ public sealed class SdcAssetBundle
     private readonly UPackage? _source;
     private readonly HashSet<string> _redirectPackages = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _attempted = new(StringComparer.OrdinalIgnoreCase);
+    private readonly bool _portable;
+    private readonly IReadOnlyDictionary<string, string>? _provided;
 
     private SdcAssetBundle(MapProject project, string name, string? gameRoot, ExportOptions options, UeSchema? schema, List<Finding> findings)
     {
         _project = project; Name = name; _schema = schema; _findings = findings;
-        _builder = new UPackageBuilder(name);
-        _stock = new SdcAssetImports(gameRoot);
+        _main = new Part(name, "StaticMeshes", ".usx");
+        _builder = _main.Builder;
+        _stock = new SdcAssetImports(gameRoot, options.NativePackages);
+        _portable = options.PortableAssets;
+        _textures = _portable ? new Part(name + "_Textures", "Textures", ".utc") : _main;
+        _sounds = _portable ? new Part(name + "_Sounds", "Sounds", ".uax") : _main;
+        _provided = options.NativePackages;
         _resolver = LocalAssets.Resolver(project, options.ContentRoot ?? EditorServices.ContentRoot, options.ProjectFolder);
         _catalog = AssetCatalog.For(options.ContentRoot ?? EditorServices.ContentRoot, options.ProjectFolder);
         _source = Source(project);
@@ -42,13 +61,13 @@ public sealed class SdcAssetBundle
 
     public string Name { get; private set; }
     public byte[] Package { get; private set; } = [];
-    public int Count => _assets.Values.Select(a => a.Ref).Distinct().Count();
+    public int Count => _assets.Count;
     public string? FilePath { get; private set; }
 
     public static SdcAssetBundle Prepare(MapProject project, string path, string? gameRoot, ExportOptions options, UeSchema? schema, List<Finding> findings)
     {
         string map = Path.GetFileNameWithoutExtension(path);
-        string stem = new(map.Where(c => char.IsAsciiLetterOrDigit(c) || c == '_').Take(40).ToArray());
+        string stem = new(map.Where(c => char.IsAsciiLetterOrDigit(c) || c == '_').Take(options.PortableAssets ? 28 : 40).ToArray());
         if (stem.Length == 0) stem = "Map";
         var bundle = new SdcAssetBundle(project, stem + "_Assets", gameRoot, options, schema, findings);
         foreach (var reference in RoundTripLint.AssetRefs(project, options.ProjectFolder).Concat(bundle.SourceAssets())
@@ -72,21 +91,29 @@ public sealed class SdcAssetBundle
                     bundle.Group(imported);
             }
         }
-        bundle.Package = bundle._builder.Build();
-        bundle.Name += "_" + Convert.ToHexStringLower(SHA256.HashData(bundle.Package))[..12];
-        // Read all tables back before making the map depend on this file.
-        UPackage check = UPackage.Parse(bundle.Name, bundle.Package);
-        foreach (Asset asset in bundle._assets.Values)
-            if (!check.Exports.Any(e => check.PathOf(e.Index + 1).Equals(bundle.Name + "." + asset.Relative, StringComparison.OrdinalIgnoreCase)))
-                throw new InvalidDataException($"The generated asset package is missing {asset.Relative}.");
         string? root = DestinationRoot(path);
-        if (root is null)
+        foreach (Part part in new[] { bundle._textures, bundle._sounds, bundle._main }.Distinct())
         {
-            findings.Add(Finding.Error("sdc.assetDestination", "This export needs an asset package. Save the SDC in the target installation's Packages\\Maps or Packages\\MapsEd folder so its assets can be installed alongside it."));
-            return bundle;
+            if (part.Builder.Exports.Count == 0) continue;
+            byte[] data = part.Builder.Build();
+            string previous = part.Name;
+            part.Name += "_" + Convert.ToHexStringLower(SHA256.HashData(data))[..12];
+            // Mesh material objrefs already target imports; rename their package roots after hashing textures.
+            if (part != bundle._main)
+                for (int i = 0; i < bundle._builder.Imports.Count; i++)
+                    if (bundle._builder.Imports[i] is { Outer: 0, ClassName: "Package" } import && import.Name == previous)
+                        bundle._builder.ReplaceImport(-(i + 1), import with { Name = part.Name });
+            UPackage check = UPackage.Parse(part.Name, data);
+            foreach (Asset asset in bundle._assets.Values.Where(a => a.Part == part))
+                if (!check.Exports.Any(e => check.PathOf(e.Index + 1).Equals(part.Name + "." + asset.Relative, StringComparison.OrdinalIgnoreCase)))
+                    throw new InvalidDataException($"The generated asset package is missing {asset.Relative}.");
+            string file = root is null ? Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, part.Name + part.Extension)
+                : Path.Combine(root, "Packages", part.Folder, part.Name + part.Extension);
+            bundle.Outputs.Add(new(file, data));
+            if (part == bundle._main) { bundle.Name = part.Name; bundle.Package = data; bundle.FilePath = file; }
+            if (root is null) findings.Add(Finding.Warning("sdc.assetDestination", $"The asset package is saved beside the map as {Path.GetFileName(file)}. Copy it into Packages\\{part.Folder} when installing the SDC in Reloaded."));
         }
-        bundle.FilePath = Path.Combine(root, "Packages", "StaticMeshes", bundle.Name + ".usx");
-        findings.Add(Finding.Info("sdc.assetPackage", $"{bundle.Count} assets and their required materials are included in {bundle.FilePath}. Keep this package with the exported map when sharing it. Assets already supplied by the target installation remain external dependencies."));
+        findings.Add(Finding.Info("sdc.assetPackage", $"{bundle.Count} assets and their required materials are included in {string.Join(", ", bundle.Outputs.Select(o => o.File))}. Keep these packages with the exported map when sharing it."));
         return bundle;
     }
 
@@ -117,7 +144,7 @@ public sealed class SdcAssetBundle
     public int Import(UPackageBuilder destination, string path)
     {
         if (!_assets.TryGetValue(path, out Asset? asset)) return 0;
-        int outer = destination.ImportPackage(Name);
+        int outer = destination.ImportPackage(asset.Part.Name);
         string[] parts = asset.Relative.Split('.');
         foreach (string group in parts[..^1]) outer = destination.ImportPackage(group, outer);
         return destination.Import("Engine", asset.ClassName, outer, parts[^1]);
@@ -125,21 +152,25 @@ public sealed class SdcAssetBundle
 
     private int Require(string path, string key, ObjectRef owner, string? image = null, bool masked = false, bool alpha = false)
     {
-        if (_assets.TryGetValue(path, out Asset? existing)) return existing.Ref;
+        if (_assets.TryGetValue(path, out Asset? existing)) return existing.Part == _main ? existing.Ref : Import(_builder, path);
         // Project assets override the source map. Otherwise retain embedded source assets without re-encoding.
         bool projectAsset = key.Equals("StaticMesh", StringComparison.OrdinalIgnoreCase)
             ? _resolver.Project?.FindMesh(path) is not null : _resolver.Project?.FindMaterial(path) is not null;
         bool local = RoundTripLint.IsLocalPath(_project, path);
         string relative = path.Contains('.') ? path[(path.IndexOf('.') + 1)..] : path;
         if (!projectAsset && local && _embedded.Contains(relative)) return 0;
-        if (!projectAsset && _stock.Find(path) is not null) return _stock.Import(_builder, path);
+        if (!projectAsset && (!_portable || _provided?.ContainsKey(path.Split('.')[0]) == true) && _stock.Find(path) is not null)
+            return _stock.Import(_builder, path);
         if (!_attempted.Add(path)) return 0;
+        bool textureReference = key.Equals("Material", StringComparison.OrdinalIgnoreCase)
+            || key.Contains("Texture", StringComparison.OrdinalIgnoreCase) || key.Contains("Skin", StringComparison.OrdinalIgnoreCase);
         try
         {
             LibraryMesh? mesh = key.Equals("StaticMesh", StringComparison.OrdinalIgnoreCase) ? _resolver.FindMesh(path) : null;
             if (mesh is not null) return AddMesh(path, mesh, owner);
             LibraryMaterial? material = _resolver.FindMaterial(path);
             AssetEntry? entry = RoundTripLint.FindAsset(_project, _catalog, path, key);
+            textureReference |= material is not null || entry?.Kind == AssetKind.Material;
             if (entry?.Kind == AssetKind.Sound)
             {
                 if (entry.File is null || !File.Exists(entry.File)) throw new InvalidDataException("The source sound file is missing. Restore it or choose an installed sound.");
@@ -157,6 +188,11 @@ public sealed class SdcAssetBundle
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException)
         {
+            if (textureReference)
+            {
+                _findings.Add(Finding.Warning("sdc.textureMissing", $"{path}: {ex.Message} A checkerboard placeholder texture is packaged instead; replace it when the original texture is available.", owner));
+                return Add(path, "Texture", UTextureWriter.Placeholder(_schema));
+            }
             _findings.Add(Finding.Error("sdc.assetMissing", $"Cannot package {path}: {ex.Message}", owner));
             return 0;
         }
@@ -168,24 +204,26 @@ public sealed class SdcAssetBundle
         string[] parts = path.Split('.');
         if (parts.Any(p => p.Length == 0 || p.Length > 63 || p.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '_' and not '-')))
             throw new ArgumentException("The asset path must use letters, digits, underscores or hyphens in each group/name.");
-        int outer = Group(string.Join('.', parts[..^1]));
-        int classRef = _builder.ImportClass("Engine", cls);
-        _builder.Exports.Add(new UExportSlot(parts[^1], classRef, 0x000F0004) { Outer = outer, Write = write });
-        int objref = _builder.Exports.Count;
-        _assets[path] = new Asset(path, cls, objref);
-        return objref;
+        Part part = cls == "Texture" ? _textures : cls == "Sound" ? _sounds : _main;
+        int outer = Group(string.Join('.', parts[..^1]), part);
+        int classRef = part.Builder.ImportClass("Engine", cls);
+        part.Builder.Exports.Add(new UExportSlot(parts[^1], classRef, 0x000F0004) { Outer = outer, Write = write });
+        int objref = part.Builder.Exports.Count;
+        _assets[path] = new Asset(path, cls, objref, part);
+        return part == _main ? objref : Import(_builder, path);
     }
 
-    private int Group(string path)
+    private int Group(string path, Part? part = null)
     {
+        part ??= _main;
         int outer = 0; string groupPath = "";
         foreach (string group in path.Split('.', StringSplitOptions.RemoveEmptyEntries))
         {
             groupPath = groupPath.Length == 0 ? group : groupPath + "." + group;
-            if (!_groups.TryGetValue(groupPath, out int groupRef))
+            if (!part.Groups.TryGetValue(groupPath, out int groupRef))
             {
-                _builder.Exports.Add(new UExportSlot(group, _builder.ImportClass("Core", "Package"), 0x000F0004) { Outer = outer, Write = w => w.Name("None") });
-                _groups[groupPath] = groupRef = _builder.Exports.Count;
+                part.Builder.Exports.Add(new UExportSlot(group, part.Builder.ImportClass("Core", "Package"), 0x000F0004) { Outer = outer, Write = w => w.Name("None") });
+                part.Groups[groupPath] = groupRef = part.Builder.Exports.Count;
             }
             outer = groupRef;
         }

@@ -78,7 +78,7 @@ internal sealed partial class SdcPackagePlan
         _rebuildWorld = rebuildWorld;
         _findings = findings;
         _b = new UPackageBuilder(name);
-        _assets = new SdcAssetImports(o.GameRoot);
+        _assets = new SdcAssetImports(o.GameRoot, o.NativePackages);
         _bySrc = new Item?[src?.Exports.Count ?? 0];
     }
 

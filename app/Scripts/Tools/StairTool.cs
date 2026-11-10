@@ -1,4 +1,5 @@
 using Godot;
+using OpenScct.Editor.Core.Geometry.Snap;
 using OpenScctEditor.Core;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Stairs;
@@ -46,13 +47,14 @@ public sealed class StairTool(ToolManager tools) : IViewportTool
     private string? _problem;
     private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Brush, StairGeometry.Generated> PreviewGeometry = new();
     private EditorViewport? _view;
+    private NeighbourDrag? _snap;
     private Vector2 _lastPointer;
     public void StartConnection(Vec3 point)
     {
-        tools.Activate(Id); Connect = true; _bottom = point; _preview = null;
+        tools.Activate(Id); Connect = true; _bottom = point; _preview = null; _snap = null;
         tools.RefreshOptions(); tools.Context.SetStatus("Pick the other floor above or below this connection · Esc cancels");
     }
-    public bool Cancel() { bool pending = _bottom is not null || _preview is not null; _bottom = null; _preview = null; _view?.Redraw(); return pending; }
+    public bool Cancel() { bool pending = _bottom is not null || _preview is not null; _bottom = null; _preview = null; _snap = null; _view?.Redraw(); return pending; }
     public void Deactivate() => Cancel();
     public void BuildOptions(HBoxContainer bar)
     {
@@ -67,12 +69,19 @@ public sealed class StairTool(ToolManager tools) : IViewportTool
         }
         Vector2? pointer = e is InputEventMouseMotion motion ? motion.Position : e is InputEventMouseButton button ? button.Position : null;
         if (pointer is null) return false;
+        if (_view != view) _snap = null;
         _view = view; _lastPointer = pointer.Value;
         Vec3 at = Point(view, pointer.Value, tools);
         try
         {
             _preview = Connect && _bottom is { } bottom ? StairFit.Between("StairPreview", Settings, bottom.Z <= at.Z ? bottom : at, bottom.Z <= at.Z ? at : bottom)
                 : StairGeometry.Create("StairPreview", Settings, at, new Rot(0, Yaw, 0));
+            if (!Connect || _bottom is null)
+            {
+                _snap ??= new NeighbourDrag(tools, view, SnapUse.Move, [], () => null);
+                SnapPreview(view, _preview, _snap, (e as InputEventWithModifiers)?.AltPressed == true);
+                at = _preview.Location;
+            }
             _problem = StairPlacement.Problem(tools.Context.Project, _preview, tools.Context.Session.Folder);
         }
         catch (ArgumentException ex) { _preview = null; _problem = ex.Message; }
@@ -84,7 +93,7 @@ public sealed class StairTool(ToolManager tools) : IViewportTool
             if (_preview is not null && _problem is null)
             {
                 var cmd = StairCommands.Place(tools.Context.Project, _preview.Stair!, _preview.Location, _preview.Rotation);
-                tools.Context.Execute(cmd); tools.Context.Selection.Set(cmd.Added); _bottom = null;
+                tools.Context.Execute(cmd); tools.Context.Selection.Set(cmd.Added); _bottom = null; _snap = null;
             }
             return true;
         }
@@ -92,14 +101,28 @@ public sealed class StairTool(ToolManager tools) : IViewportTool
     }
     public void Draw(EditorViewport view, Control canvas)
     {
-        if (_view == view && _preview is not null) DrawPreview(view, canvas, _preview, _problem is not null);
+        if (_view == view && _preview is not null)
+        {
+            DrawPreview(view, canvas, _preview, _problem is not null);
+            _snap?.Draw(view, canvas);
+        }
     }
     public static Vec3 Point(EditorViewport view, Vector2 mouse, ToolManager tools)
     {
         Vec3 p = Picking.Surface(view.Cam, tools.Context.Project, mouse, displayedBrushes: true)?.Point ?? (view.Cam.IsOrtho
             ? view.Cam.PlanePoint(mouse, 0) : view.Cam.Ray(mouse).Origin + view.Cam.Ray(mouse).Direction * 512);
-        double grid = tools.GridSnap ? tools.GridSize : 1;
-        return new Vec3(Math.Round(p.X / grid) * grid, Math.Round(p.Y / grid) * grid, p.Z);
+        int[] free = view.Cam.IsOrtho ? [.. new[] { 0, 1, 2 }.Where(axis => axis != ViewAxes.DepthAxis(view.Cam.Kind))] : [0, 1];
+        return tools.Snap(p, free);
+    }
+    internal static void SnapPreview(EditorViewport view, Brush preview, NeighbourDrag snap, bool alt = false)
+    {
+        snap.AltHeld = alt || Godot.Input.IsKeyPressed(Key.Alt);
+        if (SnapFaces.Shape(SnapFaces.OfBrush(preview), null) is not { } shape) return;
+        // The surface fixes footing height in perspective. Align sides without pulling the ghost to a ceiling.
+        int[] free = view.Cam.IsOrtho ? [.. new[] { 0, 1, 2 }.Where(axis => axis != ViewAxes.DepthAxis(view.Cam.Kind))] : [0, 1];
+        MoveSnap snapped = snap.Move(shape, Vec3.Zero, free);
+        preview.Location += snapped.Offset;
+        snap.Moved(snapped.Offset);
     }
     public static void DrawPreview(EditorViewport view, Control canvas, Brush b, bool invalid = false)
     {

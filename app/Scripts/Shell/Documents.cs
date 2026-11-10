@@ -240,7 +240,7 @@ public sealed class Documents : IShellPart
         if (exporter.WritesFolder)
         {
             // The folder gets the map's files (an earlier export's are replaced; a folder with other things is refused).
-            Dialogs.OpenFolder("Export for the original editor: choose an empty folder", path => Run(path, new Dictionary<string, string>()), LastFolder());
+            Dialogs.OpenFolder("Export Reloaded Folder: choose an empty folder", path => Run(path, new Dictionary<string, string>()), LastFolder());
             return;
         }
 
@@ -441,13 +441,13 @@ public sealed class Documents : IShellPart
         foreach (IMapExporter exporter in EditorServices.Exporters)
         {
             IMapExporter e = exporter;
-            string label = e.WritesFolder ? "Export for the Original Editor…" : $"Export {e.Name.ToUpperInvariant()}…";
+            string label = e.WritesFolder ? "Export Reloaded Folder…" : $"Export {e.Name.ToUpperInvariant()}…";
             _ctx.AddAction(new EditorAction("file.export." + e.Name.ToLowerInvariant(), label, "File", () => Export(e))
             {
                 Order = order++,
                 IsEnabled = () => !BackgroundJobs.IsRunning("Export"),
                 Description = e.WritesFolder
-                    ? "A folder for RE+: the T3D, the map's own assets and classes, its texts and the steps to make it there"
+                    ? "An install folder with playable and editable maps, native asset packages and interface texts"
                     : e.Target == TargetGame.Original ? "For the original editor" : null,
             });
         }

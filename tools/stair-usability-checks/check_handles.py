@@ -47,8 +47,9 @@ for action, panel in [("tools.stairs", "Stairs"), ("tools.windows", "Windows")]:
     step("click", at="action:" + action)
     assert any(c.get("currentTab") == panel for c in tree()["controls"]), "Toolbar must open " + panel
 call("ui.input", dict(steps=[dict(op="click", at="menu:Window")]), error=True)
-step("click", at="action:tools.scale")
+step("click", at="action:tools.select")
 step("click", at="tab:Inspector")
+call("ui.shot", dict(name="select-tool-stair-handles", dir=str(run)))
 toggle("view.grid.snap", True); toggle("view.neighbourSnap", False)
 
 before = design()
@@ -69,6 +70,7 @@ step("release", at=project([529,32,292]))
 toggle("view.neighbourSnap", False); toggle("view.grid.snap", False)
 
 # The ordinary scale gizmo must also use its original snapshot at every mouse event.
+step("click", at="action:tools.scale")
 origin = project([17,32,0]); at100 = project([17,32,100])
 unit = [a-b for a,b in zip(at100,origin)]; length = math.hypot(*unit); unit = [v/length for v in unit]
 state = call("editor")["camera"]; pitch,yaw,_ = [v*math.tau/65536 for v in state["rot"]]

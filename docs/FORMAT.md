@@ -1278,38 +1278,34 @@ and saves as `.sdc`:
   outfit texture the editor set goes in `MyLevel.CharacterSkins` named by team, slot and content (`SpyBody_<hash>`).
   A plain T3D carries neither the map's own assets nor RE+ actors a map lacks (`roundtrip.mapAssetNotCarried`,
   `roundtrip.outfits`, `roundtrip.matchRules`): the export for the original editor does.
-- The `<Map>-i.utc` pictures and settings need the automated route (M8).
+- Reloaded Folder export writes the `<Map>-i.utc` pictures and settings package.
 
-**The export for the original editor** (`ose export <map> <folder> --format original`, File > Export for the Original
-Editor, the `export` method) writes a folder for RE+ instead of a single file:
+**Reloaded Folder export** (`ose export <map> <folder> --format original`, File > Export Reloaded Folder,
+the `export` method) writes an installation overlay. Drag `System` and `Packages` into a compatible Reloaded install:
 
-| File | What it is |
+| Folder | Contents |
 |---|---|
-| `<Map>.t3d` | The map, builder brush and LevelInfo first: for File > Import into a new map. |
-| `<Map>-MapClasses.t3d` | The actors of classes the map defines itself (and conveyors), objects only: for `MAP IMPORTADD` once the classes exist. A map with outfits or player counts but no RE+ actor for them (an authored map) gets `SCharacterOutfits0` / `SMatchSizeRules0` here, made from its data. |
-| `Classes\<Name>.uc` | The sources of those classes an editor copy keeps (TextBuffer `ScriptText`). |
-| `Assets\Textures\`, `Assets\Meshes\`, `Assets\Sounds\`, `ImportAssets.txt` | The map's own textures (DDS: sides a power of two up to 2048, DXT1 when opaque, DXT5 with alpha imported MASKED or ALPHATEXTURE, the whole mip chain box-filtered in linear light), static meshes (ASE: a material slot per material, smoothing groups split at creases, collision hulls as `MCDCX_` objects) and sounds (WAV), in folders by group, and the `EXEC` script that imports them into MyLevel under their groups. |
-| `System\_PC_\<Map>.int`, `<Map>-i.int` | The localized texts: per actor, and the map's dossier, places and per-mode texts (`[MapSettings]`). |
-| `<Map>.openscct.json` | `osmap.handoff/1`: what RE+ has no place for (identity, map settings, player counts, outfits, the builders of parametric brushes, the classes' sources), with the files it names under `OpenSCCT\` (pictures, outfit textures and models, the project's own asset library); the SHA-256 of the T3D it was written with (`t3d`), a hash per RE+ actor as written (`lifted`), the RE+ actors the export made (`made`) and the brushes and shapes still as an imported original had them (`asImported`). |
-| `README.txt` | The steps in RE+ and what the export could not carry. |
-| `openscct-export.json` | The files written (also after an export that fails part way). A later export into the folder deletes only these; it refuses a folder that holds other files or a damaged list. |
+| `Packages/Maps` | Playable cooked `<Map>.sdc`. |
+| `Packages/MapsEd` | Editable `<Map>.sdc`, opened directly in Reloaded Editor. |
+| `Packages/StaticMeshes` | Native map-specific `.usx` packages for custom static meshes. |
+| `Packages/Animations` | Referenced native `.ukx` packages under map-specific names. Opaque skeletal and animation data retain their original offsets and bytes. |
+| `Packages/Textures` | Custom `.utc` texture packages and `<Map>-i.utc`, with native map settings, mode values, briefing texts and available menu/loading/briefing pictures. |
+| `Packages/Sounds`, `Packages/Assets` | Native sound and other asset packages. |
+| `System/_PC_` | Localized actor and map settings `.int` files. |
+| `README.txt`, `openscct-export.json` | Install instructions and the export's owned-file list. |
 
-Brush faces name the map's own materials as `MyLevel.X`, as properties do; the import reads them back as the map's.
+Both map copies reference the same asset packages. Imported native asset dependencies are renamed together;
+project meshes, texture images and WAV sounds are encoded into native packages. Reloaded supplies its engine and
+script packages. Newly authored skeletal models and animation formats that have no native conversion are reported
+as unsupported assets, rather than copied into misleading `.ukx` files.
 
-The T3D import reads `<Map>-MapClasses.t3d` (unless the T3D already holds its actors, as RE+'s own Export to T3D does
-after `MAP IMPORTADD`) and `<Map>.openscct.json` when they sit beside the T3D:
+Missing textures produce warnings and a packaged checkerboard replacement. Missing geometry remains an error.
+Each map has a readable export report listing compatibility replacements and any remaining rebuild requirements.
+The entire export is staged before replacing a prior export; a failure preserves the previous folder. An existing
+folder with unrelated files or links is refused. No T3D or asset-import commands are needed.
 
-- An RE+ actor still as exported stands for the outfits and player counts again; one the export made is dropped (the
-  map never had it). One changed in RE+ stays an RE+ actor (`import.handoffEdited`): its player counts are read back
-  per actor as the converter reads them (a row still as exported keeps the map's own rule, which may say more than
-  RE+ can hold), while outfits are not (the T3D names textures, not their pixels).
-- When the T3D is the one exported (its hash matches), brushes and shapes not listed as imported lose the
-  as-imported mark the T3D import gives, and model names the export made up are dropped. When it has changed, the
-  T3D's LevelInfo title and shapes are kept.
-- A brush gets its builder back when its corners are still the ones the builder made.
-
-Checked by exporting and importing again without RE+ (the editor's own T3D reader), so this says nothing yet about
-what RE+ makes of the folder.
+The T3D importer still reads older handoff folders with `<Map>-MapClasses.t3d` and `<Map>.openscct.json`, including
+their editable stair metadata. Plain T3D export remains available separately.
 
 A "round-trip compatible" check runs first (`Interop/RoundTripLint`): a map id of 5 letters or digits, ASCII names,
 convex and planar brushes and actor shapes (warnings only for faces an imported original already had: an `.sdc`

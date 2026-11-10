@@ -8,6 +8,9 @@ namespace OpenScct.Editor.Core.Stairs;
 /// <summary>One generator for the editable preview, compiled world and collision envelopes.</summary>
 public static class StairGeometry
 {
+    // Coplanar subtraction caps inherit the cutter's material/UVs. Keep clearance above the
+    // support plane so placing stairs on an existing floor cannot repaint the approach.
+    private const double ClearanceFloorGap = .05;
     public const string Tread = "tread", Riser = "riser", Side = "side";
     public sealed record Step(Vec3 A, Vec3 B, Vec3 C, Vec3 D, double Bottom, double Top, bool Landing = false);
     public sealed record Generated(List<Brush> Solids, List<Brush> Cuts, List<Actor> Smoothing, Vec3 Top);
@@ -103,7 +106,7 @@ public static class StairGeometry
                 Vec3 lead = -forward * (id == 1 ? s.ClearanceStart : .05);
                 Vec3 tail = forward * (id == steps.Count ? s.ClearanceEnd : .05);
                 Vec3[] outline = [t.A - frontAcross + lead, t.B + frontAcross + lead, t.C + backAcross + tail, t.D - backAcross + tail];
-                cuts.Add(Make(ConvexSolid.Hull(outline.SelectMany((p, i) => new[] { p with { Z = t.Bottom }, p with { Z = i < 2 ? frontCeiling : backCeiling } })), suffix + "Clearance", CsgOper.Subtract));
+                cuts.Add(Make(ConvexSolid.Hull(outline.SelectMany((p, i) => new[] { p with { Z = t.Bottom + ClearanceFloorGap }, p with { Z = i < 2 ? frontCeiling : backCeiling } })), suffix + "Clearance", CsgOper.Subtract));
             }
             if (s.Smooth && !t.Landing)
             {
@@ -136,7 +139,7 @@ public static class StairGeometry
                 foreach (string key in new[] { "bBlockActors", "bBlockZeroExtentTraces", "bBlockCamera", "bShadowCast", "bProjTarget" }) volume.Props.Set(key, SvJsonNode.Bool(false));
                 smooth.Add(volume);
                 if (s.Carve && previous is null)
-                    cuts.Add(Make(ConvexSolid.Hull(new[] { a, b, nose.A, nose.B }.SelectMany(p => new[] { p with { Z = 0 }, p with { Z = t.Top + s.Headroom } })), suffix + "EntranceClearance", CsgOper.Subtract));
+                    cuts.Add(Make(ConvexSolid.Hull(new[] { a, b, nose.A, nose.B }.SelectMany(p => new[] { p with { Z = ClearanceFloorGap }, p with { Z = t.Top + s.Headroom } })), suffix + "EntranceClearance", CsgOper.Subtract));
             }
             previous = t;
         }
@@ -151,7 +154,7 @@ public static class StairGeometry
                 double slope = length > 1e-6 ? (back - front) / length : 0;
                 Vec3[] outline = [a-across+lead, b+across+lead, c+across+tail, d-across+tail];
                 double f = front - slope * lead.Length, r = back + slope * tail.Length;
-                cuts.Add(Make(ConvexSolid.Hull(outline.SelectMany((p, i) => new[] { p with { Z = bottom }, p with { Z = i < 2 ? f : r } })), name, CsgOper.Subtract));
+                cuts.Add(Make(ConvexSolid.Hull(outline.SelectMany((p, i) => new[] { p with { Z = bottom + ClearanceFloorGap }, p with { Z = i < 2 ? f : r } })), name, CsgOper.Subtract));
             }
             int index = 0, flight = 0;
             while (index < steps.Count)
@@ -182,7 +185,7 @@ public static class StairGeometry
         if (s.Layout == "spiral")
         {
             Vec3 centre = new(0, (s.Left ? -1 : 1) * (s.InnerRadius + s.Width / 2), 0);
-            List<List<Vec3>> Cylinder(int sides, double radius, double height) => ConvexSolid.Prism(Geometry.Builders.Ring.Points(sides, radius, true), 0, height)
+            List<List<Vec3>> Cylinder(int sides, double radius, double height, double bottom = 0) => ConvexSolid.Prism(Geometry.Builders.Ring.Points(sides, radius, true), bottom, height)
                 .Select(face => face.Select(v => v + centre).ToList()).ToList();
             if (s.CentralColumnRadius > 0)
             {
@@ -190,7 +193,7 @@ public static class StairGeometry
                 foreach (BrushFace face in column.Shape.Faces) SetRole(face, Side, s);
                 solids.Add(column);
             }
-            if (s.Carve && s.RoundStairwell) cuts.Insert(0, Make(Cylinder(16, s.InnerRadius + s.Width + 16, s.Rise + s.Headroom), "_Stairwell", CsgOper.Subtract));
+            if (s.Carve && s.RoundStairwell) cuts.Insert(0, Make(Cylinder(16, s.InnerRadius + s.Width + 16, s.Rise + s.Headroom, ClearanceFloorGap), "_Stairwell", CsgOper.Subtract));
         }
         Step finalStep = steps[^1];
         return new Generated(solids, cuts, smooth, owner.LocalToWorld((finalStep.C + finalStep.D) / 2 + Vec3.UnitZ * s.Rise));

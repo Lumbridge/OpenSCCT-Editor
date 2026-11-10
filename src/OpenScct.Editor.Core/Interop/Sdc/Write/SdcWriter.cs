@@ -14,6 +14,7 @@ public sealed record SdcWriteOptions
 
     /// <summary>The original install, for the classes of assets the map refers to (from its packages).</summary>
     public string? GameRoot { get; init; }
+    public IReadOnlyDictionary<string, string>? NativePackages { get; init; }
 
     /// <summary>Prepared map-specific assets, published by the exporter after the map passes validation.</summary>
     public SdcAssetBundle? Assets { get; init; }

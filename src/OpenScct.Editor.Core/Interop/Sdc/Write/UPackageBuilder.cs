@@ -149,6 +149,74 @@ public sealed class UPackageBuilder
     /// so an unchanged map writes back the same.</summary>
     public int DataStart { get; set; }
 
+    /// <summary>Copies tables without interpreting asset payloads. Use BuildPreservingSource for native
+    /// animation packages: their lazy arrays and obfuscated strings must keep their absolute offsets.</summary>
+    public static UPackageBuilder FromPackage(UPackage source, string name)
+    {
+        var builder = new UPackageBuilder(name) { Obfuscated = source.Obfuscated, PackageFlags = source.Flags };
+        for (int i = 0; i < source.Names.Count; i++) builder.AddName(source.Names[i], source.NameFlags[i], source.SecondCompact(i));
+        foreach (UImport import in source.Imports) builder.AddImport(import);
+        foreach (UExport export in source.Exports)
+            builder.Exports.Add(new UExportSlot(export.Name, export.ClassRef, export.Flags) { SuperRef = export.SuperRef, Outer = export.Outer });
+        return builder;
+    }
+
+    /// <summary>Appends replacement objects and tables while retaining every untouched object at its original
+    /// offset. This preserves native skeletal meshes, animations, shaders and lazy-array offsets losslessly.</summary>
+    public byte[] BuildPreservingSource(UPackage source)
+    {
+        if (Exports.Count < source.Exports.Count || _names.Count < source.Names.Count ||
+            !source.Names.Select((name, i) => name == _names[i].Name).All(same => same))
+            throw new InvalidOperationException("Source object and name slots must remain stable when carrying native assets.");
+        var w = new UWriter(this);
+        w.Bytes(source.Data);
+        var offsets = new int[Exports.Count]; var sizes = new int[Exports.Count];
+        for (int i = 0; i < Exports.Count; i++)
+        {
+            UExportSlot export = Exports[i];
+            Name(export.Name);
+            if (export.Write is { } write)
+            {
+                offsets[i] = w.Pos; write(w); sizes[i] = w.Pos - offsets[i];
+            }
+            else if (i < source.Exports.Count)
+            {
+                offsets[i] = source.Exports[i].Offset; sizes[i] = source.Exports[i].Size;
+            }
+            else throw new InvalidOperationException("New native objects need a data writer.");
+        }
+        foreach (UImport import in _imports) { Name(import.ClassPackage); Name(import.ClassName); Name(import.Name); }
+        int nameOffset = w.Pos; WriteNames(w);
+        int importOffset = w.Pos;
+        foreach (UImport import in _imports)
+        {
+            w.Name(import.ClassPackage); w.Name(import.ClassName); w.I32(import.Outer); w.Name(import.Name);
+        }
+        int exportOffset = w.Pos;
+        for (int i = 0; i < Exports.Count; i++)
+        {
+            UExportSlot export = Exports[i];
+            w.Compact(export.ClassRef); w.Compact(export.SuperRef); w.I32(export.Outer); w.Name(export.Name);
+            w.U32(export.Flags); w.Compact(sizes[i]); if (sizes[i] > 0) w.Compact(offsets[i]);
+        }
+        byte[] data = w.ToArray(); Span<byte> header = data;
+        BinaryPrimitives.WriteInt32LittleEndian(header[12..], _names.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(header[16..], nameOffset);
+        BinaryPrimitives.WriteInt32LittleEndian(header[20..], Exports.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(header[24..], exportOffset);
+        BinaryPrimitives.WriteInt32LittleEndian(header[28..], _imports.Count);
+        BinaryPrimitives.WriteInt32LittleEndian(header[32..], importOffset);
+        int generations = BinaryPrimitives.ReadInt32LittleEndian(header[52..]);
+        if (generations is > 0 and < 1024 && 56 + generations * 8 <= source.Data.Length)
+        {
+            BinaryPrimitives.WriteInt32LittleEndian(header[(56 + (generations - 1) * 8)..], Exports.Count);
+            BinaryPrimitives.WriteInt32LittleEndian(header[(60 + (generations - 1) * 8)..], _names.Count);
+        }
+        SHA256.HashData(data.AsSpan(64)).AsSpan(0, 16).CopyTo(header[36..]);
+        _ = UPackage.Parse(PackageName, data);
+        return data;
+    }
+
     /// <summary>The unpacked package. <paramref name="guid"/> null makes one from the content (the same content
     /// gets the same GUID; any change gets a new one, as every stock save does).</summary>
     public byte[] Build(Guid? guid = null)

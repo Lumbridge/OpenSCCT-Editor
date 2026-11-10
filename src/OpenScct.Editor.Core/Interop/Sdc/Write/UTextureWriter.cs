@@ -10,8 +10,26 @@ namespace OpenScct.Editor.Core.Interop.Sdc;
 internal static class UTextureWriter
 {
     public static Action<UWriter> Prepare(string file, bool masked, bool alpha, UeSchema? schema)
+        => Prepare(RgbaImage.Decode(File.ReadAllBytes(file)), masked, alpha, schema);
+
+    public static Action<UWriter> Placeholder(UeSchema? schema)
     {
-        RgbaImage image = RgbaImage.Decode(File.ReadAllBytes(file));
+        var image = new RgbaImage(16, 16);
+        for (int y = 0; y < image.Height; y++)
+            for (int x = 0; x < image.Width; x++)
+            {
+                int i = (y * image.Width + x) * 4;
+                bool light = ((x / 4 + y / 4) & 1) == 0;
+                image.Pixels[i] = light ? (byte)240 : (byte)32;
+                image.Pixels[i + 1] = light ? (byte)0 : (byte)32;
+                image.Pixels[i + 2] = light ? (byte)200 : (byte)32;
+                image.Pixels[i + 3] = 255;
+            }
+        return Prepare(image, false, false, schema);
+    }
+
+    public static Action<UWriter> Prepare(RgbaImage image, bool masked, bool alpha, UeSchema? schema)
+    {
         AlphaKind kind = masked ? AlphaKind.Mask : alpha ? AlphaKind.Blend : DdsFile.AlphaOf(image);
         DdsTexture dds = DdsFile.Encode(image, kind);
         var props = new PropSet();

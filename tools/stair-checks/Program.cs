@@ -121,8 +121,13 @@ foreach(bool crouched in new[]{false,true})
 var selectionDoc=OpenScct.Editor.Core.Interop.T3d.T3dExport.FromProject(apiProject,null,[ObjectRef.Stair("Editable")]);
 Check(selectionDoc.Actors.Count>1,"Selection export lowers editable stair parts");
 var exportFolder=Path.Combine(root,"original-export");
-var exportResult=new OpenScct.Editor.Core.Interop.Original.OriginalExporter().Export(apiProject,exportFolder,new ExportOptions());
-var t3d=Path.Combine(exportFolder,"ApiStairs.t3d");Check(File.Exists(t3d),"Original export writes map");
+// T3D remains the lossless authoring interchange; Reloaded Folder now writes native install packages.
+Directory.CreateDirectory(exportFolder);
+var t3d=Path.Combine(exportFolder,"ApiStairs.t3d");
+var exportResult=new OpenScct.Editor.Core.Interop.T3d.T3dExporter().Export(apiProject,t3d,new ExportOptions());
+Check(File.Exists(t3d),"T3D export writes stair geometry even with placeholder-material lint findings");
+var handoff=OpenScct.Editor.Core.Interop.Original.HandoffFile.ToJson(apiProject,null,(_,_)=>null,null,[],File.ReadAllBytes(t3d));
+File.WriteAllBytes(OpenScct.Editor.Core.Interop.Original.HandoffFile.PathFor(t3d),OpenScct.Content.Json.CanonicalJson.ToFileBytes(handoff));
 var imported=new OpenScct.Editor.Core.Interop.T3d.T3dImporter().Import(t3d,new ImportOptions());
 Check(imported.Project.Brushes.Count(b=>b.Stair is not null)==2,"Original handoff restores both editable stairs without loose copies");
 

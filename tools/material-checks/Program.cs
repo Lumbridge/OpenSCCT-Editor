@@ -169,7 +169,10 @@ foreach (SdcLayout layout in Enum.GetValues<SdcLayout>())
     File.WriteAllBytes(Path.Combine(root, "MatGlow-" + layout + ".sdc"), UPackageBuilder.Pack(written.Package));
 }
 var folderExport = new OpenScct.Editor.Core.Interop.Original.OriginalExporter().Export(legacyGlow, Path.Combine(root, "original-handoff"), new ExportOptions { ProjectFolder = folder });
-Check(folderExport.Ok && File.Exists(Path.Combine(root, "original-handoff", project.Id + "-Editor.sdc")), "Original-editor export folder carries the same native material conversion: " + string.Join(';', folderExport.Findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));
+string nativeEditor = Path.Combine(root, "original-handoff", "Packages", "MapsEd", project.Id + ".sdc");
+Check(folderExport.Ok && File.Exists(nativeEditor), "Reloaded folder carries the native editor map: " + string.Join(';', folderExport.Findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));
+var nativeEditorPackage = UPackage.Load(nativeEditor);
+Check(nativeEditorPackage.Exports.Any(e => nativeEditorPackage.ClassName(e) == "Shader" && e.Name == "Glow"), "Reloaded folder retains native emissive material objects");
 Check(OpenScct.Editor.Core.Interop.Original.DdsFile.PowerOfTwo(1) == 4, "Native compressed textures have a Direct3D-compatible 4x4 minimum base level");
 Directory.CreateDirectory(Path.Combine(folder, "assets/meshes")); File.WriteAllBytes(Path.Combine(folder, "assets/meshes/Probe.glb"), quad.ToBytes(null));
 var meshAssets = ProjectAssets.For(folder).Edit(); (meshAssets["meshes"] ??= new JsonObject())["MyLevel.Meshes.Probe"] = new JsonObject { ["file"] = "meshes/Probe.glb", ["mesh"] = quadMesh }; ProjectAssets.Save(folder, meshAssets);

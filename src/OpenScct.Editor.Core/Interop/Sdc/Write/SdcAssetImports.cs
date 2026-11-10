@@ -10,12 +10,15 @@ public sealed class SdcAssetImports
     private static readonly string[] s_extensions = [".utx", ".usx", ".uax", ".ukx", ".u", ".utc", ".uas", ".unr"];
 
     private readonly string? _gameRoot;
+    private readonly IReadOnlyDictionary<string, string>? _provided;
     private readonly Dictionary<string, Dictionary<string, (string ClassPackage, string ClassName, string[] Groups)>?> _packages =
         new(StringComparer.OrdinalIgnoreCase);
 
     private Dictionary<string, string>? _files;
 
-    public SdcAssetImports(string? gameRoot) => _gameRoot = gameRoot;
+    public SdcAssetImports(string? gameRoot, IReadOnlyDictionary<string, string>? provided = null) { _gameRoot = gameRoot; _provided = provided; }
+
+    public string? PackageFile(string name) => File(name);
 
     public bool HasPackage(string name) => File(name) is not null;
 
@@ -88,6 +91,7 @@ public sealed class SdcAssetImports
     /// <summary>The install's package file of a name (Packages\** or System\_PC_).</summary>
     private string? File(string name)
     {
+        if (_provided?.TryGetValue(name, out string? provided) == true) return provided;
         if (_gameRoot is null)
         {
             return null;

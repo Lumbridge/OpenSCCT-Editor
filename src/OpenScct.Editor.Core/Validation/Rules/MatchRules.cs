@@ -79,8 +79,8 @@ internal sealed class MatchRules : MapRule
                 {
                     int gated = p.Actors.Count(a => a.Match is { IsEmpty: false });
                     c.Report(Severity.Info, NotExported,
-                        $"the map has no RE+ player-count actor (SMatchSizeRules): the export for the original editor makes one for the {gated} " +
-                        $"actor{(gated == 1 ? "" : "s")} with player counts (in <Map>-MapClasses.t3d); a plain T3D export carries none, and the original game then " +
+                        $"the map has no RE+ player-count actor (SMatchSizeRules) for the {gated} " +
+                        $"actor{(gated == 1 ? "" : "s")} with player counts. Review the native export report and configure these rules in RE+; otherwise the original game " +
                         "has them in every match", null);
                 }
 
@@ -252,8 +252,8 @@ internal sealed class MatchRules : MapRule
         if (!c.Project.Actors.Any(a => BakedContent.LiftedData(a) == "outfits"))
         {
             c.Report(Severity.Info, OutfitNotExported,
-                "the map has no RE+ outfit actor (SCharacterOutfits): the export for the original editor makes one (in <Map>-MapClasses.t3d); a plain T3D "
-                + "export carries none, and in the original game both teams then wear the stock look", null);
+                "the map has no RE+ outfit actor (SCharacterOutfits). Review the native export report and configure outfits in RE+; "
+                + "otherwise both teams wear the stock look in the original game", null);
         }
 
         foreach (bool spy in new[] { true, false })

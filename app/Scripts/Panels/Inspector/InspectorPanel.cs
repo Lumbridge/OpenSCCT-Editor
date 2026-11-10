@@ -301,7 +301,7 @@ public partial class InspectorPanel : EditorPanel
 
     private void SyncOrRebuild()
     {
-        if (ToolManager.Instance?.Active is TransformTool { IsDragging: true })
+        if (ToolManager.Instance?.Active.IsDragging == true)
         {
             SyncAll();
             return;

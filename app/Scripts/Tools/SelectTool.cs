@@ -128,13 +128,14 @@ public sealed class ClickSelect
     private static Rect2 RectOf(Vector2 a, Vector2 b) => new Rect2(a, Vector2.Zero).Expand(b);
 }
 
-/// <summary>Click/box selection with adjustment handles for selected GEs.</summary>
+/// <summary>Click/box selection with adjustment handles for selected GEs and stairs.</summary>
 public sealed class SelectTool : IViewportTool
 {
     private readonly ClickSelect _select;
     private readonly ToolManager _tools;
+    private readonly StairHandles _stairs;
 
-    public SelectTool(ToolManager tools) { _tools = tools; _select = new ClickSelect(tools); }
+    public SelectTool(ToolManager tools) { _tools = tools; _select = new ClickSelect(tools); _stairs = new StairHandles(tools); }
     private GeDrawTool? GeHandles => _tools.Tools.OfType<GeDrawTool>().FirstOrDefault();
 
     public string Id => "select";
@@ -145,11 +146,11 @@ public sealed class SelectTool : IViewportTool
 
     public void Activate() => GeHandles?.Activate();
 
-    public bool Input(EditorViewport view, InputEvent e) => GeHandles?.InputSelected(view, e) == true || _select.Input(view, e);
+    public bool Input(EditorViewport view, InputEvent e) => _stairs.Input(view, e) || GeHandles?.InputSelected(view, e) == true || _select.Input(view, e);
 
-    public void Draw(EditorViewport view, Control canvas) { _select.Draw(view, canvas); GeHandles?.DrawSelected(view, canvas); }
+    public void Draw(EditorViewport view, Control canvas) { _select.Draw(view, canvas); GeHandles?.DrawSelected(view, canvas); _stairs.Draw(view, canvas); }
 
-    public bool IsDragging => GeHandles?.IsDragging == true;
-    public bool Cancel() => GeHandles?.Cancel() == true || _select.Cancel();
-    public void Deactivate() { _select.Cancel(); GeHandles?.Deactivate(); }
+    public bool IsDragging => _stairs.IsDragging || GeHandles?.IsDragging == true;
+    public bool Cancel() => _stairs.Cancel() || GeHandles?.Cancel() == true || _select.Cancel();
+    public void Deactivate() { _stairs.Cancel(); _select.Cancel(); GeHandles?.Deactivate(); }
 }

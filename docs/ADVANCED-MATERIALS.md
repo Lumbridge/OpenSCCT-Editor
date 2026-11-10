@@ -53,7 +53,7 @@ Repeat filtering keeps continuous UV derivatives for ordinary textures and repea
 | Texture animation | Atlases, frame sequences, looping, ping pong, phase, scrolling and rotation | First-frame approximation, reported per material |
 | glTF material import/output | Base/MR, normals, AO, emission, alpha/sides and supported finish factors; standard output plus full authored extras | Original-editor mesh handoff retains its established ASE workflow |
 
-The original-editor export folder includes a native `Map-Editor.sdc` when the map uses authored materials. Open that file in RE+ to retain its embedded Texture/Shader graphs; it uses the same conversion as direct SDC export. The folder also retains the T3D/DDS/ASE alternative, whose diffuse DDS imports have a simpler appearance and do not recreate those Shader graphs. Neither path changes the open project's images, geometry or UVs. Conversion failure preserves the prior export. Imported source-package export slots are retained when compatible; incompatible group/object classes require a different material/group name.
+Reloaded Folder export includes native `Packages/Maps/<Map>.sdc` and `Packages/MapsEd/<Map>.sdc` copies. Open the MapsEd copy in RE+ to retain its embedded Texture/Shader graphs; both copies use the same conversion as direct SDC export. Custom image textures and static meshes are packaged into map-specific native files under Packages. The open project's images, geometry and UVs stay unchanged, and a failed conversion preserves the prior export. Imported source-package export slots are retained when compatible; incompatible group/object classes require a different material/group name.
 
 ## Geometry and lighting limits
 

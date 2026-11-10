@@ -770,7 +770,11 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         {
             if (_doorGhost is not null) Tools.DoorTool.DrawPreview(view, canvas, _doorGhost, _stairPlacementProblem is not null);
             if (_windowGhost is not null) Tools.WindowTool.DrawPreview(view, canvas, _windowGhost, _stairPlacementProblem is not null);
-            else if (_stairGhost is { Stair: not null }) Tools.StairTool.DrawPreview(view, canvas, _stairGhost, _stairPlacementProblem is not null);
+            else if (_stairGhost is { Stair: not null })
+            {
+                Tools.StairTool.DrawPreview(view, canvas, _stairGhost, _stairPlacementProblem is not null);
+                _stairSnap?.Draw(view, canvas);
+            }
             else if (_stairGhost is { } geometryGhost)
             {
                 foreach (BrushFace ghostFace in geometryGhost.WorldFaces())
@@ -871,6 +875,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         {
             _prefabTarget = null;
             _stairGhost = null; _stairGhostAt = null; _stairPlacementProblem = null;
+            _stairSnap = null; _stairSnapView = null;
             _windowGhost = null;
             _doorGhost = null;
             if (IsInstanceValid(prefabTarget.View)) prefabTarget.View.Redraw();

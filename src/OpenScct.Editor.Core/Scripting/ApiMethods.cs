@@ -136,12 +136,12 @@ public static class ApiMethods
             """{"type":"object","properties":{"out":{"type":"string","description":"output folder (default: build/<id> next to the project)"},"fast":{"type":"boolean","description":"quick lighting: a quarter of the lightmap density and no shadows"}}}"""),
         new("export", "Export for the original game",
             "Exports the open map for the original game after the round-trip lint, and lists the findings. format original (the default) writes "
-            + "a folder for RE+: the T3D, the actors of the map's own classes and their sources, the map's own textures, meshes and sounds with a "
-            + "script that imports them, the map's texts (.int) and a README of the steps in RE+. format t3d writes the T3D alone (for the stock "
+            + "a Reloaded install folder: playable and editable maps, map-specific native asset packages, map settings, pictures and .int texts. "
+            + "Drag System and Packages into a compatible Reloaded install. format t3d writes the T3D alone (for the stock "
             + "editor's File > Import); with only, just those objects in the Edit > Copy form. format sdc writes a map package natively: layout "
             + "cooked, the copy the game loads from Packages\\Maps (the default); or editor, the copy for Packages\\MapsEd with brushes. An .sdc is "
             + "read back and checked; a map imported from an .sdc keeps that file's objects it does not edit, and the findings say what differs "
-            + "from it. ok is false when the lint found errors (the files are written anyway).",
+            + "from it. Missing textures warn and use a checkerboard. Failed native/folder exports preserve the previous output; T3D still writes with lint errors.",
             """{"type":"object","properties":{"format":{"type":"string","enum":["original","t3d","sdc"]},"out":{"type":"string","description":"the folder (original) or file (t3d, sdc) to write; default export/<id>, export/<id>.t3d or export/<id>.sdc next to the project"},"only":{"type":"array","items":{"type":"string"},"description":"t3d only: the object ids to write"},"layout":{"type":"string","enum":["editor","cooked"],"description":"sdc only"},"game":{"type":"string","description":"sdc: the original install new materials and meshes are looked up in"}}}"""),
         new("playtest", "Headless test round",
             "Compiles the map and plays a round of it in OpenSCCT with no window: whether it loaded, the errors and warnings the game printed, " +

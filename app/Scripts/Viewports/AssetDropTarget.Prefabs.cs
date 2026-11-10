@@ -1,4 +1,5 @@
 using Godot;
+using OpenScct.Editor.Core.Geometry.Snap;
 using OpenScct.Editor.Core.Model;
 using OpenScctEditor.Shell.Background;
 using OpenScctEditor.Tools;
@@ -11,6 +12,8 @@ public sealed partial class AssetDropTarget
     private OpenScct.Editor.Core.Model.Brush? _stairGhost;
     private Vec3? _stairGhostAt;
     private string? _stairPlacementProblem;
+    private NeighbourDrag? _stairSnap;
+    private EditorViewport? _stairSnapView;
     private Actor? _windowGhost;
     private Actor? _doorGhost;
 
@@ -62,12 +65,16 @@ public sealed partial class AssetDropTarget
             _stairGhost = new Brush("GeometryPreview") { Shape = builder.DisplayShape(), Location = point };
             _stairGhostAt = point;
         }
-        if (prefab.StairPreview is not null && Tools.ToolManager.Instance is { } manager) point = new Vec3(manager.SnapValue(point.X), manager.SnapValue(point.Y), point.Z);
-        if (prefab.StairPreview is { } design && (_stairGhostAt != point || _stairGhost?.Rotation.Yaw != prefab.StairYaw || _stairGhost.Stair?.Left != design.Left))
+        if (prefab.StairPreview is { } design && ToolManager.Instance is { } manager)
         {
+            point = StairTool.Point(view, at, manager);
             _stairGhostAt = point;
             try { _stairGhost = OpenScct.Editor.Core.Stairs.StairGeometry.Create("StairPreview", design, point, new OpenScct.Editor.Core.Model.Rot(0, prefab.StairYaw, 0)); }
             catch (ArgumentException ex) { _ctx.SetStatus(ex.Message); return false; }
+            if (_stairSnapView != view) { _stairSnapView = view; _stairSnap = null; }
+            _stairSnap ??= new NeighbourDrag(manager, view, SnapUse.Move, [], () => null);
+            StairTool.SnapPreview(view, _stairGhost, _stairSnap);
+            point = _stairGhost.Location;
             _stairPlacementProblem = OpenScct.Editor.Core.Stairs.StairPlacement.Problem(_ctx.Project, _stairGhost, _ctx.Session.Folder);
         }
         if (_prefabTarget is { } previous && previous.View != view) previous.View.Redraw();

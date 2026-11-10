@@ -120,6 +120,7 @@ public sealed class SdcExporter : IMapExporter
             Schema = schema,
             ContentRoot = options.ContentRoot,
             GameRoot = gameRoot,
+            NativePackages = options.NativePackages,
             Assets = assets,
             Progress = options.Progress,
         };
@@ -151,12 +152,13 @@ public sealed class SdcExporter : IMapExporter
         bool ok = !findings.Any(f => f.Severity == Severity.Error);
         if (!ok) return new ExportResult(false, [], findings);
         string fullPath = Path.GetFullPath(path);
-        if (assets.FilePath is { } assetFile)
+        foreach (SdcAssetBundle.Output output in assets.Outputs)
         {
+            string assetFile = output.File;
             Directory.CreateDirectory(Path.GetDirectoryName(assetFile)!);
             if (File.Exists(assetFile))
             {
-                if (!File.ReadAllBytes(assetFile).AsSpan().SequenceEqual(assets.Package))
+                if (!File.ReadAllBytes(assetFile).AsSpan().SequenceEqual(output.Data))
                     throw new IOException($"The asset package {assetFile} already exists with different data. It was not overwritten.");
             }
             else
@@ -164,9 +166,9 @@ public sealed class SdcExporter : IMapExporter
                 string staged = assetFile + "." + Guid.NewGuid().ToString("N") + ".tmp";
                 try
                 {
-                    File.WriteAllBytes(staged, assets.Package);
+                    File.WriteAllBytes(staged, output.Data);
                     try { File.Move(staged, assetFile); }
-                    catch (IOException) when (File.Exists(assetFile) && File.ReadAllBytes(assetFile).AsSpan().SequenceEqual(assets.Package)) { }
+                    catch (IOException) when (File.Exists(assetFile) && File.ReadAllBytes(assetFile).AsSpan().SequenceEqual(output.Data)) { }
                 }
                 finally { if (File.Exists(staged)) File.Delete(staged); }
             }
@@ -182,7 +184,7 @@ public sealed class SdcExporter : IMapExporter
         {
             if (File.Exists(temporary)) File.Delete(temporary);
         }
-        return new ExportResult(true, assets.FilePath is { } bundled ? [fullPath, bundled] : [fullPath], findings);
+        return new ExportResult(true, new[] { fullPath }.Concat(assets.Outputs.Select(o => o.File)).ToArray(), findings);
     }
 
     /// <summary>

@@ -175,6 +175,11 @@ public interface IMapImporter
 
 public sealed record ExportOptions
 {
+    /// <summary>Generated native dependencies supplied by a portable export bundle.</summary>
+    public IReadOnlyDictionary<string, string>? NativePackages { get; init; }
+
+    /// <summary>Include referenced assets instead of relying on packages installed on this machine.</summary>
+    public bool PortableAssets { get; init; }
     public string? ContentRoot { get; init; }
 
     /// <summary>The original install, for exporters that read its packages; null finds it.</summary>
