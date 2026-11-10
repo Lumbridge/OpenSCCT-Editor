@@ -15,6 +15,9 @@ public partial class MissionsPanel
     private Label _sequenceHint = null!;
     private CheckBox _showHud = null!;
     private CheckBox _awardScore = null!;
+    private CheckBox _hideInactive = null!;
+    private Actor? VisibilityTarget => Context.Selection.Items.Count == 1 && Context.Selection.Items.First() is { Kind: ObjectKind.Actor } selected
+        && Context.Project.FindActor(selected.Id) is { } device && MissionLinks.IsTrigger(device) ? device : Objective;
 
     private void BuildMissionSettings()
     {
@@ -53,6 +56,9 @@ public partial class MissionsPanel
             on => SetProperty(Objective, "bShowStatusOnHud", SvJsonNode.Bool(on), "Change objective HUD visibility"));
         _awardScore = SettingFlag(row, "Award score", "AwardScore", "Award points to the player who completes the chosen objective.",
             on => SetProperty(Objective, "bScore", SvJsonNode.Bool(on), "Change objective scoring"));
+        _hideInactive = SettingFlag(row, "Hide while inactive", "HideWhileInactive", "",
+            on => SetProperty(VisibilityTarget, ObjectiveVisibility.Property, SvJsonNode.Bool(on), "Change inactive objective visibility"));
+        Context.SelectionChanged += UpdateSettings;
     }
 
     private static CheckBox SettingFlag(Control parent, string text, string name, string tip, Action<bool> changed)
@@ -114,6 +120,11 @@ public partial class MissionsPanel
         _showHud.Disabled = _awardScore.Disabled = Objective is null;
         _showHud.SetPressedNoSignal(Objective is { } objective && ClassDefaults.Flag(objective, "bShowStatusOnHud"));
         _awardScore.SetPressedNoSignal(Objective is { } target && ClassDefaults.Flag(target, "bScore"));
+        Actor? visibility = VisibilityTarget;
+        _hideInactive.Disabled = visibility is null;
+        _hideInactive.SetPressedNoSignal(visibility is not null && ObjectiveVisibility.Hidden(Context.Project, visibility));
+        _hideInactive.TooltipText = (visibility is null ? "Choose an objective or device." : $"For {MissionLinks.Label(visibility)}.")
+            + " Off by default: inactive and unlinked devices stay visible but unusable. Turn on to hide them while inactive. A selected device overrides its objective's setting. OpenSCCT only.";
     }
 
     private void SetProperty(Actor? actor, string property, SvJsonNode value, string label)

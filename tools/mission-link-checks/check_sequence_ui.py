@@ -132,6 +132,18 @@ assert props('Mission0') == before, 'Undo restores all mission settings without 
 
 select('Objective0')
 objective_before = props('Objective0')
+assert not control('HideWhileInactive')['pressed'], 'Inactive objectives are shown by default'
+click('HideWhileInactive')
+assert props('Objective0')['HideWhileInactive'] is True
+call('undo')
+step('wait', frames=4)
+assert props('Objective0') == objective_before and not control('HideWhileInactive')['pressed']
+select('ExtraComputer0')
+click('HideWhileInactive')
+assert props('ExtraComputer0')['HideWhileInactive'] is True, 'Unlinked devices have their own visible checkbox'
+call('undo')
+step('wait', frames=4)
+select('Objective0')
 assert control('ShowOnHud')['pressed'] and control('AwardScore')['pressed'], 'Objective flags use inherited defaults'
 click('ShowOnHud')
 click('AwardScore')

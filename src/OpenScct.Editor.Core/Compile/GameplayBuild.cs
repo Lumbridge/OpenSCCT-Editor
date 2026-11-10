@@ -182,6 +182,10 @@ public static class GameplayBuild
     private static SvJsonObject ActorJson(CompileContext ctx, Actor a, RefResolver refs)
     {
         PropSet props = a.Props.Clone();
+        if (Gameplay.MissionLinks.IsTrigger(a))
+            props.Set(Gameplay.ObjectiveVisibility.Property, SvJsonNode.Bool(Gameplay.ObjectiveVisibility.Hidden(ctx.Project, a)));
+        else
+            props.Remove(Gameplay.ObjectiveVisibility.Property); // Objective settings are lowered onto their devices.
         foreach (string key in new[] { "Location", "Rotation", "DrawScale", "DrawScale3D", "PrePivot", "Region", "Level", "Tag" })
         {
             props.Remove(key);

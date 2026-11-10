@@ -23,6 +23,7 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Use the same simulation and particle geometry as the game, without its full scene or render pipeline. -->
+    <Compile Include="$(OpenScctDir)game/Scripts/Render/ShaderGlobals.cs" Link="Shared/ShaderGlobals.cs" />
     <Compile Include="$(OpenScctDir)game/Scripts/Render/Materials/AuthoredMaterialBinding.cs" Link="Shared/AuthoredMaterialBinding.cs" />
     <Compile Include="$(OpenScctDir)game/Scripts/Render/Materials/AuthoredTextureImage.cs" Link="Shared/AuthoredTextureImage.cs" />
     <Compile Include="$(OpenScctDir)game/Scripts/Render/Materials/AuthoredMeshLods.cs" Link="Shared/AuthoredMeshLods.cs" />

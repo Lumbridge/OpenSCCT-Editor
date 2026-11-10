@@ -178,13 +178,15 @@ var runtimeComputer = (SComputerObjectiveTrigger)loaded.FindActor(computer.Id)!;
 var runtimeOther = (SComputerObjectiveTrigger)loaded.FindActor(other.Id)!;
 Check(runtimeMission.Objectives.Count == 2 && ReferenceEquals(runtimeMission.Objectives[0], loaded.FindActor(first.Id)), "Game loads the edited objective order");
 runtimeMission.Desactivate();
-Check(runtimeComputer.bHidden && runtimeOther.bHidden, "Game mission deactivation reaches both devices");
+Check(!runtimeComputer.bHidden && !runtimeOther.bHidden && !runtimeComputer.bActive && !runtimeOther.bActive,
+    "Inactive objective devices stay visible by default without becoming active");
 runtimeMission.Reset();
 Check(!runtimeComputer.bHidden && runtimeComputer.bActive && runtimeComputer.ComputerInteraction is { bUsable: true }, "First chained objective reveals a usable computer in the game");
 Check(!runtimeOther.bActive, "Second chained objective stays inactive until activated");
 ((SObjective)loaded.FindActor(first.Id)!).NotifyTaken(null, runtimeComputer);
 Check(!runtimeComputer.bActive && runtimeOther.bActive, "Completing the first objective unlocks the second in tree order");
 ZoneChecks.Run(Check, root, content);
+VisibilityChecks.Run(Check, root, content);
 Console.WriteLine($"Passed {checks} mission linking checks, including compiled game activation and sequential zones. Fixture: {folder}");
 
 Add("ExtraObjective0", "SObjective", "Camera control");

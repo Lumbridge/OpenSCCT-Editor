@@ -66,10 +66,15 @@ public static class PropertyHelp
         },
         ["SObjective"] = new(StringComparer.OrdinalIgnoreCase)
         {
+            ["HideWhileInactive"] = "Off by default: linked devices stay visible but unusable until this objective activates. Turn on to hide them while inactive. OpenSCCT only.",
             ["ObjectiveName"] = "The name shown to players for this objective.",
             ["Triggers"] = "The computers or other gameplay triggers that complete this objective. The objective computer prefab connects these for you.",
             ["bShowStatusOnHud"] = "Show this objective's status on the players' HUD. Also editable in Missions.",
             ["bScore"] = "Award points to the player who completes this objective. Also editable in Missions.",
+        },
+        ["SObjectiveTrigger"] = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["HideWhileInactive"] = "Hide this device while inactive, including when it is unlinked. Off by default. Overrides its objective's setting; availability and interaction stay unchanged. OpenSCCT only.",
         },
         ["SMission"] = new(StringComparer.OrdinalIgnoreCase)
         {

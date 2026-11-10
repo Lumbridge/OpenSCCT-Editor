@@ -116,6 +116,12 @@ public sealed class ClassCatalog : IClassCatalog
         }
 
         int generated = GeneratedClasses.AddMissing(data);
+        foreach (string name in new[] { "SBase.SObjective", "SBase.SObjectiveTrigger" })
+        {
+            if (data.ByPath.TryGetValue(name, out ClassInfo? cls))
+                data.ByPath[name] = cls with { Properties = [.. cls.Properties,
+                    new PropInfo(Gameplay.ObjectiveVisibility.Property, "bool", "Objective", true, null, null, null, 1, null, name)] };
+        }
         data.Finish();
         data.Source = fromTable > 0
             ? $"{Path.GetFullPath(path!)} ({fromTable} classes)" + (generated > 0 ? $" + generated metadata ({generated} more)" : "")

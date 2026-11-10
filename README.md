@@ -115,6 +115,10 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   rows show play order and availability. Mode, objectives to win and random selection are beside the checkbox;
   win and random counts are ignored while chained. The chosen objective's **Show on HUD** and **Award score** flags
   are also visible in Missions. Every edit can be undone. **Completion actions** reveals doors, messages and timing.
+  **Hide while inactive** is off by default: inactive or unlinked devices remain visible in OpenSCCT, but cannot be
+  used until activated. Set it for the chosen objective, or select a device to override that device alone. It also
+  applies to devices linked later. Shared devices remain visible if any owner leaves hiding off, unless the device
+  has its own override. Original-game exports keep the original game's visibility rules.
   **New zone…** creates a named sub-mission with a required objective count and an explicit **Unlock zones one at
   a time** choice. Its objectives are available together, and its parent activates it. For example, chain two zones
   in a Story mission, set Zone 1 to win after 2 of its 3 objectives, then Zone 2 unlocks when those 2 are complete.

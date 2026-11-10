@@ -21,6 +21,7 @@ public static partial class T3dExport
     private static readonly HashSet<string> s_skipped = new(StringComparer.OrdinalIgnoreCase)
     {
         "Name", "Brush", "Region", "StaticMeshInstance", "StaticMeshInstanceOnPSX2", "StaticMeshInstanceOnXBOX", "NavigationPointList", "bHiddenEdGroup",
+        "HideWhileInactive", // OpenSCCT visibility override; absent in the original engine.
     };
 
     /// <summary>True for a property a T3D carries (the others the original editor works out itself).</summary>
