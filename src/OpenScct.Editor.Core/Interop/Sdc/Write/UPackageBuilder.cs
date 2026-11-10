@@ -335,8 +335,12 @@ public sealed class UPackageBuilder
         }
     }
 
-    /// <summary>The .sdc file: the package as one zlib chunk (<c>u32 unpacked, u32 packed, zlib</c>), as a normal
-    /// stock save writes it.</summary>
+    /// <summary>The native file manager selects its reader by extension. Cooked texture packages use
+    /// the same chunk container as maps; editor mesh, animation, sound and UTX packages are raw Unreal files.</summary>
+    public static byte[] FileBytes(string file, byte[] package) => Path.GetExtension(file).ToLowerInvariant() is ".sdc" or ".utc"
+        ? Pack(package) : package;
+
+    /// <summary>One zlib chunk: <c>u32 unpacked, u32 packed, zlib</c>, as a normal stock save writes it.</summary>
     public static byte[] Pack(byte[] package)
     {
         using var packed = new MemoryStream();

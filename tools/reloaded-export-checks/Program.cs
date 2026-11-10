@@ -34,7 +34,20 @@ foreach (string directory in new[] { "System/_PC_", "Packages/Animations", "Pack
 Check(result.Findings.Any(f => f.Code == "sdc.textureMissing" && f.Severity == Severity.Warning), "Missing texture is a warning");
 Check(!result.Files.Any(f => f.EndsWith(".t3d") || f.EndsWith("ImportAssets.txt")), "Native output needs no manual import commands");
 foreach (string file in result.Files.Where(f => Path.GetExtension(f) is ".usx" or ".ukx" or ".utc" or ".uax" or ".uas"))
-    Check(BitConverter.ToUInt32(File.ReadAllBytes(file)) == SdcContainer.PackageTag, "Native assets have raw package headers, not map-only compression containers");
+{
+    byte[] bytes = File.ReadAllBytes(file);
+    bool compressed = Path.GetExtension(file) is ".utc";
+    Check((BitConverter.ToUInt32(bytes) != SdcContainer.PackageTag) == compressed, "Native file extensions select the required compressed or raw reader");
+    var (unpacked, chunks) = SdcContainer.Unwrap(bytes);
+    Check((chunks > 0) == compressed && BitConverter.ToUInt32(unpacked) == SdcContainer.PackageTag, "Every native file round-trips its extension-specific container");
+}
+foreach (string extension in new[] { ".sdc", ".utc", ".usx", ".ukx", ".uax", ".utx" })
+{
+    bool compressed = extension is ".sdc" or ".utc";
+    byte[] encoded = UPackageBuilder.FileBytes("Container" + extension.ToUpperInvariant(), native.Data);
+    var (unpacked, chunks) = SdcContainer.Unwrap(encoded);
+    Check(unpacked.SequenceEqual(native.Data) && (chunks > 0) == compressed, "Native containers preserve bytes for " + extension);
+}
 Check(result.Files.Any(f => f.Contains("Packages" + Path.DirectorySeparatorChar + "Textures") && Path.GetFileName(f).StartsWith("DropA_Assets_Textures")), "Custom textures have a map-specific UTC package");
 Check(result.Files.Any(f => f.EndsWith(".uax")), "Custom sounds have a native sound package");
 string repackedFile = result.Files.Single(f => f.EndsWith(".ukx") && Path.GetFileName(f).Contains("MAL_anm"));

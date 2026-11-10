@@ -71,7 +71,7 @@ internal static class ReloadedInterface
         }
         byte[] result = b.Build();
         if (writer.Problems.Count > 0) throw new InvalidDataException(string.Join("; ", writer.Problems));
-        return result;
+        return UPackageBuilder.FileBytes(p.Id + "-i.utc", result);
     }
 
     // Only these two structs are native SMapSettings fields. Keep them typed even without converted content.

@@ -109,7 +109,7 @@ public sealed class SdcAssetBundle
                     throw new InvalidDataException($"The generated asset package is missing {asset.Relative}.");
             string file = root is null ? Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, part.Name + part.Extension)
                 : Path.Combine(root, "Packages", part.Folder, part.Name + part.Extension);
-            bundle.Outputs.Add(new(file, data));
+            bundle.Outputs.Add(new(file, UPackageBuilder.FileBytes(file, data)));
             if (part == bundle._main) { bundle.Name = part.Name; bundle.Package = data; bundle.FilePath = file; }
             if (root is null) findings.Add(Finding.Warning("sdc.assetDestination", $"The asset package is saved beside the map as {Path.GetFileName(file)}. Copy it into Packages\\{part.Folder} when installing the SDC in Reloaded."));
         }

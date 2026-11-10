@@ -65,8 +65,7 @@ internal sealed class NativeDependencies
             Redirect(builder, package.Source);
             string file = Path.Combine(stage, "Packages", package.Folder, package.Name + package.Extension);
             Directory.CreateDirectory(Path.GetDirectoryName(file)!);
-            // Asset loaders expect an Unreal package header; the zlib container is only for SDC maps.
-            File.WriteAllBytes(file, builder.BuildPreservingSource(package.Source));
+            File.WriteAllBytes(file, UPackageBuilder.FileBytes(file, builder.BuildPreservingSource(package.Source)));
             Files.Add(package.Name, file); Written.Add(file);
         }
         if (source is not null && _packages.Count > 0)
