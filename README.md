@@ -110,7 +110,17 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   build a chain; the integrated Objectives palette also lets you drag devices into a view, linked to the chosen objective.
   Right-click a mission, objective or device in the map, Outliner or Missions tree and choose **Link to…** to search
   compatible actors, review the proposed links and create them together. Tree × buttons unlink without deleting actors; arrows change objective order for chained
-  missions. Every batch is one undo step. **Completion actions** reveals doors, messages and timing.
+  missions. Missions are **chained by default**: only the first objective is available, then each completion unlocks
+  the next. The visible **Chained: one at a time** checkbox switches to allowing objectives together. Numbered tree
+  rows show play order and availability. Mode, objectives to win and random selection are beside the checkbox;
+  win and random counts are ignored while chained. The chosen objective's **Show on HUD** and **Award score** flags
+  are also visible in Missions. Every edit can be undone. **Completion actions** reveals doors, messages and timing.
+  **New zone…** creates a named sub-mission with a required objective count and an explicit **Unlock zones one at
+  a time** choice. Its objectives are available together, and its parent activates it. For example, chain two zones
+  in a Story mission, set Zone 1 to win after 2 of its 3 objectives, then Zone 2 unlocks when those 2 are complete.
+  The tree shows the full nested hierarchy; select a zone to add its objectives or change its count, and use
+  **Parent mission** to return and add another zone. Zones group gameplay logically; doors and routes can be opened
+  using their Completion actions.
   The Classes panel also supports dragging actors into any view. Class names display in English; search accepts
   both the English name and original class path, which remains available in tooltips.
   GE dots use grid and neighbour snapping when moved or resized; ladder and pipe facing dots use rotation and

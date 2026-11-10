@@ -1,6 +1,6 @@
 # Mission workflow checks
 
-Generate a disposable map and run the 37 relationship, undo, persistence, compilation and game activation checks:
+Generate disposable maps and run the relationship, sequencing, undo, persistence, compilation and game activation checks:
 
 ```powershell
 dotnet run --project tools/mission-link-checks -- local/mission-workflow
@@ -10,6 +10,8 @@ The checks cover batch linking, case-insensitive duplicates, invalid links, dire
 unlinking without deleting actors, chained ordering, imported single/missing references, atomic creation, undo/redo
 and save/reopen. They compile the map, load it with the game's own loader and verify that the first linked computer
 becomes usable while the second chained objective stays inactive.
+They also compile `Zones.osmap` and verify that completing two of three objectives in the first zone activates the
+second zone, whose own threshold then completes the parent Story mission.
 
 Use the editor's pinned OpenSCCT dependencies (`openscct.ref`). When building against a separate checkout, pass
 `-p:OpenScctRoot=<checkout>/` to `dotnet` and `-OpenScctRoot <checkout>/` to the background editor script.
@@ -37,3 +39,13 @@ For the Choose mission/objective regression, start a background editor on a sepa
 `python tools/mission-link-checks/check_choose_parent.py <background-run-folder>`. It checks objective-to-mission,
 device-to-objective and device-owner-to-mission links, one-step undo/redo, duplicate no-ops, view-only choices,
 Cancel, and the laptop guide's recognition of an existing complete chain. The test saves the disposable map.
+
+For mission settings and nested zones, start a background editor on a fresh generated `Ui.osmap`, then run
+`python tools/mission-link-checks/check_sequence_ui.py <background-run-folder>`. It exercises default-on chaining,
+explicit false, disabled counts, random selection, HUD/score flags, mode changes, new missions, named zones,
+per-zone thresholds, parent navigation, Cancel and undo/redo. Screenshots include the compact dock, expanded tree
+and zone dialog, and fail on layout findings inside Missions.
+
+Run `sequence-layout-shots.json` with `tools/Invoke-EditorShots.ps1 -Map <generated Zones.osmap>` for the compact
+dock, expanded hierarchy, per-zone counts, and zone form at 1600×900, 1280×720 and 150% UI scale. The form is resized
+while open to check that its fixed footer stays inside the editor.

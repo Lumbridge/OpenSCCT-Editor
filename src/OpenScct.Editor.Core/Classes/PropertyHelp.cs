@@ -68,6 +68,14 @@ public static class PropertyHelp
         {
             ["ObjectiveName"] = "The name shown to players for this objective.",
             ["Triggers"] = "The computers or other gameplay triggers that complete this objective. The objective computer prefab connects these for you.",
+            ["bShowStatusOnHud"] = "Show this objective's status on the players' HUD. Also editable in Missions.",
+            ["bScore"] = "Award points to the player who completes this objective. Also editable in Missions.",
+        },
+        ["SMission"] = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["bChained"] = "On by default: objectives unlock one at a time in list order, and all must be completed. Turn off to allow them together. Also editable in Missions.",
+            ["MinimumObjectives"] = "Objectives needed to win an unchained mission; 0 means all active objectives. Ignored while chained. In Disk Hunt, the number of disks to activate.",
+            ["RandomObjectives"] = "Number of objectives selected at random for an unchained mission; 0 means all. Ignored while chained and in Disk Hunt.",
         },
     };
 

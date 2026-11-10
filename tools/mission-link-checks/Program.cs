@@ -4,6 +4,7 @@ using OpenScct.Content.Loading;
 using OpenScct.Core;
 using OpenScct.Core.Engine;
 using OpenScct.Editor.Core.Classes;
+using OpenScct.Editor.Core.Commands;
 using OpenScct.Editor.Core.Compile;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Geometry;
@@ -75,7 +76,15 @@ Actor Add(string id, string type, string name)
 Actor mission = Add("Mission0", "SMission", "Infiltrate the archive");
 mission.Props.Set("GameMode", SvJsonNode.Integer(5));
 mission.Props.Set("MinimumObjectives", SvJsonNode.Integer(0));
-mission.Props.Set("bChained", SvJsonNode.Bool(true));
+Check(MissionTree.Build(p).Missions.Single().Chained, "Mission analysis uses the default-on chain flag when it is not stored");
+Check(mission.Props["bChained"] is null, "Reading the default does not store an override");
+session.Execute(ReplaceObjectsCommand.Edit(p, [ObjectRef.Actor(mission.Id)], "Unchain mission", actor: a =>
+    a.Props.Set("bChained", SvJsonNode.Bool(false))));
+Check(!MissionTree.Build(p).Missions.Single().Chained, "An explicit false overrides the default-on chain flag");
+session.Commands.Undo();
+Check(MissionTree.Build(p).Missions.Single().Chained && p.FindActor(mission.Id)!.Props["bChained"] is null,
+    "Undo restores inherited chaining without storing a value");
+mission = p.FindActor(mission.Id)!;
 mission.Props.Set("Event", SvJsonNode.String("KeepThisEvent"));
 Actor first = Add("Objective0", "SObjective", "Open the vault");
 Actor second = Add("Objective1", "SObjective", "Download the files");
@@ -173,7 +182,10 @@ Check(runtimeComputer.bHidden && runtimeOther.bHidden, "Game mission deactivatio
 runtimeMission.Reset();
 Check(!runtimeComputer.bHidden && runtimeComputer.bActive && runtimeComputer.ComputerInteraction is { bUsable: true }, "First chained objective reveals a usable computer in the game");
 Check(!runtimeOther.bActive, "Second chained objective stays inactive until activated");
-Console.WriteLine($"Passed {checks} mission linking checks, including compiled game activation. Fixture: {folder}");
+((SObjective)loaded.FindActor(first.Id)!).NotifyTaken(null, runtimeComputer);
+Check(!runtimeComputer.bActive && runtimeOther.bActive, "Completing the first objective unlocks the second in tree order");
+ZoneChecks.Run(Check, root, content);
+Console.WriteLine($"Passed {checks} mission linking checks, including compiled game activation and sequential zones. Fixture: {folder}");
 
 Add("ExtraObjective0", "SObjective", "Camera control");
 Add("ExtraObjective1", "SObjective", "Research files");

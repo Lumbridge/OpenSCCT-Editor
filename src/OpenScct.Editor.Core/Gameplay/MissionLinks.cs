@@ -88,6 +88,31 @@ public static class MissionLinks
         ]);
     }
 
+    /// <summary>A zone offers its objectives together, then completes after the chosen count. Its parent controls
+    /// when the zone unlocks. Creation, linking and the explicit parent sequencing choice undo together.</summary>
+    public static IEditCommand CreateZone(MapProject p, string parentId, string id, string name, int minimum, bool sequential)
+    {
+        Actor parent = Require(p, parentId);
+        ValidateProperty(parent, "Objectives");
+        if ((int)ClassDefaults.Number(parent, "GameMode", 0) is 4 or 6 or 7)
+            throw new ArgumentException("Add zones to a Story or objective-based mission.");
+        if (p.Find(id) is not null || string.IsNullOrWhiteSpace(name) || minimum < 0)
+            throw new ArgumentException("Give the zone a unique id, a name and a non-negative objective count.");
+        var zone = new Actor(id, "SBase.SMission") { Location = parent.Location };
+        zone.Props.Set("ObjectiveName", SvJsonNode.String(name.Trim()));
+        zone.Props.Set("GameMode", SvJsonNode.Integer(0));
+        zone.Props.Set("bChained", SvJsonNode.Bool(false));
+        zone.Props.Set("MinimumObjectives", SvJsonNode.Integer(minimum));
+        return new CompositeCommand($"Create zone {name.Trim()} in {Name(parent)}", [
+            new AddObjectsCommand("Create zone", actors: [zone]),
+            ReplaceObjectsCommand.Edit(p, [ObjectRef.Actor(parent.Id)], "Link and sequence zone", actor: a =>
+            {
+                a.Props.Set("Objectives", PropValues.Array(Items(a.Props["Objectives"]).Append(PropValues.ActorRef(zone.Id))));
+                a.Props.Set("bChained", SvJsonNode.Bool(sequential));
+            })
+        ]);
+    }
+
     private static string Property(Actor child) => IsTrigger(child) ? "Triggers" : "Objectives";
     private static Actor Require(MapProject p, string id) => p.FindActor(id) ?? throw new ArgumentException($"{id} is no longer in the map.");
     private static bool Same(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);

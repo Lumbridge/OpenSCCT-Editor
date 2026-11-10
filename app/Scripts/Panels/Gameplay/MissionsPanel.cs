@@ -151,15 +151,25 @@ public partial class MissionsPanel : EditorPanel
             Row(root, "No missions (SMission)", "", "").SetCustomColor(0, EditorTheme.TextDim);
         }
 
-        foreach (MissionNode m in t.Missions)
+        var missionsById = t.Missions.ToDictionary(m => m.Id, StringComparer.OrdinalIgnoreCase);
+        var nestedIds = t.Missions.SelectMany(m => m.Objectives.Select(o => o.Id)).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var drawn = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        TreeItem DrawMission(TreeItem parent, MissionNode m, HashSet<string> path, string? title = null, string? activation = null)
         {
-            string chained = m.Chained ? ", chained" : "";
-            string required = m.MinimumObjectives == 0 ? "all" : m.MinimumObjectives.ToString(System.Globalization.CultureInfo.InvariantCulture);
-            TreeItem mission = Row(root, Display(m.Id), $"{(m.GameMode == 5 ? "Story" : m.ModeName)}: {required} of {PanelUi.Count(m.Completers, "objective")}{chained}", m.Id);
+            drawn.Add(m.Id);
+            path.Add(m.Id);
+            bool sequential = m.Chained && m.GameMode != GameModes.DiskHunt;
+            bool zones = m.Objectives.Count > 0 && m.Objectives.All(o => missionsById.ContainsKey(o.Id));
+            string order = m.GameMode == GameModes.DiskHunt ? "" : sequential ? " · One at a time (chained)" : " · Any order";
+            string required = sequential || m.MinimumObjectives == 0 ? "all" : m.MinimumObjectives.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            string mode = m.GameMode == 0 ? "Zone" : m.GameMode == 5 ? "Story" : m.ModeName;
+            TreeItem mission = Row(parent, title ?? Display(m.Id), $"{(activation is null ? mode + ": " : activation + " · ")}{required} of {PanelUi.Count(m.Completers, zones ? "zone" : "objective")}{order}", m.Id);
             mission.SetIcon(0, PanelIcons.Type(Context.Project.FindActor(m.Id)?.Class ?? "SMission"));
-            if (m.MinimumObjectives > m.Completers && m.Completers > 0)
+            if ((!sequential && m.MinimumObjectives > m.Completers && m.Completers > 0) || (activation is not null && m.GameMode != 0))
             {
-                mission.SetIcon(1, PanelIcons.Severity(Severity.Error));
+                mission.SetIcon(1, PanelIcons.Severity(m.GameMode != 0 && activation is not null ? Severity.Warning : Severity.Error));
+                if (activation is not null && m.GameMode != 0)
+                    mission.SetTooltipText(1, mission.GetText(1) + ". This zone has its own game mode and may start before its parent unlocks it. Set Mode to Zone (parent). ");
             }
 
             if (m.Description.Length > 0)
@@ -167,20 +177,40 @@ public partial class MissionsPanel : EditorPanel
                 mission.SetTooltipText(0, m.Description);
             }
 
-            foreach (ObjectiveNode o in m.Objectives)
+            for (int i = 0; i < m.Objectives.Count; i++)
             {
-                TreeItem objective = Row(mission, Display(o.Id), PanelUi.Count(o.Triggers.Count, "device"), o.Id);
+                ObjectiveNode o = m.Objectives[i];
+                string availability = sequential ? i == 0 ? "Available first" : $"After {(zones ? "zone" : "objective")} {i}"
+                    : ClassDefaults.Number(Context.Project.FindActor(m.Id)!, "RandomObjectives", 0) > 0 ? "Random selection"
+                    : activation is not null ? "Available with zone" : "Available together";
+                if (missionsById.TryGetValue(o.Id, out MissionNode? zone))
+                {
+                    if (path.Contains(zone.Id))
+                    {
+                        TreeItem cycle = Row(mission, $"{i + 1}. {Display(o.Id)}", "Mission loop — unlink this relationship", o.Id);
+                        cycle.SetIcon(1, PanelIcons.Severity(Severity.Error));
+                        Relationship(cycle, m.Id, "Objectives", o.Id, reorder: true);
+                    }
+                    else
+                    {
+                        TreeItem zoneRow = DrawMission(mission, zone, path, $"{i + 1}. {Display(o.Id)}", availability);
+                        Relationship(zoneRow, m.Id, "Objectives", o.Id, reorder: true);
+                    }
+                    continue;
+                }
+                TreeItem objective = Row(mission, $"{i + 1}. {Display(o.Id)}", availability + " · " + PanelUi.Count(o.Triggers.Count, "device"), o.Id);
                 Relationship(objective, m.Id, "Objectives", o.Id, reorder: true);
                 if (Context.Project.FindActor(o.Id) is not { } objectiveActor)
                 {
                     objective.SetIcon(1, PanelIcons.Severity(Severity.Error));
-                    objective.SetText(1, "Missing objective — unlink or replace it");
+                    objective.SetText(1, availability + " · Missing objective — unlink or replace it");
+                    objective.SetTooltipText(1, objective.GetText(1));
                 }
                 else if (o.Triggers.Count == 0 && !MatchPlan.IsMission(objectiveActor))
                 {
                     objective.SetIcon(1, PanelIcons.Severity(Severity.Warning));
-                    objective.SetText(1, "No devices linked");
-                    objective.SetTooltipText(1, "Add a new device, or right-click this objective and choose Link to devices.");
+                    objective.SetText(1, availability + " · No devices linked");
+                    objective.SetTooltipText(1, objective.GetText(1) + ". Add a new device, or right-click this objective and choose Link to devices.");
                 }
 
                 foreach (string trigger in o.Triggers)
@@ -204,7 +234,12 @@ public partial class MissionsPanel : EditorPanel
             }
 
             OnComplete(mission, m.Id);
+            path.Remove(m.Id);
+            return mission;
         }
+        foreach (MissionNode m in t.Missions.Where(m => !nestedIds.Contains(m.Id))) DrawMission(root, m, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        // Imported loops have no root; still show them so the offending relationships can be removed.
+        foreach (MissionNode m in t.Missions.Where(m => !drawn.Contains(m.Id))) DrawMission(root, m, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
 
         if (t.Unlisted.Count > 0)
         {
@@ -359,7 +394,9 @@ public partial class MissionsPanel : EditorPanel
         TreeItem item = _tree.CreateItem(parent);
         item.SetText(0, text);
         item.SetText(1, detail);
-        // The cells clip in a narrow dock: their tooltips have the whole text.
+        // Nested zones have deeper names and longer activation rules; keep both readable in a narrow dock.
+        item.SetAutowrapMode(0, TextServer.AutowrapMode.WordSmart);
+        item.SetAutowrapMode(1, TextServer.AutowrapMode.WordSmart);
         item.SetTooltipText(0, text);
         item.SetTooltipText(1, detail);
         item.SetMetadata(0, actorId);

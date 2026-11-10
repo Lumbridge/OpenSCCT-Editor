@@ -32,10 +32,13 @@ public partial class MissionsPanel
         missions.AddChild(new Label { Text = "1. Mission", MouseFilter = MouseFilterEnum.Pass });
         _missionPicker = Picker(missions, "Choose mission", ChooseMission);
         PanelUi.Button(missions, "New mission", "Create a Story mission, then add its objectives below", NewMission);
+        WorkbenchUi.Guard(PanelUi.Button(missions, "New zone…", "Create a named zone inside this mission, with its own objective count and an explicit choice of zone order", NewZone),
+            () => Mission is { } m && (int)ClassDefaults.Number(m, "GameMode", 0) is not (4 or 6 or 7));
         WorkbenchUi.Guard(PanelUi.Button(missions, "Add objectives…", "Search and check existing objectives or sub-missions to add", () =>
             AddPicker(_missionPicker, Mission, objectives: true)), () => Mission is not null);
         WorkbenchUi.Guard(PanelUi.IconButton(missions, "link", "Link selected objectives to the chosen mission", () =>
             LinkSelected(Mission, objectives: true)), () => CanLinkSelection(Mission, true));
+        BuildMissionSettings();
 
         var objectives = new HBoxContainer { Name = "ObjectiveRow" };
         AddChild(objectives);
@@ -64,6 +67,7 @@ public partial class MissionsPanel
         parent.AddChild(palette);
         PanelUi.Caption(palette, "Objectives palette · drag into a view", wrap: false);
         _paletteTarget = PanelUi.Caption(palette, "", wrap: false);
+        BuildObjectiveSettings(palette);
         VBoxContainer scroll = PanelUi.Scroll(palette);
         var flow = new HFlowContainer();
         scroll.AddChild(flow);
@@ -191,7 +195,8 @@ public partial class MissionsPanel
     private void SetMission(string id)
     {
         _missionId = id;
-        _objectiveId = Mission is { } mission ? MissionTree.Refs(mission.Props["Objectives"]).FirstOrDefault(x => Context.Project.FindActor(x) is not null) : null;
+        _objectiveId = Mission is { } mission ? MissionTree.Refs(mission.Props["Objectives"]).FirstOrDefault(x =>
+            Context.Project.FindActor(x) is { } child && !MatchPlan.IsMission(child)) : null;
         // Disk Hunt counts its own devices, without an intermediate objective.
         if (_objectiveId is null && Mission is { } m && (int)ClassDefaults.Number(m, "GameMode", 0) == GameModes.DiskHunt) _objectiveId = id;
         UpdateLinks();
@@ -275,7 +280,7 @@ public partial class MissionsPanel
         Context.Execute(new AddObjectsCommand("Create Story mission", actors: [actor]));
         SetMission(actor.Id);
         Context.Selection.Set([ObjectRef.Actor(actor.Id)]);
-        Context.SetStatus("Story mission created. Add objectives below; rename it and set its game mode in Inspector.");
+        Context.SetStatus("Story mission created with chained objectives: one at a time, in tree order. Change this in Missions; rename the mission in Inspector.");
     }
 
     private void NewObjective()
@@ -320,6 +325,7 @@ public partial class MissionsPanel
         if (_missionPicker is null) return;
         if (Mission is null) _missionId = null;
         if (Objective is null) _objectiveId = null;
+        UpdateSettings();
         _missionPicker.Text = Mission is { } mission ? MissionLinks.Name(mission) : "Choose mission…";
         _missionPicker.TooltipText = Mission is { } m ? MissionLinks.Label(m) + " · " + ModeName(m) : "Choose a mission by name, or create one";
         _missionPicker.TooltipText += "\nChoose links selected objectives (or the objectives of selected devices) to this mission. With neither selected, it only changes the viewed mission.";
@@ -342,6 +348,6 @@ public partial class MissionsPanel
     private static string ModeName(Actor a)
     {
         int mode = (int)ClassDefaults.Number(a, "GameMode", 0);
-        return mode == 5 ? "Story" : mode >= 0 && mode < MissionTree.GameModes.Count ? MissionTree.GameModes[mode].Replace("GM_", "") : "Unknown mode";
+        return mode == 0 ? "Zone (parent activates)" : mode == 5 ? "Story" : mode >= 0 && mode < MissionTree.GameModes.Count ? MissionTree.GameModes[mode].Replace("GM_", "") : "Unknown mode";
     }
 }

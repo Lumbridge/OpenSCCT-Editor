@@ -1,0 +1,23 @@
+[
+  {"op":"size","w":1600,"h":900},
+  {"op":"select","ids":["Story"]},
+  {"op":"tab","panel":"Missions"},
+  {"op":"shot","name":"compact-sequential-zones"},
+  {"op":"drag","at":[760,603],"to":[760,355]},
+  {"op":"select","ids":["ZoneA"]},
+  {"op":"shot","name":"zone-objective-threshold"},
+  {"op":"select","ids":["Story"]},
+  {"op":"click","at":"text:New zone…"},
+  {"op":"shot","name":"zone-form-normal"},
+  {"op":"size","w":1280,"h":720},
+  {"op":"shot","name":"zone-form-small-window"},
+  {"op":"size","w":1920,"h":1080},
+  {"op":"scale","factor":1.5},
+  {"op":"shot","name":"zone-form-large-text"},
+  {"op":"escape"},
+  {"op":"shot","name":"nested-zones-large-text"},
+  {"op":"scale","factor":1},
+  {"op":"size","w":1280,"h":720},
+  {"op":"select","ids":["ZoneA"]},
+  {"op":"shot","name":"zone-controls-small-window"}
+]

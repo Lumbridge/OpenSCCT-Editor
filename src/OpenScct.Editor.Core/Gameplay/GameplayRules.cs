@@ -196,6 +196,7 @@ internal sealed class WiringRules : MapRule
     public const string MinimumTooHigh = "mission.minimum-too-high";
     public const string ObjectiveUnlisted = "mission.objective-unlisted";
     public const string NoMission = "mission.none";
+    public const string ZoneGameMode = "mission.zone-game-mode";
 
     public override IReadOnlyList<RuleInfo> Rules { get; } =
     [
@@ -204,6 +205,7 @@ internal sealed class WiringRules : MapRule
         new(MinimumTooHigh, Severity.Error, "A mission needing more objectives than it has"),
         new(ObjectiveUnlisted, Severity.Warning, "An objective (SObjective) that no mission lists"),
         new(NoMission, Severity.Info, "Objective triggers but no mission (SMission) to win with them"),
+        new(ZoneGameMode, Severity.Warning, "A nested zone with its own game mode can start before its parent unlocks it"),
     ];
 
     public override void Run(CheckContext c)
@@ -218,9 +220,12 @@ internal sealed class WiringRules : MapRule
         }
 
         MissionTree tree = MissionTree.Build(c.Project, c.Classes);
+        var nested = tree.Missions.SelectMany(m => m.Objectives.Select(o => o.Id)).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (MissionNode m in tree.Missions)
         {
             Vec3? at = c.Project.FindActor(m.Id)?.Location;
+            if (m.GameMode != 0 && nested.Contains(m.Id))
+                c.Report(Severity.Warning, ZoneGameMode, $"{m.Id} is nested inside a mission but has its own game mode. Set Mode to Zone (parent) in Missions so its parent controls activation.", at, ObjectRef.Actor(m.Id));
             foreach (ObjectiveNode o in m.Objectives.Where(o => o.Triggers.Count == 0
                 && c.Project.FindActor(o.Id) is { } actor && !MatchPlan.IsMission(actor)))
             {
@@ -228,7 +233,7 @@ internal sealed class WiringRules : MapRule
                     ObjectRef.Actor(o.Id));
             }
 
-            if (m.MinimumObjectives > m.Completers && m.Completers > 0)
+            if ((!m.Chained || m.GameMode == GameModes.DiskHunt) && m.MinimumObjectives > m.Completers && m.Completers > 0)
             {
                 c.Report(Severity.Error, MinimumTooHigh, $"{m.Id} needs {m.MinimumObjectives} objectives but has {m.Completers}", at, ObjectRef.Actor(m.Id));
             }

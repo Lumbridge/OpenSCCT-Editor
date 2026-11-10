@@ -63,7 +63,7 @@ public sealed class MissionTree
             // Unset values take the class defaults, as the compiled map and the game do.
             int mode = (int)ClassDefaults.Number(m, "GameMode", 0);
             missions.Add(new MissionNode(m.Id, mode, mode >= 0 && mode < modes.Count ? modes[mode].Replace("GM_", "") : $"mode {mode}",
-                (int)ClassDefaults.Number(m, "MinimumObjectives", 0), m.Props.GetBool("bChained"), m.Props.GetString("Description") ?? "",
+                (int)ClassDefaults.Number(m, "MinimumObjectives", 0), ClassDefaults.Flag(m, "bChained"), m.Props.GetString("Description") ?? "",
                 objectives, Refs(m.Props["Triggers"])));
         }
 
