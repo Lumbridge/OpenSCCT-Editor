@@ -1,5 +1,6 @@
 using Godot;
 using OpenScct.Content.Json;
+using OpenScct.Editor.Core.Classes;
 using OpenScct.Editor.Core.Lightmaps;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
@@ -14,10 +15,15 @@ namespace OpenScctEditor.Panels;
 /// pickers, asset and class paths, JSON for the rest) or, with no schema, the raw stored values. Names show as words ("Collide actors"; the Unreal name is in the
 /// tooltip and search finds both). Stored values have a bright name and a reset button; defaults show dim. With several bags, a property that differs shows as mixed and an edit sets only what was
 /// edited. Categories build their rows when first opened, so selecting stays fast on big classes.
+/// For selected objects the classes' key properties (<see cref="KeyProperties"/>) come first in a group of their own,
+/// open, in order of importance; they are left out of their categories so each property has one row.
 /// </summary>
 public partial class PropertyGrid : VBoxContainer
 {
     private const string OtherCategory = "Other";
+
+    /// <summary>The group of the classes' key properties, first in the grid.</summary>
+    private const string KeyCategory = "Key properties";
     private const int MinNamePercent = 15;
     private const int MaxNamePercent = 85;
 
@@ -62,7 +68,9 @@ public partial class PropertyGrid : VBoxContainer
     public string Filter { get; set; } = "";
 
     public bool StoredOnly { get; set; }
-    public bool CommonOnly { get; set; }
+
+    /// <summary>Show only the key properties with a plain editor (the Simple workspace).</summary>
+    public bool KeyOnly { get; set; }
 
     /// <summary>Changes when the grid needs new rows (a stored key appeared or went away outside the schema, or under
     /// "stored only").</summary>
@@ -132,7 +140,20 @@ public partial class PropertyGrid : VBoxContainer
         IReadOnlyList<PropOwner> owners = source.Owners(p);
         List<PropField> fields = Fields(source, owners);
         string[] words = TextMatch.Words(Filter);
-        var shown = fields.Where(f => (!CommonOnly || (OpenScct.Editor.Core.Classes.PropertyHelp.Common(f.Name) && owners.All(o => OpenScct.Editor.Core.Classes.PropertyHelp.Find(EditorServices.Classes, o.Class, f.Name) is not null))) && (words.Length == 0 || TextMatch.AllWords(words, $"{f.Name} {PanelUi.DisplayName(f.Name)} {f.Category} {f.TypeText}"))
+
+        // The classes' key properties, by their place in the list (schema properties only).
+        var keyOrder = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (source.KeyFirst)
+        {
+            foreach (string name in KeyProperties.ForAll(EditorServices.Classes, owners.Select(o => o.Class)))
+            {
+                keyOrder.TryAdd(name, keyOrder.Count);
+            }
+        }
+
+        bool IsKey(PropField f) => f.Info is not null && keyOrder.ContainsKey(f.Name);
+        var shown = fields.Where(f => (!KeyOnly || (IsKey(f) && f.Kind != PropKind.Raw))
+            && (words.Length == 0 || TextMatch.AllWords(words, $"{f.Name} {PanelUi.DisplayName(f.Name)} {f.Category} {f.TypeText}"))
             && (!StoredOnly || owners.Any(o => o.Props.Contains(f.Name)))).ToList();
         if (shown.Count == 0)
         {
@@ -141,21 +162,26 @@ public partial class PropertyGrid : VBoxContainer
 
         // Inside another fold (Map info), categories are flat titles, not a second band of raised bars.
         bool nested = FindParent<FoldableContainer>(this) is not null;
-        foreach (IGrouping<string, PropField> group in shown.GroupBy(f => f.Category, StringComparer.OrdinalIgnoreCase)
-                     .OrderBy(g => g.Key == OtherCategory ? 1 : 0).ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+        foreach (IGrouping<string, PropField> group in shown.GroupBy(f => IsKey(f) ? KeyCategory : f.Category, StringComparer.OrdinalIgnoreCase)
+                     .OrderBy(g => g.Key == KeyCategory ? 0 : g.Key == OtherCategory ? 2 : 1).ThenBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
         {
+            // The key group is open unless it was folded by hand; a category opens when it holds a changed value.
+            bool key = group.Key == KeyCategory;
             bool anyStored = group.Any(f => owners.Any(o => o.Props.Contains(f.Name)));
-            bool folded = !CommonOnly && words.Length == 0 && !StoredOnly && s_folded.GetValueOrDefault(group.Key, !anyStored);
+            bool folded = !KeyOnly && words.Length == 0 && !StoredOnly && s_folded.GetValueOrDefault(group.Key, !key && !anyStored);
+            string title = key ? KeyCategory : PanelUi.DisplayName(group.Key);
             var box = new FoldableContainer
             {
-                Title = PanelUi.DisplayName(group.Key), Folded = folded, SizeFlagsHorizontal = SizeFlags.ExpandFill, TooltipText = group.Key,
+                Title = title, Folded = folded, SizeFlagsHorizontal = SizeFlags.ExpandFill,
+                TooltipText = key ? "What map makers set most on this kind of object. Everything else is in the categories below." : group.Key,
                 ThemeTypeVariation = nested ? "FoldNested" : "",
             };
             var content = new VBoxContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             content.AddThemeConstantOverride("separation", EditorTheme.SpaceXxs);
             box.AddChild(content);
             AddChild(box);
-            var category = new GridCategory(group.Key, box, content, group.ToList());
+            List<PropField> rows = key ? group.OrderBy(f => keyOrder[f.Name]).ToList() : group.ToList();
+            var category = new GridCategory(group.Key, title, box, content, rows);
             _categories.Add(category);
             box.FoldingChanged += isFolded =>
             {
@@ -172,7 +198,7 @@ public partial class PropertyGrid : VBoxContainer
             }
         }
 
-        if (source.AllowAdd && !CommonOnly)
+        if (source.AllowAdd && !KeyOnly)
         {
             AddPropertyRow();
         }
@@ -210,7 +236,7 @@ public partial class PropertyGrid : VBoxContainer
             foreach (GridCategory c in _categories)
             {
                 int stored = c.Fields.Count(f => owners.Any(o => o.Props.Contains(f.Name)));
-                c.Box.Title = stored > 0 ? $"{PanelUi.DisplayName(c.Name)} ({stored} changed)" : PanelUi.DisplayName(c.Name);
+                c.Box.Title = stored > 0 ? $"{c.Title} ({stored} changed)" : c.Title;
             }
         }
         finally
@@ -380,11 +406,11 @@ public partial class PropertyGrid : VBoxContainer
     private string Tooltip(PropField f, RowState s)
     {
         var lines = new List<string> { PanelUi.DisplayName(f.Name), $"{f.Name}: {f.TypeText}" };
-        string? help = _source?.Owners(_context.Project).Select(o => OpenScct.Editor.Core.Classes.PropertyHelp.Find(EditorServices.Classes, o.Class, f.Name)).FirstOrDefault(t => t is not null);
+        string? help = _source?.Owners(_context.Project).Select(o => PropertyHelp.Find(EditorServices.Classes, o.Class, f.Name)).FirstOrDefault(t => t is not null);
         if (help is not null) lines.Insert(0, help + "\n");
         if (f.Info?.DeclaringClass is { } declaring)
         {
-            lines.Add("Declared in " + declaring);
+            lines.Add($"Declared in {declaring}, category {f.Category}");
         }
 
         lines.Add(s.Default is null ? "No class default" : "Default: " + PropText.Canon(s.Default));
@@ -1078,9 +1104,12 @@ public partial class PropertyGrid : VBoxContainer
     /// <summary>A property's row, or (<see cref="Hsb"/> set) a hue, saturation and brightness triple's colour row.</summary>
     private sealed record GridRow(PropField Field, Label Label, Button Reset, Action<RowState> Show, Func<bool> Focused, HsbColour? Hsb = null);
 
-    private sealed class GridCategory(string name, FoldableContainer box, VBoxContainer content, List<PropField> fields)
+    private sealed class GridCategory(string name, string title, FoldableContainer box, VBoxContainer content, List<PropField> fields)
     {
         public string Name { get; } = name;
+
+        /// <summary>The name as shown on the fold's bar.</summary>
+        public string Title { get; } = title;
 
         public FoldableContainer Box { get; } = box;
 
