@@ -4,6 +4,7 @@ using OpenScct.Content.Json;
 using OpenScct.Core.Match;
 using OpenScct.Editor.Core.Compile;
 using OpenScct.Editor.Core.Gameplay;
+using OpenScct.Editor.Core.Interop.Sdc.Recovery;
 using OpenScct.Editor.Core.Model;
 using OpenScct.Editor.Core.Services;
 using EditorActor = OpenScct.Editor.Core.Model.Actor;
@@ -18,6 +19,10 @@ namespace OpenScct.Editor.Core.Interop.Svmap;
 /// again. The compiled world itself (BSP render and collision) stays in the source folder as
 /// <see cref="MapProject.Baked"/>, drawn as a locked layer and compiled through unchanged, so the map stays playable.
 /// The map's identity and pictures are kept as well (<see cref="IdentityImport"/>).
+/// <para>A converted map keeps the original's BSP nodes, so its brushes are recovered from them as a cooked .sdc's are
+/// (<see cref="SvMapBsp"/>, <see cref="BrushRecoveryImport"/>): editable brushes in the Recovered brushes layer, marked
+/// baked, beside the baked world that still plays as the original. <see cref="ImportOptions.BrushRecovery"/> Off, or a
+/// map with no BSP nodes (a native one), leaves the baked world only.</para>
 /// <para>The render actors' <see cref="EditorActor.Source"/> is JSON with <c>"baked": &lt;file&gt;</c>, the source
 /// map's file that already holds them (render/lighting.json, render/fx.json, render/world.glb, audio/audio.json), so a
 /// compiler that keeps the baked render can tell them from actors added in the editor.</para>
@@ -126,6 +131,7 @@ public static class SvMapImport
         AddSounds(root, p, ids, schema, counts);
         p.Extra.Add(ExtraKey, extra);
         T3d.T3dImport.CameraFromLevelInfo(p);
+        RecoverBrushes(root, map.Collision, p, options, findings);
 
         int brushVolumes = p.Actors.Count(a => a.Props.Contains("Brush"));
         findings.Add(Finding.Info("import.summary",
@@ -145,6 +151,41 @@ public static class SvMapImport
         }
 
         return new ImportResult(p, findings);
+    }
+
+    /// <summary>The brushes of a converted map, recovered from the BSP nodes its collision keeps. A map with none, or
+    /// brush recovery turned off, keeps the baked world only; a failure does too, with a warning.</summary>
+    private static void RecoverBrushes(string root, CollisionData collision, MapProject p, ImportOptions options, List<Finding> findings)
+    {
+        if (options.BrushRecovery == BrushRecoveryMode.Off)
+        {
+            return;
+        }
+
+        options.Progress?.Invoke("recovering brushes: reading the world BSP");
+        var notes = new List<string>();
+        CookedBsp? bsp;
+        try
+        {
+            bsp = SvMapBsp.Read(root, collision, notes);
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+        {
+            BrushRecoveryImport.Failed(p, ex, findings);
+            return;
+        }
+
+        if (bsp is null)
+        {
+            return;
+        }
+
+        int before = p.Brushes.Count;
+        BrushRecoveryImport.Run(p, bsp, options.BrushRecovery, options.Progress, findings);
+        if (p.Brushes.Count > before)
+        {
+            findings.AddRange(notes.Select(note => Finding.Info(BrushRecoveryImport.RecoveredCode, note)));
+        }
     }
 
     /// <summary>sim/match.json's rules and win targets onto the actors they name.</summary>

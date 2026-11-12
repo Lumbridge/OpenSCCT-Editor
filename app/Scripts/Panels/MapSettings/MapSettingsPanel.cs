@@ -369,9 +369,9 @@ public partial class MapSettingsPanel : EditorPanel
                 }
             }));
 
-        // A cooked .sdc import's brush recovery: what it made from the compiled BSP.
+        // The brush recovery of a cooked .sdc or a converted SVMap import: what it made from the compiled BSP.
         Label recovered = PanelUi.Caption(_content, "");
-        recovered.TooltipText = $"Brushes recovered at import from the compiled BSP of a cooked .sdc, in the {BrushRecovery.Folder} layer. "
+        recovered.TooltipText = $"Brushes recovered at import from the compiled BSP of a cooked .sdc or a downloaded map, in the {BrushRecovery.Folder} layer. "
             + "They are what the baked world is made of: build from the brushes to play the map as they are";
         _syncers.Add(() =>
         {

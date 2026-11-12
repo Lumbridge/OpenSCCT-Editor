@@ -7,9 +7,10 @@ using OpenScct.Editor.Core.Services;
 namespace OpenScct.Editor.Core.Interop.Sdc.Recovery;
 
 /// <summary>
-/// The brush recovery step of a cooked .sdc import (<see cref="SdcImporter"/>): the brushes the cook threw away are
-/// recovered from the compiled BSP (<see cref="BrushRecovery"/>) and added as ordinary editable brushes, in the
-/// <see cref="BrushRecovery.Folder"/> layer (sheets and zone portals in folders of their own).
+/// The brush recovery step of a cooked .sdc import (<see cref="SdcImporter"/>) and of a converted SVMap's
+/// (<see cref="Svmap.SvMapImport"/>, a downloaded map): the brushes the cook threw away are recovered from the compiled
+/// BSP (<see cref="BrushRecovery"/>) and added as ordinary editable brushes, in the <see cref="BrushRecovery.Folder"/>
+/// layer (sheets and zone portals in folders of their own).
 /// <para>
 /// The baked world stays as the import made it (render, collision and lightmaps kept): the recovered brushes are the
 /// brushes it is made of, marked baked as an editor copy's brushes are, so the map plays as the original until the
@@ -146,7 +147,7 @@ public static class BrushRecoveryImport
               + "brush recovery on (or run ose sdc-brushes on the project) to edit it as brushes"));
     }
 
-    private static void Failed(MapProject p, Exception ex, List<Finding> findings)
+    internal static void Failed(MapProject p, Exception ex, List<Finding> findings)
     {
         int kept = Kept(p).Count;
         findings.Add(Finding.Warning(FailedCode,

@@ -146,8 +146,9 @@ public sealed record ImportOptions
     /// <summary>How a cooked .sdc's stripped static lights are brought back (<see cref="Interop.Sdc.Lights.LostLightRecovery"/>).</summary>
     public Interop.Sdc.Lights.LightRecoveryMode LightRecovery { get; init; } = Interop.Sdc.Lights.LightRecoveryMode.Full;
 
-    /// <summary>How a cooked .sdc's brushes are recovered from its compiled BSP (<see cref="Interop.Sdc.Recovery.BrushRecovery"/>);
-    /// Off keeps the baked world only. An editor copy keeps its own brushes either way.</summary>
+    /// <summary>How the brushes of a cooked .sdc or a converted SVMap are recovered from its compiled BSP
+    /// (<see cref="Interop.Sdc.Recovery.BrushRecovery"/>); Off keeps the baked world only. An editor copy keeps its own
+    /// brushes either way.</summary>
     public Interop.Sdc.Recovery.BrushRecoveryMode BrushRecovery { get; init; } = Interop.Sdc.Recovery.BrushRecoveryMode.Merge;
 
     /// <summary>More folders of editor copies (or installs) the light recovery searches for the map's twin.</summary>

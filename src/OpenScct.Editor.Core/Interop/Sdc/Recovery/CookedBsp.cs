@@ -103,6 +103,55 @@ public sealed class CookedBsp
     public static CookedBsp Read(UPackage pkg, UExport worldModel, SdcLayout layout) =>
         From(UModelData.Read(pkg, worldModel, layout), objref => objref == 0 ? null : pkg.PathOf(objref));
 
+    /// <summary>A world model put together from parts another format keeps (an SVMap's collision and render files,
+    /// <see cref="Svmap.SvMapBsp"/>). Throws <see cref="InvalidDataException"/> for a node tree that cannot be walked.</summary>
+    public static CookedBsp FromParts(List<CookedNode> nodes, List<CookedSurf> surfs, List<CookedFace> faces, bool rootOutside, Aabb pointBounds,
+        int skipped)
+    {
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            if (nodes[i].Front < -1 || nodes[i].Front >= nodes.Count || nodes[i].Back < -1 || nodes[i].Back >= nodes.Count)
+            {
+                throw new InvalidDataException($"BSP node {i} has a child out of range");
+            }
+        }
+
+        CheckTree(nodes);
+        return new CookedBsp(nodes, surfs, faces, rootOutside, pointBounds, skipped);
+    }
+
+    /// <summary>The front/back links must form a tree from node 0.</summary>
+    private static void CheckTree(List<CookedNode> nodes)
+    {
+        if (nodes.Count == 0)
+        {
+            return;
+        }
+
+        var seen = new bool[nodes.Count];
+        var stack = new Stack<int>();
+        stack.Push(0);
+        while (stack.Count > 0)
+        {
+            int i = stack.Pop();
+            if (seen[i])
+            {
+                throw new InvalidDataException($"BSP node {i} is reached twice");
+            }
+
+            seen[i] = true;
+            if (nodes[i].Front >= 0)
+            {
+                stack.Push(nodes[i].Front);
+            }
+
+            if (nodes[i].Back >= 0)
+            {
+                stack.Push(nodes[i].Back);
+            }
+        }
+    }
+
     public static CookedBsp From(UModelData m, Func<int, string?> pathOf)
     {
         var nodes = new List<CookedNode>(m.Nodes.Count);
@@ -127,32 +176,7 @@ public sealed class CookedBsp
             nodes.Add(new CookedNode(normal / length, n.Plane.W / length, n.Front, n.Back, n.Surf, csg));
         }
 
-        // The front/back links must form a tree from node 0.
-        if (nodes.Count > 0)
-        {
-            var seen = new bool[nodes.Count];
-            var stack = new Stack<int>();
-            stack.Push(0);
-            while (stack.Count > 0)
-            {
-                int i = stack.Pop();
-                if (seen[i])
-                {
-                    throw new InvalidDataException($"BSP node {i} is reached twice");
-                }
-
-                seen[i] = true;
-                if (nodes[i].Front >= 0)
-                {
-                    stack.Push(nodes[i].Front);
-                }
-
-                if (nodes[i].Back >= 0)
-                {
-                    stack.Push(nodes[i].Back);
-                }
-            }
-        }
+        CheckTree(nodes);
 
         var surfs = new List<CookedSurf>(m.Surfs.Count);
         foreach (FBspSurf s in m.Surfs)

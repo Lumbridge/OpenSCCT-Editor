@@ -89,7 +89,7 @@ var clientStart = clientLoaded.PlacedActors().Select(a => a.Item1).OfType<Mover>
 Check(clientStart.Location == clientStart.BasePos + clientStart.KeyPosition(0), "Client starts at the round pose while the editor shows a later stop");
 var instances = OpenScct.Editor.Core.Compile.Output.Glb.Load(File.ReadAllBytes(Path.Combine(folder, "render", "world.glb"))).Json["extras"]!["svmap"]!["instances"]!;
 Check(instances.ToJsonString().Contains("mover"), "Brush mover has a rendered instance");
-var imported = new SvMapImporter().Import(folder, new ImportOptions()).Project!;
+var imported = new SvMapImporter().Import(folder, new ImportOptions { BrushRecovery = OpenScct.Editor.Core.Interop.Sdc.Recovery.BrushRecoveryMode.Off }).Project!;
 Check(MoverSetup.Read(imported.FindActor(id)!).Keys.Count == 300 && imported.FindActor(id)!.Legs!.Keys[299].Time == .1f, "SVMap import keeps native paths");
 // Start positions above 255 are applied before BeginPlay even through the self-contained map loader.
 var high = MapProject.CreateDefault("HighStop", "High start"); Starter.AddStarterRoom(high);

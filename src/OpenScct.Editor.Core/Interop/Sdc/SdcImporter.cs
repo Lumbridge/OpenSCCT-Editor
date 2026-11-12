@@ -243,7 +243,8 @@ public sealed class SdcImporter : IMapImporter
                 "no shared sound library (shared/audio/audio.json in the content folder), so the map's ambient sounds are not imported"));
         }
 
-        ImportResult result = SvMapImport.Import(folder, options);
+        // The brushes come from the .sdc itself (its own, or recovered from its BSP with its surfs), not the conversion.
+        ImportResult result = SvMapImport.Import(folder, options with { BrushRecovery = BrushRecoveryMode.Off });
         result.Project.Source = new ProjectSource { Kind = "sdc", File = sdc, Sha256 = sha };
         findings.Add(Finding.Info("import.sdc",
             $"converted with the content builder of {runner.Description} (game {game}{(addons is null ? "" : $", addons {addons}")}"
