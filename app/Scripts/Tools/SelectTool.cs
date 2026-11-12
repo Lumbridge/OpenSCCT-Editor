@@ -134,8 +134,9 @@ public sealed class SelectTool : IViewportTool
     private readonly ClickSelect _select;
     private readonly ToolManager _tools;
     private readonly StairHandles _stairs;
+    private readonly BrushSideHandles _sides;
 
-    public SelectTool(ToolManager tools) { _tools = tools; _select = new ClickSelect(tools); _stairs = new StairHandles(tools); }
+    public SelectTool(ToolManager tools) { _tools = tools; _select = new ClickSelect(tools); _stairs = new StairHandles(tools); _sides = new BrushSideHandles(tools); }
     private GeDrawTool? GeHandles => _tools.Tools.OfType<GeDrawTool>().FirstOrDefault();
 
     public string Id => "select";
@@ -146,11 +147,11 @@ public sealed class SelectTool : IViewportTool
 
     public void Activate() => GeHandles?.Activate();
 
-    public bool Input(EditorViewport view, InputEvent e) => _stairs.Input(view, e) || GeHandles?.InputSelected(view, e) == true || _select.Input(view, e);
+    public bool Input(EditorViewport view, InputEvent e) => _stairs.Input(view, e) || _sides.Input(view, e) || GeHandles?.InputSelected(view, e) == true || _select.Input(view, e);
 
-    public void Draw(EditorViewport view, Control canvas) { _select.Draw(view, canvas); GeHandles?.DrawSelected(view, canvas); _stairs.Draw(view, canvas); }
+    public void Draw(EditorViewport view, Control canvas) { _select.Draw(view, canvas); GeHandles?.DrawSelected(view, canvas); _stairs.Draw(view, canvas); _sides.Draw(view, canvas); }
 
-    public bool IsDragging => _stairs.IsDragging || GeHandles?.IsDragging == true;
-    public bool Cancel() => _stairs.Cancel() || GeHandles?.Cancel() == true || _select.Cancel();
-    public void Deactivate() { _stairs.Cancel(); _select.Cancel(); GeHandles?.Deactivate(); }
+    public bool IsDragging => _stairs.IsDragging || _sides.IsDragging || GeHandles?.IsDragging == true;
+    public bool Cancel() => _stairs.Cancel() || _sides.Cancel() || GeHandles?.Cancel() == true || _select.Cancel();
+    public void Deactivate() { _stairs.Cancel(); _sides.Cancel(); _select.Cancel(); GeHandles?.Deactivate(); }
 }

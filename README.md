@@ -70,7 +70,7 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   search by name or code, and filter by category or download status. The editor downloads the map and required
   shared packs, then opens it as an unsaved project. Choose **Save As** to keep your edits; installed maps can be opened again.
   The map's world comes back as editable brushes too (the **Recovered brushes** layer), rebuilt from the BSP the
-  converted map keeps, as a cooked `.sdc` import does; zone portals are not in a converted map and are not recovered.
+  converted map keeps, as a cooked `.sdc` import does, with zone portals rebuilt where two zones meet.
 - **Import and export.** OpenSCCT's converted maps, T3D from the stock editor, and `.sdc` map packages (static lights
   and editable brushes recovered from cooked copies). Export to T3D, to `.sdc` written natively, or to a folder with
   the steps for RE+.
@@ -96,6 +96,9 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   In **Builder Brush** (B), arrows move, square handles resize a dimension with the opposite face fixed, and circles
   adjust radii. **Place Here** previews surface contact; **Draw Box** draws a cube in a 2D view. **Add/Subtract** commits
   the preview; **Escape** restores the state before a gesture. The separate **Stairs** palette creates editable stair assemblies.
+- **Side handles.** Select one brush in Select, Move or Scale and a blue handle shows on each of its sides. Drag a
+  handle to push that side out or pull it in, with grid and neighbour snapping, while the other sides stay put: the
+  way to resize a room, an opening, a window or a doorway. A side cut into several faces moves as one.
 - **Surface connectors.** In Surface mode (U), hover an editable wall, floor or ceiling and click its '+' badge.
   Floors and ceilings offer hatch openings, shafts, rooms above/below and stair connections. Openings cut through
   the actual editable slab thickness. Connect Stairs seeds the first floor connection; choose another above or below.

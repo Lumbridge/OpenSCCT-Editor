@@ -21,9 +21,10 @@ namespace OpenScct.Editor.Core.Interop.Svmap;
 /// <item>non-solid sheets, which the collision leaves out, are the drawn triangles that lie on no solid surface with
 /// empty space on both sides.</item>
 /// </list>
-/// An SVMap does not keep zone portals or the surfs themselves, so no portal comes back and surfaces are told apart by
-/// material, flags and mapping. A map with no BSP nodes (a native map, built from its own brushes) has nothing to
-/// recover.
+/// An SVMap does not keep the surfs themselves, so surfaces are told apart by material, flags and mapping. It does not
+/// keep zone portals either, but every node has the zones of the space on its two sides: a portal comes back as the
+/// part of a non-solid splitter's plane with empty space of one zone in front and of another behind
+/// (<see cref="Portals"/>). A map with no BSP nodes (a native map, built from its own brushes) has nothing to recover.
 /// </summary>
 public static class SvMapBsp
 {
@@ -116,8 +117,18 @@ public static class SvMapBsp
             sheets++;
         }
 
-        notes.Add("an SVMap keeps no zone portals, so none were recovered: a world built from the recovered brushes is one zone until "
-            + "portal sheets are added where the zones met");
+        int portals = Portals(data, world, nodes, bounds, surfs, faces);
+        if (portals > 0)
+        {
+            notes.Add($"{portals} zone portal pieces were rebuilt where the empty space of two zones meets (an SVMap keeps the zone of every "
+                + "BSP leaf but not the outlines of the portals), so the recovered portals span their openings exactly");
+        }
+        else if (data.Zones.Length > 2)
+        {
+            notes.Add("no place was found where the empty space of two zones meets, so no zone portals were recovered: a world built "
+                + "from the recovered brushes is one zone until portal sheets are added");
+        }
+
         if (drawn.Count == 0)
         {
             notes.Add("the map's render/world.glb has no world surfaces, so the recovered faces have their materials but a default "
@@ -320,6 +331,175 @@ public static class SvMapBsp
         }
 
         return points;
+    }
+
+    // ---- zone portals ----------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Rebuilds the zone portals: for every splitter with a non-solid node without a polygon on its plane (what the
+    /// collision keeps of a portal), the plane inside the splitter's region is cut by the tree in front of it and behind
+    /// it, and the pieces with empty space of two different zones on their sides are portal faces (one surf per
+    /// splitter and pair of zones, so each comes back as a portal sheet of its own). Returns how many pieces were made.
+    /// </summary>
+    private static int Portals(CollisionData data, Collider world, List<CookedNode> nodes, Aabb bounds, SurfTable surfs, List<CookedFace> faces)
+    {
+        if (nodes.Count == 0 || bounds.IsEmpty)
+        {
+            return 0;
+        }
+
+        ReadOnlySpan<CollisionBspNode> source = data.BspNodesOf(world);
+        int start = (int)world.BspStart;
+        var zones = new (int Front, int Back)[nodes.Count];
+        var candidate = new bool[nodes.Count];
+        for (int i = 0; i < nodes.Count; i++)
+        {
+            zones[i] = (source[i].ZoneFront, source[i].ZoneBack);
+            int member = i;
+            for (int guard = 0; member >= 0 && member < nodes.Count && guard <= nodes.Count && !candidate[i]; guard++)
+            {
+                candidate[i] = source[member].TriCount == 0 && (source[member].NodeFlags & 0x01) != 0;
+                member = source[member].Coplanar < 0 ? -1 : source[member].Coplanar - start;
+            }
+        }
+
+        Aabb box = bounds.Expand(Sdc.Recovery.BrushRecovery.BoxMargin);
+        double reach = (box.Max - box.Min).Length;
+        int made = 0;
+        var surfOf = new Dictionary<(int, int, int), int>();
+        var stack = new Stack<(int Node, bool Outside, Clip? Clips)>();
+        stack.Push((0, false, null));
+        while (stack.Count > 0)
+        {
+            (int index, bool outside, Clip? clips) = stack.Pop();
+            CookedNode n = nodes[index];
+            if (n.Front >= 0)
+            {
+                stack.Push((n.Front, outside || n.Csg, new Clip(n.Normal, n.Distance, true, clips)));
+            }
+
+            if (n.Back >= 0)
+            {
+                stack.Push((n.Back, outside && !n.Csg, new Clip(n.Normal, n.Distance, false, clips)));
+            }
+
+            if (!candidate[index] || Section(n, box.Center, reach, clips) is not { } section)
+            {
+                continue;
+            }
+
+            var front = new List<Piece>();
+            Filter(nodes, zones, section, n.Front, outside || n.Csg, zones[index].Front, n.Normal, 1, front);
+            foreach (Piece f in front)
+            {
+                if (!f.Outside || f.Zone == 0 || f.Zone >= data.Zones.Length)
+                {
+                    continue;
+                }
+
+                var behind = new List<Piece>();
+                Filter(nodes, zones, f.Points, n.Back, outside && !n.Csg, zones[index].Back, n.Normal, -1, behind);
+                foreach (Piece b in behind)
+                {
+                    if (!b.Outside || b.Zone == 0 || b.Zone == f.Zone || b.Zone >= data.Zones.Length)
+                    {
+                        continue;
+                    }
+
+                    (int, int, int) key = (index, Math.Min(f.Zone, b.Zone), Math.Max(f.Zone, b.Zone));
+                    if (!surfOf.TryGetValue(key, out int surf))
+                    {
+                        surfOf[key] = surf = surfs.Add(new CookedSurf(null, CookedBsp.PortalFlag | PolyFlags.Invisible | PolyFlags.NotSolid, Vec3.Zero,
+                            Vec3.Zero, Vec3.Zero, BrushFace.DefaultLightMapScale, null, null, Vec3.Zero));
+                    }
+
+                    List<Vec3> points = b.Points;
+                    if (Vec3.Dot(CookedBsp.Newell(points), n.Normal) < 0)
+                    {
+                        points.Reverse();
+                    }
+
+                    faces.Add(new CookedFace(index, surf, points, n.Normal, structural: false, n.Normal, n.Distance));
+                    made++;
+                }
+            }
+        }
+
+        return made;
+    }
+
+    /// <summary>One half-space of a node's region: in front of (or behind) an ancestor's plane.</summary>
+    private sealed record Clip(Vec3 Normal, double Distance, bool Front, Clip? Next);
+
+    /// <summary>A piece of a splitter's plane in one leaf: whether the leaf is empty space, and its zone.</summary>
+    private readonly record struct Piece(List<Vec3> Points, bool Outside, int Zone);
+
+    /// <summary>The part of a node's plane inside the node's region (a square larger than the map, cut by its ancestors).</summary>
+    private static List<Vec3>? Section(CookedNode n, Vec3 centre, double reach, Clip? clips)
+    {
+        Vec3 origin = centre - (n.Normal * (Vec3.Dot(n.Normal, centre) - n.Distance));
+        Vec3 u = Vec3.Cross(Math.Abs(n.Normal.Z) < 0.9 ? Vec3.UnitZ : Vec3.UnitX, n.Normal).Normalized();
+        Vec3 v = Vec3.Cross(n.Normal, u);
+        List<Vec3>? poly = [origin - (u * reach) - (v * reach), origin + (u * reach) - (v * reach), origin + (u * reach) + (v * reach), origin - (u * reach) + (v * reach)];
+        for (Clip? c = clips; c is not null && poly is not null; c = c.Next)
+        {
+            (List<Vec3>? front, List<Vec3>? back) = PolygonOps.Split(poly, c.Normal, c.Distance);
+            poly = Usable(c.Front ? front : back, n.Normal);
+        }
+
+        return poly;
+    }
+
+    private static List<Vec3>? Usable(List<Vec3>? poly, Vec3 normal) =>
+        poly is { Count: >= 3 } && Math.Abs(PolygonOps.Area(poly, normal)) > 1e-3 ? poly : null;
+
+    /// <summary>Cuts a polygon on a splitter's plane by the tree on one side of the splitter (<paramref name="side"/> 1
+    /// in front, -1 behind), down to the leaves that touch the plane there.</summary>
+    private static void Filter(List<CookedNode> nodes, (int Front, int Back)[] zones, List<Vec3> polygon, int child, bool outside, int zone, Vec3 normal,
+        int side, List<Piece> leaves)
+    {
+        var stack = new Stack<(List<Vec3> Points, int Node, bool Outside, int Zone)>();
+        stack.Push((polygon, child, outside, zone));
+        while (stack.Count > 0)
+        {
+            (List<Vec3> points, int index, bool state, int at) = stack.Pop();
+            if (index < 0)
+            {
+                leaves.Add(new Piece(points, state, at));
+                continue;
+            }
+
+            CookedNode m = nodes[index];
+            double most = 0;
+            foreach (Vec3 p in points)
+            {
+                most = Math.Max(most, Math.Abs(Vec3.Dot(m.Normal, p) - m.Distance));
+            }
+
+            List<Vec3>? front, back;
+            if (most < 0.01)
+            {
+                // A plane on the splitter's own: the space beside the polygon is all on one side of it.
+                bool inFront = Vec3.Dot(m.Normal, normal) * side > 0;
+                (front, back) = inFront ? (points, null) : ((List<Vec3>?)null, points);
+            }
+            else
+            {
+                (front, back) = PolygonOps.Split(points, m.Normal, m.Distance);
+                front = Usable(front, normal);
+                back = Usable(back, normal);
+            }
+
+            if (front is not null)
+            {
+                stack.Push((front, m.Front, state || m.Csg, zones[index].Front));
+            }
+
+            if (back is not null)
+            {
+                stack.Push((back, m.Back, state && !m.Csg, zones[index].Back));
+            }
+        }
     }
 
     // ---- render: drawn triangles -----------------------------------------------------------------------------------
@@ -660,8 +840,15 @@ public static class SvMapBsp
             }
 
             double scale = mapping is { LightMapScale: > 0 } ? mapping.LightMapScale : BrushFace.DefaultLightMapScale;
-            Surfs.Add(new CookedSurf(material, flags, mapping?.Base ?? Vec3.Zero, mapping?.U ?? Vec3.Zero, mapping?.V ?? Vec3.Zero, scale, null, null, Vec3.Zero));
-            list.Add((Surfs.Count - 1, mapping));
+            int made = Add(new CookedSurf(material, flags, mapping?.Base ?? Vec3.Zero, mapping?.U ?? Vec3.Zero, mapping?.V ?? Vec3.Zero, scale, null, null, Vec3.Zero));
+            list.Add((made, mapping));
+            return made;
+        }
+
+        /// <summary>A surf of its own, shared with nothing (a zone portal's).</summary>
+        public int Add(CookedSurf surf)
+        {
+            Surfs.Add(surf);
             return Surfs.Count - 1;
         }
     }

@@ -70,6 +70,106 @@ public static class Extrude
         return new VertexEditResult(o, 0, 0, ShapeAnalysis.IsConvexSolid(o.Shape));
     }
 
+    /// <summary>The sides of a brush: its face indexes grouped by plane (a side cut into several faces, by materials or
+    /// by a recovery, is one group), in the order of each side's first face. Faces with no area are left out.</summary>
+    public static List<List<int>> Sides(Brush b)
+    {
+        var sides = new List<(Plane3 Plane, List<int> Faces)>();
+        for (int i = 0; i < b.Shape.Faces.Count; i++)
+        {
+            if (Plane3.FromPolygon(b.Shape.Faces[i].Vertices) is not { } plane)
+            {
+                continue;
+            }
+
+            int at = sides.FindIndex(s => s.Plane.NearlyEquals(plane, 1e-3, 0.05));
+            if (at < 0)
+            {
+                sides.Add((plane, [i]));
+            }
+            else
+            {
+                sides[at].Faces.Add(i);
+            }
+        }
+
+        return sides.Select(s => s.Faces).ToList();
+    }
+
+    /// <summary>
+    /// Moves a whole side of a brush (the face and every face on its plane) along its normal by
+    /// <paramref name="distance"/> (negative pulls it in). The side's corners move together, so the cuts between its
+    /// faces and between the faces around it stay. When that would bend a face (a side not square to its neighbours) or
+    /// pass another corner, a side of one face on a convex brush moves as <see cref="Face"/> does (hull or clip, which
+    /// keeps the brush convex); other sides bend and split the faces around them. Throws when pulling in further than
+    /// <see cref="Room"/>.
+    /// </summary>
+    public static VertexEditResult Side(Brush b, int face, double distance)
+    {
+        BrushFace f = FaceOf(b, face);
+        if (Math.Abs(distance) < 1e-9)
+        {
+            return Face(b, face, distance);
+        }
+
+        List<int> side = Sides(b).Find(s => s.Contains(face)) ?? [face];
+        bool single = side.Count == 1 && ShapeAnalysis.IsConvexSolid(b.Shape);
+        ShapeTransform t = ShapeTransform.For(b);
+        Vec3 n = Poly.Normal(t.FaceToWorld(f));
+        if (n == Vec3.Zero)
+        {
+            throw new ArgumentException($"extrude: face {face} of {b.Id} has no area");
+        }
+
+        if (distance > -Nearest(b, face, out _))
+        {
+            List<Vec3> corners = VertexEdit.DistinctVertices(side.Select(i => (IReadOnlyList<Vec3>)t.FaceToWorld(b.Shape.Faces[i])));
+            VertexEditResult moved = VertexEdit.Move(b, corners, n * distance);
+            if (!single || (moved.SplitFaces == 0 && moved.RemovedFaces == 0 && moved.Convex))
+            {
+                return moved;
+            }
+        }
+        else if (!single)
+        {
+            throw new ArgumentException("extrude: pulling the side in that far passes the next corner of the brush");
+        }
+
+        return Face(b, face, distance);
+    }
+
+    /// <summary>How far a side can be pulled in (<see cref="Side"/>): to the far end of a convex brush whose side is one
+    /// face (it is clipped), else to the nearest corner behind the side (its corners move, and must not pass another).</summary>
+    public static double Room(Brush b, int face)
+    {
+        double nearest = Nearest(b, face, out double furthest);
+        return (Sides(b).Find(s => s.Contains(face))?.Count ?? 1) == 1 && ShapeAnalysis.IsConvexSolid(b.Shape) ? furthest : nearest;
+    }
+
+    /// <summary>The depth behind a face's plane of the nearest and the furthest corner of its brush (0 with none).</summary>
+    private static double Nearest(Brush b, int face, out double furthest)
+    {
+        ShapeTransform t = ShapeTransform.For(b);
+        List<Vec3> world = t.FaceToWorld(FaceOf(b, face));
+        Vec3 n = Poly.Normal(world);
+        double nearest = double.MaxValue;
+        furthest = 0;
+        foreach (BrushFace other in b.Shape.Faces)
+        {
+            foreach (Vec3 v in t.FaceToWorld(other))
+            {
+                double depth = Vec3.Dot(n, world[0] - v);
+                if (depth > 0.05)
+                {
+                    nearest = Math.Min(nearest, depth);
+                    furthest = Math.Max(furthest, depth);
+                }
+            }
+        }
+
+        return nearest == double.MaxValue ? 0 : nearest;
+    }
+
     /// <summary>
     /// A new brush grown from a face: the face swept <paramref name="distance"/> along its normal (backwards when
     /// negative). It has the source brush's CSG type and flags, sits at the face's centre with no rotation, and
