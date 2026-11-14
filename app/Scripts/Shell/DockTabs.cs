@@ -24,6 +24,7 @@ public static class DockTabs
         ["Prefabs"] = "grid",
         ["Storeys"] = "storeys",
         ["Emitter Library"] = "type-emitter",
+        ["Sounds"] = "type-sound",
         ["Inspector"] = "inspector",
         ["Map"] = "map",
         ["Identity"] = "id-card",

@@ -143,6 +143,15 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   shared data and map asset libraries from [OpenSCCT-Content](https://github.com/Lumbridge/OpenSCCT-Content). The editor
   indexes the new assets as soon as installation finishes. Open **Tools > Emitter Library** to browse,
   preview and place the 37 RE+ stock effects from installed OpenSCCT maps, save your own effects or import RE+ effect packs.
+  Placed effects animate in the perspective viewport; **View > Show** includes particle visibility, pause and replay.
+- **Sound authoring.** The toolbar's sound-library button opens **Sounds**: search installed sounds (including composite
+  cues), import WAV/OGG files, preview with a waveform/timeline, seek, pause and loop, then place a source at the builder
+  brush or drag a sound into a viewport. Edit volume, pitch and radius, use reach presets, or apply settings to multiple
+  selected actors in one undo step. **In This Map** lists existing sources; double-click to frame one. Selected sources
+  show their radius, and the Inspector's **Edit Sound…** opens the sound controls. **Listen in Map** previews distance and
+  panning from the perspective camera, with **Solo Selected** for isolating sources; gameplay's zone occlusion and reverb
+  are heard in Play. The toolbar's speaker button mutes every editor preview and remembers its state. Sound imports and
+  their dependencies are included in SVMap builds; retained imported maps also use edited sound settings.
 - **Find anything and guided lessons.** Ctrl+Shift+P searches commands, controls, placeables, classes, installed
   assets, prefabs and presets. Search **Laptop** to reveal its tile, or **tutorial** for 39 cancellable lessons with
   highlighted controls. Favourites, saved lesson progress and **Show me** help you find the next step.

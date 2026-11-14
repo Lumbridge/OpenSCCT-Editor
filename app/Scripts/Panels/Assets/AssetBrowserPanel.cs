@@ -281,7 +281,7 @@ public partial class AssetBrowserPanel : EditorPanel
         var buttons = new HBoxContainer();
         buttons.AddThemeConstantOverride("separation", EditorTheme.SpaceXs);
         box.AddChild(buttons);
-        _place = WorkbenchUi.Action(buttons, "Place", "Place the selected mesh at the view's placement point", "assets.place", Context);
+        _place = WorkbenchUi.Action(buttons, "Place", "Place the selected mesh or sound at the view's placement point", "assets.place", Context);
         _apply = WorkbenchUi.Action(buttons, "Apply", "Apply the selected material or texture to the picked faces, else to every face of the selected brushes",
             "assets.applyMaterial", Context);
         _play = WorkbenchUi.Guard(PanelUi.IconButton(buttons, "play", "Play the selected sound", () => Context.Run("assets.playSound")),
@@ -324,7 +324,7 @@ public partial class AssetBrowserPanel : EditorPanel
         _list.MaxTextLines = sounds ? 1 : 2;
         _list.MaxColumns = sounds ? 1 : 0;
         bool any = _tabs.CurrentTab == FavouritesTab;
-        _place.Visible = any || TabKind == AssetKind.Mesh;
+        _place.Visible = any || TabKind == AssetKind.Mesh || sounds;
         _apply.Visible = any || TabKind is AssetKind.Material or AssetKind.Texture;
         _play.Visible = _stop.Visible = any || sounds;
         _rebuildTree.Queue();

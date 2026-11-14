@@ -110,6 +110,14 @@ public sealed class ToolbarPart : IShellPart
         Gap();
         Menu("View/Layout", "");
         Gap();
+        Button("emitter.library", icon: Icons.Get("type-emitter", EditorTheme.Text));
+        Button("sound.library", icon: Icons.Get("type-sound", EditorTheme.Text));
+        var mute = Button("audio.mute", icon: Icons.Get("audio-muted", EditorTheme.Text));
+        void RefreshAudio() { mute.Icon = Icons.Get(Assets.EditorAudio.Muted ? "audio-muted" : "type-sound", EditorTheme.Text); mute.Refresh(); }
+        Assets.EditorAudio.Changed += RefreshAudio;
+        mute.TreeExiting += () => Assets.EditorAudio.Changed -= RefreshAudio;
+        RefreshAudio();
+        Gap();
         Button("build.build", "Build");
         Button("build.check", "Check");
         row.AddChild(new Control { CustomMinimumSize = new Vector2(EditorTheme.SpaceXs, 0) });

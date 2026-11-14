@@ -94,6 +94,8 @@ public static class VisualLayers
     /// <summary>The grid of one view (each view's grid differs, so each has its own layer).</summary>
     public static uint Grid(ViewKind view) => 1u << (10 + (int)view);
 
+    public const uint Effects = 1u << 18;
+
     public const uint SkyUnlit = 1u << 14;
     public const uint SkyLit = 1u << 15;
     public const uint SkyBackdrop = 1u << 16;
@@ -120,7 +122,7 @@ public static class VisualLayers
     /// <summary>What a view draws: its mode's layers, its grid, and the perspective view's own layers (picked faces,
     /// and actor icons or, with icons off, the boxes they stand for).</summary>
     public static uint ForView(ViewKind view, RenderMode mode, bool actorIcons) => ForMode(mode) | Grid(view) | (view == ViewKind.Perspective
-        ? PickedFaces | (actorIcons ? ActorIcons : ActorBoxes)
+        ? PickedFaces | Effects | (actorIcons ? ActorIcons : ActorBoxes)
         : ActorBoxes);
 }
 

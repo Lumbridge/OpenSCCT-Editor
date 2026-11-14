@@ -95,6 +95,7 @@ public static class Icons
         ["type-volume"] = """<rect x="2.5" y="2.5" width="11" height="11" rx="1" stroke-dasharray="2.2 1.8"/>""",
         ["type-light"] = """<path d="M5.5 10.5c-1.3-1-2-2.3-2-3.9a4.5 4.5 0 0 1 9 0c0 1.6-.7 2.9-2 3.9v1.5h-5z"/><path d="M6 14.5h4"/>""",
         ["type-sound"] = """<path d="M2 6h2.5l3.5-3v10l-3.5-3h-2.5z"/><path d="M10.5 4.5a5 5 0 0 1 0 7"/>""",
+        ["audio-muted"] = """<path d="M2 6h2.5l3.5-3v10l-3.5-3h-2.5z"/><path d="M10.5 5.5l4 5m0-5l-4 5"/>""",
         ["type-mesh"] = """<path d="M8 1.5l5.5 3.2v6.6l-5.5 3.2-5.5-3.2v-6.6z"/><path d="M2.5 4.7h11l-5.5 9.8z"/>""",
         ["type-emitter"] = """<circle cx="3.5" cy="12.5" r="1.5" fill="C" stroke="none"/><g fill="C" stroke="none"><circle cx="7" cy="4" r="1.3"/><circle cx="11.5" cy="5.5" r="1.3"/><circle cx="12.5" cy="10" r="1.3"/></g><path d="M4.8 10.6l1.2-3.4M5.3 11.2l4.2-3.6M5.5 12.2l4.6-1.4" stroke-dasharray="1 1.4"/>""",
         ["type-mover"] = """<rect x="1.5" y="4.5" width="7" height="7" rx="1"/><path d="M10.5 8h4M12.5 6l2 2-2 2"/>""",

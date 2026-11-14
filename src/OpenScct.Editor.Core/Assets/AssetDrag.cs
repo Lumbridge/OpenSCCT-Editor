@@ -11,8 +11,8 @@ public sealed record AssetDrag(AssetKind Kind, string Path, string Name)
     /// <summary>The payload of a catalogue entry.</summary>
     public static AssetDrag Of(AssetEntry e) => new(e.Kind, e.Path, e.Name);
 
-    /// <summary>True for the kinds a list lets you drag: meshes, materials and textures (sounds have no drop target).</summary>
-    public static bool CanDrag(AssetKind kind) => kind is AssetKind.Mesh or AssetKind.Material or AssetKind.Texture;
+    /// <summary>Assets a list can drag into a viewport.</summary>
+    public static bool CanDrag(AssetKind kind) => kind is AssetKind.Mesh or AssetKind.Material or AssetKind.Texture or AssetKind.Sound;
 
     /// <summary>A static mesh, placed as a StaticMeshActor where it is dropped.</summary>
     public bool IsMesh => Kind == AssetKind.Mesh;

@@ -103,6 +103,10 @@ public sealed partial class AssetDropTarget : Node, IShellPart
 
         switch (AssetDragData.Read(data))
         {
+            case { Kind: AssetKind.Sound } sound:
+                HideGhost();
+                _ctx.SetStatus($"Drop to place {sound.Name} as a sound source");
+                return true;
             case { IsMesh: true } mesh:
                 ShowGhost(view, mesh, Landing(view, Pointer(view, position), mesh.Path));
                 return true;
@@ -140,6 +144,14 @@ public sealed partial class AssetDropTarget : Node, IShellPart
             else if (drag is { IsSurface: true })
             {
                 ApplySurface(view, Pointer(view, position), drag);
+            }
+            else if (drag is { Kind: AssetKind.Sound })
+            {
+                var settings = AssetDragData.ReadSoundSettings(data) ?? (128, 64, 64);
+                Actor actor = OpenScct.Editor.Core.Audio.SoundAuthoring.Create(_ctx.Project, drag.Path, PrefabPoint(view, Pointer(view, position)), settings.Item1, settings.Item2, settings.Item3);
+                _ctx.Execute(new AddObjectsCommand("Place sound source", actors: [actor]));
+                _ctx.Selection.Set([ObjectRef.Actor(actor.Id)]);
+                _ctx.SetStatus($"Placed sound {actor.Id}");
             }
         }
         finally

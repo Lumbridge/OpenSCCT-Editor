@@ -1093,6 +1093,9 @@ public sealed partial class WorldScene : Node3D
             ConveyorLook.Attach(e.Root, a, p);
         }
 
+        AttachEmitter(e.Root, a, p);
+        e.SoundRange = AttachSoundRange(e.Root, a);
+
         if (look.Diamond && a.ShortClass.Contains("Light", StringComparison.OrdinalIgnoreCase))
         {
             // A trigger light shines as the round starts it, or as the event preview has switched it.
@@ -1261,6 +1264,7 @@ public sealed partial class WorldScene : Node3D
         }
 
         e.Selected = selected;
+        if (e.SoundRange is { } range) range.Visible = selected;
         if (e.IconArrow is not null)
         {
             e.IconArrow.Visible = !selected;
@@ -1332,6 +1336,9 @@ public sealed partial class WorldScene : Node3D
         h.Add(a.Props.GetFloat("CollisionRadius"));
         h.Add(a.Props.GetFloat("CollisionHeight"));
         h.Add(a.Props.GetFloat("LightRadius"));
+        h.Add(a.Source);
+        h.Add(a.Props["AmbientSound"]?.ToString());
+        h.Add(a.Props.GetFloat("SoundRadius"));
         h.Add(a.Props.GetFloat("LightBrightness"));
         h.Add(a.Props.GetInt("LightHue"));
         h.Add(a.Props.GetInt("LightSaturation"));
@@ -1383,6 +1390,8 @@ public sealed partial class WorldScene : Node3D
 
         /// <summary>The light the lit view draws for a light actor.</summary>
         public OmniLight3D? Light { get; set; }
+
+        public MeshInstance3D? SoundRange { get; set; }
 
         /// <summary>When the actor shows an icon in the perspective view, which (its atlas cell) and in what colour.</summary>
         public IconUse Icon { get; set; }

@@ -28,6 +28,20 @@ public sealed partial class AssetDragData : RefCounted
 
     public LightPreset? FixtureLight { get; }
 
+    private AssetDragData(AssetDrag drag, double volume, double pitch, double radius)
+    { Drag = drag; SoundSettings = (volume, pitch, radius); }
+
+    public (double Volume, double Pitch, double Radius)? SoundSettings { get; }
+
+    public static Variant StartSound(Control from, AssetDrag drag, double volume, double pitch, double radius)
+    {
+        from.SetDragPreview(Preview(drag.Name, Icons.Get("type-sound", EditorTheme.Text)));
+        return Variant.From(new AssetDragData(drag, volume, pitch, radius));
+    }
+
+    public static (double Volume, double Pitch, double Radius)? ReadSoundSettings(Variant data) =>
+        data.VariantType == Variant.Type.Object && data.AsGodotObject() is AssetDragData payload ? payload.SoundSettings : null;
+
     public static Variant StartFixture(Control from, AssetEntry mesh, LightPreset light, Texture2D? picture)
     {
         from.SetDragPreview(Preview(mesh.Name + " + light", picture));

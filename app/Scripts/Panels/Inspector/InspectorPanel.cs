@@ -192,6 +192,9 @@ public partial class InspectorPanel : EditorPanel
 
         HFlowContainer tools = PanelUi.Toolbar(_sections);
         PanelUi.Button(tools, "Focus", "Frame the selection in the views", () => Context.Focus(_refs));
+        if (_refs.Any(r => r.Kind == ObjectKind.Actor && Context.Project.FindActor(r.Id) is { } actor &&
+            OpenScct.Editor.Core.Audio.SoundAuthoring.Sound(actor) is not null))
+            PanelUi.Button(tools, "Edit Sound…", "Open volume, pitch, radius and playback controls", () => Context.Run("sound.library"));
         if (!Compact) PanelUi.Button(tools, "Same class", "Select every object of the selected classes", SelectSameClass);
         if (_refs.Any(r => r.Kind == ObjectKind.Actor && Context.Project.FindActor(r.Id) is { } actor
             && (MissionLinks.IsObjective(actor) || MissionLinks.IsTrigger(actor))))

@@ -152,7 +152,7 @@ public static class AssetIndexer
         }
     }
 
-    /// <summary>The digest of the shared content: render.json and the names and sizes of the shared texture and WAV files.</summary>
+    /// <summary>The shared render/audio definitions and the names and sizes of shared texture and WAV files.</summary>
     public static string SharedDigest(string contentRoot)
     {
         var sb = new StringBuilder();
@@ -160,6 +160,12 @@ public static class AssetIndexer
         if (File.Exists(renderJson))
         {
             sb.Append(Hash(File.ReadAllBytes(renderJson)));
+        }
+        sb.Append("sound-definitions-v1");
+        foreach (string name in new[] { "audio.json", "sidearms.json", "weapons.json" })
+        {
+            string file = Path.Combine(contentRoot, "shared", "audio", name);
+            if (File.Exists(file)) sb.Append(Hash(File.ReadAllBytes(file)));
         }
 
         foreach (string dir in SharedDirs(contentRoot))
@@ -201,13 +207,31 @@ public static class AssetIndexer
             }
         }
 
-        string wav = Path.Combine(contentRoot, "shared", "audio", "wav");
+        string audio = Path.Combine(contentRoot, "shared", "audio");
+        var soundPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (string table in new[] { "audio.json", "sidearms.json", "weapons.json" })
+        {
+            if (Parse(Path.Combine(audio, table))?["sounds"] is not JsonObject sounds) continue;
+            foreach (var pair in sounds)
+            {
+                if (pair.Value is not JsonObject sound || !soundPaths.Add(pair.Key)) continue;
+                string? file = sound["file"]?.GetValue<string>() is { } relative ? Path.Combine(audio, relative) : null;
+                entries.Add(new AssetEntry
+                {
+                    Kind = AssetKind.Sound, Path = pair.Key, Origin = "shared", File = file,
+                    Duration = sound["duration"] is JsonValue duration && duration.TryGetValue(out double seconds) ? seconds : 0,
+                    SoundKind = sound["kind"]?.GetValue<string>(), Gloss = AssetGlossary.Gloss(pair.Key),
+                });
+            }
+        }
+        string wav = Path.Combine(audio, "wav");
         if (Directory.Exists(wav))
         {
             foreach (string file in Directory.EnumerateFiles(wav, "*.wav", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
             {
                 string rel = Path.GetRelativePath(wav, file);
                 string path = Path.ChangeExtension(rel, null).Replace('\\', '.').Replace('/', '.');
+                if (!soundPaths.Add(path)) continue;
                 entries.Add(new AssetEntry
                 {
                     Kind = AssetKind.Sound, Path = path, Origin = "shared", File = file, Duration = WavSeconds(file), SoundKind = "sound",

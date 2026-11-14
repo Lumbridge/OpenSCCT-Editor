@@ -24,7 +24,6 @@ public partial class AssetBrowserPanel
 {
     private const double FallbackDistance = 512;
     private static readonly string[] s_importFilters = ["*.gltf, *.glb ; glTF", "*.obj ; Wavefront OBJ"];
-    private AudioStreamPlayer? _player;
     private string? _argAsset = Arg("--asset=");
 
     private void RegisterActions()
@@ -35,10 +34,10 @@ public partial class AssetBrowserPanel
         {
             Order = 10, Description = "Show the asset browser with the cursor in its search box",
         });
-        Context.AddAction(new EditorAction("assets.place", "Place Selected Mesh", "Assets", () => PlaceSelected(null))
+        Context.AddAction(new EditorAction("assets.place", "Place Selected Asset", "Assets", () => PlaceSelected(null))
         {
-            Order = 100, IsEnabled = () => IsSelected(AssetKind.Mesh),
-            Description = "Add a StaticMeshActor showing the selected mesh at the placement point",
+            Order = 100, IsEnabled = () => IsSelected(AssetKind.Mesh) || IsSelected(AssetKind.Sound),
+            Description = "Place the selected mesh or ambient sound at the placement point",
         });
         Context.AddAction(new EditorAction("assets.applyMaterial", "Apply Material", "Assets", () => ApplySelected(null))
         {
@@ -59,6 +58,9 @@ public partial class AssetBrowserPanel
         {
             Order = 140, IsEnabled = () => IsSelected(AssetKind.Sound),
         });
+        Context.AddAction(new EditorAction("assets.editSound", "Edit Selected Sound…", "Assets", () =>
+        { if (Selected is { Kind: AssetKind.Sound } sound) SoundPanel.Instance?.ShowSound(sound.Path); })
+        { Order = 150, IsEnabled = () => IsSelected(AssetKind.Sound), Description = "Open the sound library's volume, pitch, radius and placement controls" });
         Context.AddAction(new EditorAction("assets.importMesh", "Import Mesh…", "Assets", ImportMesh)
         {
             Order = 200, Description = "Import a glTF or OBJ mesh into this map's assets, with a collision hull",
@@ -176,6 +178,13 @@ public partial class AssetBrowserPanel
     /// <summary>Places the selected mesh at <paramref name="at"/> (or the placement point), its bottom on the point.</summary>
     private void PlaceSelected(Vec3? at)
     {
+        if (Selected is { Kind: AssetKind.Sound } sound)
+        {
+            Actor source = OpenScct.Editor.Core.Audio.SoundAuthoring.Create(Context.Project, sound.Path, at ?? PlacementPoint(Context.Project));
+            Context.Execute(new OpenScct.Editor.Core.Commands.AddObjectsCommand("Place sound source", actors: [source]));
+            Context.Selection.Set([ObjectRef.Actor(source.Id)]);
+            return;
+        }
         if (Selected is not { Kind: AssetKind.Mesh } s)
         {
             Context.SetStatus("Select a mesh to place first.");
@@ -315,37 +324,11 @@ public partial class AssetBrowserPanel
 
     private void PlaySound()
     {
-        if (SelectedEntry is not { Kind: AssetKind.Sound, File: { } file } e || !File.Exists(file))
-        {
-            Context.SetStatus("This sound has no file to play.");
-            return;
-        }
-
-        AudioStream? stream = Path.GetExtension(file).ToLowerInvariant() switch
-        {
-            ".wav" => AudioStreamWav.LoadFromFile(file),
-            ".ogg" => AudioStreamOggVorbis.LoadFromFile(file),
-            ".mp3" => AudioStreamMP3.LoadFromFile(file),
-            _ => null,
-        };
-        if (stream is null)
-        {
-            Context.SetStatus($"Cannot play {Path.GetFileName(file)}.");
-            return;
-        }
-
-        if (_player is null)
-        {
-            _player = new AudioStreamPlayer { Name = "AssetPreview" };
-            AddChild(_player);
-        }
-
-        _player.Stream = stream;
-        _player.Play();
-        Context.SetStatus($"Playing {e.Path} ({e.Duration:0.0} s).");
+        if (Selected is { Kind: AssetKind.Sound } sound && EditorAudio.Instance?.Play(sound.Path, 255) == true)
+            Context.SetStatus($"Playing {sound.Path}.");
     }
 
-    private void StopSound() => _player?.Stop();
+    private void StopSound() => EditorAudio.Instance?.Stop();
 
     // ---- import -----------------------------------------------------------------------------------------------------
 

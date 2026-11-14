@@ -18,19 +18,20 @@ public static class SideFiles
         }
 
         WriteMapInfo(ctx);
-        if (ctx.Baked is { } source && ctx.Files.TryGetValue("audio/audio.json", out byte[]? kept) && JsonNode.Parse(kept) is JsonObject audio)
+        if (ctx.Baked is not null && ctx.Files.TryGetValue("audio/audio.json", out byte[]? kept) && JsonNode.Parse(kept) is JsonObject audio)
         {
-            FollowAudio(ctx, source, audio);
+            FollowAudio(ctx, audio);
         }
         else
         {
             WriteAudio(ctx);
         }
+        SoundBuild.Write(ctx);
     }
 
     /// <summary>The source's audio.json without the records of deleted actors and with moved ones at their new place,
-    /// plus records for the sound actors added in the editor. Other record values stay as the converter wrote them.</summary>
-    private static void FollowAudio(CompileContext ctx, BakedSource baked, JsonObject audio)
+    /// and with authored sound settings, plus records for newly attached sounds. Other converter metadata is retained.</summary>
+    private static void FollowAudio(CompileContext ctx, JsonObject audio)
     {
         var project = ctx.Render.Concat(ctx.Gameplay).ToDictionary(a => a.Id, StringComparer.OrdinalIgnoreCase);
         var actors = new JsonArray();
@@ -51,6 +52,12 @@ public static class SideFiles
                 record["zoneNumber"] = ctx.ZoneAt(a.Location);
             }
 
+            // Keep converter-only metadata, but make authored sound settings authoritative.
+            if (a.Props.Contains("AmbientSound") && PropValues.AssetPath(a.Props["AmbientSound"]) is null) continue;
+            if (PropValues.AssetPath(ctx.Rules.Value(a, "AmbientSound")) is { } sound) record["ambientSound"] = sound;
+            record["soundPitch"] = (int)ctx.Rules.Number(a, "SoundPitch", 64);
+            record["soundRadius"] = (float)ctx.Rules.Number(a, "SoundRadius", 64);
+            record["soundVolume"] = (int)ctx.Rules.Number(a, "SoundVolume", 128);
             actors.Add(record);
             kept.Add(id);
         }
@@ -58,13 +65,26 @@ public static class SideFiles
         foreach (JsonObject r in SoundActors(ctx))
         {
             string id = r["id"]!.GetValue<string>();
-            if (!kept.Contains(id) && !baked.Actors.Contains(id))
+            if (!kept.Contains(id))
             {
                 actors.Add(r);
             }
         }
 
         audio["actors"] = actors;
+        foreach (JsonObject zone in (audio["zones"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            if (zone["id"]?.GetValue<string>() is not { } id || !project.TryGetValue(id, out Actor? actor)) continue;
+            if (PropValues.AssetPath(ctx.Rules.Value(actor, "AmbientSound")) is { } sound)
+            {
+                zone["ambientSound"] = sound;
+                zone["soundPitch"] = (int)ctx.Rules.Number(actor, "SoundPitch", 64);
+                zone["soundRadius"] = (float)ctx.Rules.Number(actor, "SoundRadius", 64);
+                zone["soundVolume"] = (int)ctx.Rules.Number(actor, "SoundVolume", 128);
+            }
+            else if (actor.Props.Contains("AmbientSound"))
+                foreach (string key in new[] { "ambientSound", "soundPitch", "soundRadius", "soundVolume" }) zone.Remove(key);
+        }
         ctx.Files["audio/audio.json"] = RenderBuild.Json(audio);
         ctx.Count("audio.actors", actors.Count);
     }
@@ -74,7 +94,7 @@ public static class SideFiles
     {
         foreach (Actor a in ctx.Render.Concat(ctx.Gameplay))
         {
-            if (PropValues.AssetPath(a.Props["AmbientSound"]) is not { } sound || ctx.Rules.IsZoneActor(a))
+            if (PropValues.AssetPath(ctx.Rules.Value(a, "AmbientSound")) is not { } sound || ctx.Rules.IsZoneActor(a))
             {
                 continue;
             }
@@ -202,7 +222,7 @@ public static class SideFiles
             }
 
             var entry = new JsonObject { ["class"] = zone.Class, ["id"] = id };
-            if (PropValues.AssetPath(zone.Props["AmbientSound"]) is { } ambient)
+            if (PropValues.AssetPath(ctx.Rules.Value(zone, "AmbientSound")) is { } ambient)
             {
                 entry["ambientSound"] = ambient;
                 entry["soundPitch"] = (int)ctx.Rules.Number(zone, "SoundPitch", 64);
