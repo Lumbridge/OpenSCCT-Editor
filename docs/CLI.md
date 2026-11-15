@@ -192,6 +192,16 @@ ose import <source> <out.osmap> [--map Name] [--format t3d|svmap|sdc] [--content
 
 Imports a map into a new project: a T3D file (stock editor File > Export), a converted SVMap folder, or an .sdc (converted through OpenSCCT's svmbuild first, needs the game install). A cooked .sdc gets the static lights its cook stripped back (--lights, default full: from its editor copy in any install, from the file, else fitted stand-ins; see sdc-lights), and its brushes recovered from the compiled BSP as editable brushes in the Recovered brushes layer (--brushes, default merge: cells joined and grown over their neighbours, as RE+'s map recovery; cells joins only cells that share a whole face; off keeps the baked world only; see sdc-brushes). With --add, a T3D file (a whole map or copied objects) is added to the existing project instead, as one undo step, with clashing names renamed. Prints the import report (what came in, cooked out, lifted, recovered, dropped, warnings); --json prints the result, findings and report as JSON.
 
+SDC imports also collect the map's asset dependencies into a portable project library. Textures, materials, static
+meshes, skeletal meshes, animations and sounds keep their original object paths, including groups. Companion packages
+beside the map or in its package folders are discovered automatically. An accompanying package takes precedence over
+a different installed copy for this import. The original installation is read only.
+
+The Import Report has separate **Assets imported**, **Assets missing or incomplete** and **Assets or behavior unsupported**
+sections. Problems name the asset and its referring objects; actor references are clickable. The project keeps the
+converted assets, `assets/dependencies.json`, its source SDC, and available original packages for unsupported assets.
+Arbitrary UnrealScript behavior is reported as unsupported. Saving and Save As carry the asset library with the map.
+
 ### export
 
 ```

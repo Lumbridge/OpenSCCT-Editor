@@ -10,6 +10,7 @@ using OpenScct.Editor.Core.Services;
 using OpenScctEditor.Assets;
 using OpenScctGame;
 using OpenScctGame.Render.Particles;
+using Aabb = Godot.Aabb;
 
 namespace OpenScctEditor.Viewports.Render;
 
@@ -28,7 +29,7 @@ public partial class ParticleEffect : Node3D
     private int _generation;
     public bool Paused { get; set; }
     public (Vector3 Min, Vector3 Max) Bounds { get; private set; }
-    private sealed record Simulation(ParticleSystemSim Sim, FVector At, FRotator Facing, Layer[] Layers);
+    private sealed record Simulation(ParticleSystemSim Sim, FVector At, FRotator Facing, Layer[] Layers, uint Seed);
     private sealed record Layer(ParticleEmitterSim Emitter, ImmediateMesh? Surface, MultiMesh? Instances);
 
     public void Configure(IEnumerable<Actor> actors, bool trigger, Func<Camera3D?> camera, uint renderLayers = 1, bool floor = false)
@@ -80,9 +81,85 @@ public partial class ParticleEffect : Node3D
             if (trigger) sim.Trigger();
             Layer[] views = sim.Emitters.Select((e, index) => MakeLayer(e, layers[index].Texture, index, generation)).ToArray();
             _systems.Add(new Simulation(sim, AsVector(actor.Location),
-                new FRotator(actor.Rotation.Pitch, actor.Rotation.Yaw, actor.Rotation.Roll), views));
+                new FRotator(actor.Rotation.Pitch, actor.Rotation.Yaw, actor.Rotation.Roll), views, FxRandom.Seed(actor.Id)));
         }
         Bounds = (min, max);
+        if (floor && _systems.Count > 0) MeasurePreviewBounds(trigger);
+    }
+
+    private void MeasurePreviewBounds(bool trigger)
+    {
+        Vector3 min = Vector3.One * float.PositiveInfinity, max = Vector3.One * float.NegativeInfinity;
+        void Include(FVector point)
+        {
+            Vector3 p = UeSpace.ToGodot(point);
+            if (!p.IsFinite()) return;
+            min = min.Min(p); max = max.Max(p);
+        }
+        var camera = ParticleCamera.From(new FVector(400, 200, 400), new FRotator(0, 0, 0));
+        var quads = new List<SpriteQuad>();
+        var lines = new List<SparkSegment>();
+        var meshes = new List<MeshInstance>();
+        var meshBounds = new Dictionary<string, Aabb>();
+        Aabb MeshBounds(string? path)
+        {
+            if (path is null) return new Aabb(-Vector3.One * 0.5f, Vector3.One);
+            if (meshBounds.TryGetValue(path, out Aabb found)) return found;
+            Vector3 lo = Vector3.One * float.PositiveInfinity, hi = Vector3.One * float.NegativeInfinity;
+            if (AssetService.Instance.Resolver.FindViewMesh(path) is { } mesh && GlbCache.TryReadJson(mesh.GlbPath) is { } json
+                && json["meshes"]?[mesh.Mesh]?["primitives"] is System.Text.Json.Nodes.JsonArray primitives)
+                foreach (var primitive in primitives)
+                    if (primitive?["attributes"]?["POSITION"]?.GetValue<int>() is { } index && json["accessors"]?[index] is { } accessor
+                        && accessor["min"] is System.Text.Json.Nodes.JsonArray minBox && accessor["max"] is System.Text.Json.Nodes.JsonArray maxBox)
+                    {
+                        lo = lo.Min(new Vector3((float)minBox[0]!.GetValue<double>(), (float)minBox[1]!.GetValue<double>(), (float)minBox[2]!.GetValue<double>()));
+                        hi = hi.Max(new Vector3((float)maxBox[0]!.GetValue<double>(), (float)maxBox[1]!.GetValue<double>(), (float)maxBox[2]!.GetValue<double>()));
+                    }
+            return meshBounds[path] = lo.IsFinite() && hi.IsFinite() ? new Aabb(lo, hi - lo) : new Aabb(-Vector3.One * 0.5f, Vector3.One);
+        }
+        foreach (Simulation system in _systems)
+        {
+            var sample = new ParticleSystemSim(system.Sim.Emitters.Select(e => e.Params).ToArray(), system.Sim.Settings, system.Seed);
+            sample.Trace = TraceFloor;
+            if (trigger) sample.Trigger();
+            float duration = Math.Clamp(sample.Emitters.Max(e => e.Params.LifetimeRange.Larger) * 1.5f, 2, 20);
+            int steps = Math.Min(600, (int)Math.Ceiling(duration * 30));
+            for (int step = 0; step < steps; step++)
+            {
+                sample.Step(duration / steps, system.At, system.Facing, default);
+                var owner = new ParticleOwner(system.At, system.Facing, default, sample.GlobalOffset);
+                foreach (ParticleEmitterSim emitter in sample.Emitters)
+                {
+                    if (emitter.Params.Kind == ParticleKind.Mesh)
+                    {
+                        Aabb bounds = MeshBounds(emitter.Params.StaticMesh);
+                        meshes.Clear(); ParticleGeometry.Meshes(emitter, owner, meshes);
+                        foreach (MeshInstance instance in meshes)
+                        {
+                            Transform3D transform = UeSpace.TransformToGodot(instance.Location, instance.Rotation, instance.Scale, default);
+                            for (int corner = 0; corner < 8; corner++)
+                            {
+                                Vector3 point = transform * bounds.GetEndpoint(corner);
+                                if (point.IsFinite()) { min = min.Min(point); max = max.Max(point); }
+                            }
+                        }
+                    }
+                    else if (emitter.Params.Kind == ParticleKind.Spark)
+                    {
+                        lines.Clear(); ParticleGeometry.Sparks(emitter, owner, lines);
+                        foreach (SparkSegment line in lines) { Include(line.From); Include(line.To); }
+                    }
+                    else
+                    {
+                        quads.Clear();
+                        if (emitter.Params.Kind == ParticleKind.Beam) ParticleGeometry.Beams(emitter, camera, owner, quads);
+                        else ParticleGeometry.Sprites(emitter, camera, owner, quads);
+                        foreach (SpriteQuad q in quads) { Include(q.C0); Include(q.C1); Include(q.C2); Include(q.C3); }
+                    }
+                }
+            }
+        }
+        if (min.IsFinite() && max.IsFinite()) Bounds = (min, max);
     }
 
     private Layer MakeLayer(ParticleEmitterSim emitter, string? texture, int order, int generation)

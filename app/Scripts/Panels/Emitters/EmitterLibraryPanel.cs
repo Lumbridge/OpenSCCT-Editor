@@ -6,6 +6,7 @@ using OpenScctEditor.Assets;
 using OpenScctEditor.Core;
 using OpenScctEditor.Shell;
 using OpenScctEditor.Tools;
+using OpenScctEditor.Viewports;
 
 namespace OpenScctEditor.Panels;
 
@@ -47,26 +48,35 @@ public partial class EmitterLibraryPanel : EditorPanel
         _status = PanelUi.Caption(this, "");
         var split = new VSplitContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
         AddChild(split);
-        _tree = new Tree { Name = "Effects", HideRoot = true, CustomMinimumSize = new Vector2(0, 92), SizeFlagsVertical = SizeFlags.ExpandFill };
+        _tree = new EmitterAssetTree { Name = "Effects", HideRoot = true, CustomMinimumSize = new Vector2(0, 92), SizeFlagsVertical = SizeFlags.ExpandFill,
+            StartDrag = StartDrag };
         _tree.ItemSelected += Pick;
         _tree.ItemActivated += Place;
         split.AddChild(_tree);
 
-        var detailPane = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
+        var detailPane = new VBoxContainer { SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1.3f };
         split.AddChild(detailPane);
-        split.SplitOffsets = [-96];
-        _preview = new EmitterPreview { Name = "EffectPreview" };
+        _preview = new EmitterPreview { Name = "EffectPreview", SizeFlagsVertical = SizeFlags.ExpandFill };
         detailPane.AddChild(_preview);
         HFlowContainer actions = PanelUi.Toolbar(detailPane);
         _place = PanelUi.Primary(actions, "Place at Brush", "Place the effect at the builder brush as one undo step", Place);
         _replay = PanelUi.Button(actions, "Replay", "Restart the effect in the preview", Replay);
+        PanelUi.Button(actions, "Frame FX", "Fit the complete effect in the preview", () => _preview.Frame());
         _edit = PanelUi.Button(actions, "Edit…", "Edit the effect before placing or saving a copy", ToggleEditor);
         _getSourcePack = PanelUi.Button(actions, "Get Source Pack", "Find the map that contains this effect", GetSourcePack);
         _getSourcePack.Name = "GetEmitterSourcePack";
 
         VBoxContainer details = PanelUi.Scroll(detailPane);
         PanelUi.ScrollOf(details).CustomMinimumSize = new Vector2(0, 65);
-        PanelUi.ScrollOf(details).HorizontalScrollMode = ScrollContainer.ScrollMode.Auto;
+        PanelUi.ScrollOf(details).SizeFlagsVertical = SizeFlags.Fill;
+        void SizeDetails()
+        {
+            var scroll = PanelUi.ScrollOf(details);
+            float available = Math.Clamp(Size.Y * 0.24f, 65, 210);
+            scroll.CustomMinimumSize = new Vector2(0, Math.Clamp(details.GetCombinedMinimumSize().Y, 65, available));
+        }
+        details.MinimumSizeChanged += SizeDetails;
+        Resized += SizeDetails;
         _loop = new CheckBox { Text = "Loop", TooltipText = "Each particle system waits after its particles finish, then starts again" };
         details.AddChild(_loop);
         _wait = PanelUi.Toolbar(details);
@@ -82,6 +92,8 @@ public partial class EmitterLibraryPanel : EditorPanel
         details.AddChild(_editForm);
         _editForm.Hide();
         _description = PanelUi.Caption(details, "Choose an effect to preview it.");
+        _description.MaxLinesVisible = 4;
+        _description.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
         VisibilityChanged += () =>
         {
             LoadWhenVisible();
@@ -99,7 +111,6 @@ public partial class EmitterLibraryPanel : EditorPanel
             Description = "Capture the selected particle effects in the emitter library",
         });
         ShowEffect();
-
     }
 
     public override void Refresh()
@@ -141,7 +152,6 @@ public partial class EmitterLibraryPanel : EditorPanel
                         _presets.FirstOrDefault(p => p.Id == previous.Id) is { } current &&
                         (ReferenceEquals(_draft, previous) || current.UnavailableReason != previous.UnavailableReason);
                     Fill(select ?? _selected?.Id, replace);
-                    CommandPalette.Instance?.RefreshDiscovery();
                 });
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
@@ -170,7 +180,7 @@ public partial class EmitterLibraryPanel : EditorPanel
                     TreeItem row = _tree.CreateItem(branch);
                     row.SetText(0, preset.Name);
                     row.SetIcon(0, Icons.Get("type-emitter", EditorTheme.TextDim));
-                    row.SetTooltipText(0, preset.UnavailableReason is { } problem ? $"{preset.Description}\n{problem}" : preset.Description);
+                    row.SetTooltipText(0, preset.UnavailableReason is { } problem ? $"{preset.Description}\n{problem}" : preset.Description + "\nDrag into a viewport to place this effect.");
                     if (preset.UnavailableReason is not null) row.SetCustomColor(0, EditorTheme.TextDim);
                     row.SetMetadata(0, preset.Id);
                     if (preset.Id == (select ?? _selected?.Id)) selectedItem = row;
@@ -229,6 +239,7 @@ public partial class EmitterLibraryPanel : EditorPanel
     {
         _description.Text = _draft is { } effect ? $"{effect.Name} · {effect.Mode}\n{effect.Description}" : "Choose an effect to preview it.";
         if (_draft?.UnavailableReason is { } unavailable) _description.Text += $"\n{unavailable}";
+        _description.TooltipText = _description.Text;
         _place.Disabled = _replay.Disabled = _edit.Disabled = _loop.Disabled = _draft is null || _draft.UnavailableReason is not null;
         _getSourcePack.Visible = MissingSourceMap is not null;
         _edit.Text = "Edit…";
@@ -265,13 +276,34 @@ public partial class EmitterLibraryPanel : EditorPanel
     {
         if (_draft is not { UnavailableReason: null } preset || _tree.GetSelected() is null) return;
         Vec3 at = ToolManager.Instance?.Builder.Location ?? Context.PlacementPoint?.Invoke() ?? Context.Project.Workspace.CameraLocation;
+        Place(preset, at, _loop.ButtonPressed ? _min.Value : null, _loop.ButtonPressed ? _max.Value : null);
+    }
+
+    private Variant StartDrag(Vector2 at)
+    {
+        TreeItem? row = _tree.GetItemAtPosition(at);
+        if (row?.GetMetadata(0).AsString() is not { Length: > 0 } id) return default;
+        row.Select(0);
+        Pick();
+        if (_draft is not { UnavailableReason: null } draft || draft.Id != id) return default;
+        var session = Context.Session;
+        EmitterPreset preset = draft with { Actors = draft.Actors.Select(a => a.Clone()).ToArray() };
+        if (_loop.ButtonPressed) preset = EmitterPlacement.Loop(preset, _min.Value, _max.Value);
+        _tree.SetDragPreview(new Label { Text = preset.Name, MouseFilter = MouseFilterEnum.Ignore });
+        return Variant.From(new PrefabDragData(preset.Name, point =>
+        {
+            if (ReferenceEquals(session, Context.Session)) Place(preset, point);
+        }));
+    }
+
+    private void Place(EmitterPreset preset, Vec3 at, double? min = null, double? max = null)
+    {
         try
         {
-            var placement = EmitterPlacement.Place(Context.Project, preset, at, _loop.ButtonPressed ? _min.Value : null,
-                _loop.ButtonPressed ? _max.Value : null);
+            var placement = EmitterPlacement.Place(Context.Project, preset, at, min, max);
             Context.Execute(placement.Command);
             Context.Selection.Set(placement.Actors.Select(a => ObjectRef.Actor(a.Id)));
-            Context.SetStatus($"Placed {preset.Name} at the builder brush");
+            Context.SetStatus($"Placed {preset.Name} at {at}");
         }
         catch (Exception ex) when (ex is InvalidDataException or ArgumentException or InvalidOperationException)
         {
@@ -321,7 +353,7 @@ public partial class EmitterLibraryPanel : EditorPanel
     private static LineEdit TextField(Control parent, string label, string value)
     {
         var edit = new LineEdit { Text = value, SizeFlagsHorizontal = SizeFlags.ExpandFill };
-        PanelUi.Row(parent, label, labelWidth: 78).AddChild(edit);
+        PanelUi.Row(parent, label).AddChild(edit);
         return edit;
     }
 
@@ -356,4 +388,10 @@ public partial class EmitterLibraryPanel : EditorPanel
         Context.Log($"{Title}: {ex.Message}", Severity.Warning);
         Context.SetStatus(ex.Message);
     }
+}
+
+public partial class EmitterAssetTree : Tree
+{
+    public Func<Vector2, Variant>? StartDrag { get; set; }
+    public override Variant _GetDragData(Vector2 atPosition) => StartDrag?.Invoke(atPosition) ?? default;
 }

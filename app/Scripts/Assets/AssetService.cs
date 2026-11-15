@@ -42,7 +42,7 @@ public sealed class AssetService
     public event Action? FavouritesChanged;
 
     /// <summary>The project folder assets resolve against (null for an unsaved map).</summary>
-    public static string? ProjectFolder => EditorContext.Instance.Session.Folder;
+    public static string? ProjectFolder => OpenScct.Editor.Core.Interop.Sdc.SdcAssets.ProjectFolder(EditorContext.Instance.Project, EditorContext.Instance.Session.Folder);
 
     /// <summary>The source map of the open map's baked world (an imported map), or null.</summary>
     public static string? BakedSourceMap => EditorContext.Instance.Project.Baked?.SourceMap;

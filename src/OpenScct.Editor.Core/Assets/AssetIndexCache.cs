@@ -10,7 +10,7 @@ namespace OpenScct.Editor.Core.Assets;
 /// </summary>
 public static class AssetIndexCache
 {
-    private const int Version = 2;
+    private const int Version = 3;
 
     /// <summary>The cached index of a source, or a fresh one (written to the cache). Cached is true when read from disk.</summary>
     public static (AssetSource Source, bool Cached) Get(string cacheDir, string name, string digest, string baseDir, Func<AssetSource> index)

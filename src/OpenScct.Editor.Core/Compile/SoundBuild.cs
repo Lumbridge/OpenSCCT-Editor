@@ -15,7 +15,7 @@ public static class SoundBuild
         if (!ctx.Files.TryGetValue("audio/audio.json", out var bytes) || JsonNode.Parse(bytes) is not JsonObject audio) return;
         var sounds = (audio["sounds"] ??= new JsonObject()).AsObject();
         var catalog = AssetCatalog.For(ctx.ContentRoot, ctx.Options.ProjectFolder);
-        var library = new SoundLibrary(catalog, ctx.ContentRoot);
+        var library = new SoundLibrary(catalog, ctx.ContentRoot, ctx.Options.ProjectFolder);
         var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         void Add(string path)
         {

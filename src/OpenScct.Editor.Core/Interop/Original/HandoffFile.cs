@@ -202,6 +202,10 @@ public static class HandoffFile
                     File.Copy(file, target);
                 }
             }
+            // An SDC import retains its source package too, including opaque data for unsupported assets.
+            // Keep write-back independent of the original installation or temporary conversion folder.
+            if (p.Source.Kind == "sdc" && ProjectAssets.For(projectFolder).Manifest["sourceMap"]?.GetValue<string>() is { } sourceMap)
+                p.Source.File = ProjectAssets.For(projectFolder).FilePath(sourceMap);
         }
 
         var extra = new SvJsonObject();

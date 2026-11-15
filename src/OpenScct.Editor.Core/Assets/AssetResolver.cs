@@ -22,6 +22,7 @@ public sealed class AssetResolver
         Source = source;
         Gameplay = gameplay ?? GameplayPack.Empty;
         Skeletal = skeletal ?? SkeletalLibrary.Empty;
+        if (project is not null) Skeletal = Skeletal.WithProject(project);
     }
 
     public static AssetResolver Empty { get; } = new(ContentLibrary.Empty, null);

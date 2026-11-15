@@ -26,13 +26,18 @@ public sealed record ImportReportSection(string Key, string Title, IReadOnlyList
 public sealed class ImportReport
 {
     public const string CameIn = "in", CookedOut = "cookedOut", Lifted = "lifted", Recovered = "recovered", Dropped = "dropped",
-        Warnings = "warnings", Notes = "notes";
+        Warnings = "warnings", Notes = "notes", Assets = "assets", MissingAssets = "missingAssets", UnsupportedAssets = "unsupportedAssets";
 
     /// <summary>Import finding codes by the part of the report they belong to (warnings and other notes go by severity).</summary>
     private static readonly Dictionary<string, string> s_sectionOf = new(StringComparer.Ordinal)
     {
         ["import.summary"] = CameIn,
         ["import.sdc"] = CameIn,
+        ["import.assets"] = Assets,
+        ["import.assetPackage"] = Assets,
+        ["import.assetMissing"] = MissingAssets,
+        ["import.assetUnsupported"] = UnsupportedAssets,
+        ["import.assetsFailed"] = MissingAssets,
         ["import.sdcNative"] = CameIn,
         ["import.sdcRenderActors"] = CameIn,
         ["import.sdcConvertedOnly"] = CameIn,
@@ -72,6 +77,9 @@ public sealed class ImportReport
     private static readonly (string Key, string Title)[] s_titles =
     [
         (CameIn, "What came in"),
+        (Assets, "Assets imported"),
+        (MissingAssets, "Assets missing or incomplete"),
+        (UnsupportedAssets, "Assets or behavior unsupported"),
         (CookedOut, "Cooked out (kept in the project, left out of builds as the cook does)"),
         (Lifted, "Lifted (RE+ actors whose settings became native data)"),
         (Recovered, "Recovered or rebuilt"),

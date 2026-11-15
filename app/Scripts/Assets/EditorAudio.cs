@@ -100,7 +100,7 @@ public partial class EditorAudio : Node, IShellPart
     private AudioStream? Resolve(string path, bool loop)
     {
         if (_streams.TryGetValue((path, loop), out var stream)) return stream;
-        _library ??= new SoundLibrary(AssetService.Instance.Catalog, OpenScct.Editor.Core.Services.EditorServices.ContentRoot);
+        _library ??= new SoundLibrary(AssetService.Instance.Catalog, OpenScct.Editor.Core.Services.EditorServices.ContentRoot, AssetService.ProjectFolder);
         try
         {
             var leaf = _library.Leaves(path).FirstOrDefault(s => s.File is { } f && File.Exists(f));
@@ -115,6 +115,9 @@ public partial class EditorAudio : Node, IShellPart
         _streams[(path, loop)] = stream;
         return stream;
     }
+
+    /// <summary>Loads a clip for its waveform without starting or interrupting playback.</summary>
+    public AudioStream? PreviewStream(string path) => Resolve(path, false);
 
     public bool Play(string path, double volume = 128, double pitch = 64)
     {

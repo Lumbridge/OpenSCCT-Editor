@@ -165,6 +165,35 @@ public sealed class SvmbuildRunner
         }
     }
 
+    /// <summary>Runs an editor-owned conversion extension with the builder's Python and package readers.</summary>
+    public int RunScript(string script, IEnumerable<string> arguments, string workDir, Action<string>? onLine)
+    {
+        _tool ??= new BuilderTool(_python!, Path.Combine(Stage(onLine), "content"));
+        var info = new System.Diagnostics.ProcessStartInfo(_tool.Python)
+        {
+            WorkingDirectory = _tool.WorkingDirectory ?? workDir,
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true,
+        };
+        // The shipped interpreter uses an isolated ._pth; runpy keeps its installed svmbuild on sys.path.
+        foreach (string arg in new[] { "-u", "-c", "import runpy,sys; p=sys.argv.pop(1); runpy.run_path(p,run_name='__main__')", script }.Concat(arguments))
+            info.ArgumentList.Add(arg);
+        info.Environment["PYTHONIOENCODING"] = "utf-8";
+        using var process = new System.Diagnostics.Process { StartInfo = info };
+        process.OutputDataReceived += (_, e) => { if (e.Data is not null) onLine?.Invoke(e.Data); };
+        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) onLine?.Invoke(e.Data); };
+        process.Start();
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+        using var registration = Stopping.Register(() =>
+        {
+            try { process.Kill(entireProcessTree: true); } catch (InvalidOperationException) { }
+        });
+        process.WaitForExit();
+        Stopping.ThrowIfCancellationRequested();
+        return process.ExitCode;
+    }
+
     /// <summary>Copies a checkout's builder to the editor's data folder (once per version of its files) and returns the
     /// copy's root.</summary>
     private string Stage(Action<string>? progress)

@@ -145,7 +145,10 @@ public static class AssetIndexer
             string? rel = s?["file"]?.GetValue<string>();
             yield return new AssetEntry
             {
-                Kind = AssetKind.Sound, Path = path, Origin = map, File = rel is null ? null : Path.Combine(mapDir, "audio", rel),
+                Kind = AssetKind.Sound, Path = path, Origin = map,
+                File = rel is null ? null : s?["root"]?.GetValue<string>() == "shared"
+                    ? Path.Combine(Path.GetDirectoryName(Path.GetDirectoryName(mapDir))!, "shared", "audio", rel)
+                    : Path.Combine(mapDir, "audio", rel),
                 Duration = s?["duration"] is JsonValue d && d.TryGetValue(out double dd) ? dd : 0, SoundKind = s?["kind"]?.GetValue<string>(),
                 UsedIn = One(map), Gloss = AssetGlossary.Gloss(path),
             };
@@ -278,13 +281,13 @@ public static class AssetIndexer
 
         foreach ((string path, JsonNode? s) in assets.Sounds)
         {
-            if (s?["file"]?.GetValue<string>() is { } rel)
+            if (s is JsonObject sound)
             {
-                string file = assets.FilePath(rel);
+                string? file = sound["file"]?.GetValue<string>() is { } rel ? assets.FilePath(rel) : null;
                 entries.Add(new AssetEntry
                 {
-                    Kind = AssetKind.Sound, Path = path, Origin = AssetPaths.LocalPackage, File = file, SoundKind = "sound",
-                    Duration = file.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) ? WavSeconds(file) : 0,
+                    Kind = AssetKind.Sound, Path = path, Origin = AssetPaths.LocalPackage, File = file, SoundKind = sound["kind"]?.GetValue<string>() ?? "sound",
+                    Duration = sound["duration"]?.GetValue<double>() ?? (file?.EndsWith(".wav", StringComparison.OrdinalIgnoreCase) == true ? WavSeconds(file) : 0),
                 });
             }
         }

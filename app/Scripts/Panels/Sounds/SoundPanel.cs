@@ -47,8 +47,10 @@ public partial class SoundPanel : EditorPanel
         HFlowContainer tools = PanelUi.Toolbar(this);
         PanelUi.Button(tools, "Import WAV / OGG…", "Copy a sound into this map's assets", Import);
         PanelUi.IconButton(tools, "refresh", "Reindex the installed sounds", () => AssetService.Instance.Reload());
-        var tabs = new TabContainer { CustomMinimumSize = new Vector2(0, 180), SizeFlagsVertical = SizeFlags.Fill };
-        AddChild(tabs);
+        var split = new VSplitContainer { Name = "SoundSplit", SizeFlagsVertical = SizeFlags.ExpandFill };
+        AddChild(split);
+        var tabs = new TabContainer { Name = "SoundLists", CustomMinimumSize = new Vector2(0, 92), SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1.8f };
+        split.AddChild(tabs);
         _assets = new SoundAssetTree { Name = "Library", HideRoot = true, SizeFlagsVertical = SizeFlags.ExpandFill };
         _assets.Settings = () => (Volume, Pitch, _radius.Value);
         _assets.ItemSelected += PickAsset;
@@ -61,8 +63,8 @@ public partial class SoundPanel : EditorPanel
         _sources.ItemActivated += () => Context.Focus(Context.Selection.Items);
         tabs.AddChild(_sources);
 
-        var detail = PanelUi.Scroll(this);
-        PanelUi.ScrollOf(detail).SizeFlagsVertical = SizeFlags.ExpandFill;
+        var detail = PanelUi.Scroll(split);
+        PanelUi.ScrollOf(detail).CustomMinimumSize = new Vector2(0, 80);
         _info = PanelUi.Caption(detail, "Choose a sound, or select a sound source in the map.");
         _waveform = new SoundWaveform { Name = "SoundWaveform" };
         detail.AddChild(_waveform);
@@ -121,6 +123,7 @@ public partial class SoundPanel : EditorPanel
     private void CatalogChanged()
     {
         FillAssets();
+        if (_sound is { } current) _waveform.SetStream(EditorAudio.Instance?.PreviewStream(current));
         if (_pendingImport is { } path && AssetService.Instance.Catalog.Find(AssetKind.Sound, path) is { } entry)
         { _pendingImport = null; Choose(entry.Path); }
     }
@@ -174,7 +177,11 @@ public partial class SoundPanel : EditorPanel
     }
     private void Choose(string path)
     {
-        if (!string.Equals(_sound, path, StringComparison.OrdinalIgnoreCase)) { EditorAudio.Instance?.Stop(); _waveform.SetStream(null); }
+        if (!string.Equals(_sound, path, StringComparison.OrdinalIgnoreCase))
+        {
+            EditorAudio.Instance?.Stop();
+            _waveform.SetStream(EditorAudio.Instance?.PreviewStream(path));
+        }
         _sound = path;
         var entry = AssetService.Instance.Catalog.Find(AssetKind.Sound, path);
         _info.Text = entry is null ? path + "\nSound content is not installed." : $"{entry.Name}\n{entry.Path} · {entry.Origin} · {entry.Duration:0.0} s" +
@@ -232,14 +239,17 @@ public partial class SoundPanel : EditorPanel
     public override void _Process(double delta)
     {
         if (!IsVisibleInTree() || EditorAudio.Instance is not { } audio) return;
-        double fraction = audio.Length > 0 ? audio.Position / audio.Length : 0;
+        bool current = string.Equals(audio.CurrentPath, _sound, StringComparison.OrdinalIgnoreCase);
+        double length = _waveform.Length;
+        double position = current ? audio.Position : 0;
+        double fraction = length > 0 ? position / length : 0;
         _syncing = true;
         _seek.SetValueNoSignal(fraction);
         _syncing = false;
         _waveform.Fraction = fraction;
         _waveform.QueueRedraw();
-        static string Time(double seconds) => $"{(int)seconds / 60}:{(int)seconds % 60:00}";
-        _time.Text = $"{Time(audio.Position)} / {Time(audio.Length)}";
+        static string Time(double seconds) => seconds < 10 ? $"0:{seconds:00.0}" : $"{(int)seconds / 60}:{(int)seconds % 60:00}";
+        _time.Text = $"{Time(position)} / {Time(length)}";
     }
 
     private void Place()

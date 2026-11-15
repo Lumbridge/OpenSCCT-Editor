@@ -162,20 +162,20 @@ public sealed class SdcImporter : IMapImporter
         var findings = new List<Finding>();
         string content = Path.Combine(work, "content");
         string install = game;
-        string? addons = null;
         string id = MapId(map);
+        // Always collect accompanying packages, including a modified copy of an installed map.
+        string? addons = Addons(sdc, map, id, game, work);
         // A map converted under another id always goes through the staged addons, which hold it under that id.
         string? stock = id == map ? StockCopy(game, map) : null;
-        if (stock is not null && !SameFile(stock, sdc, sha))
+        Dictionary<string, string> overrides = AccompanyingOverrides(game, addons);
+        if ((stock is not null && !SameFile(stock, sdc, sha)) || overrides.Count > 0)
         {
             // The builder always takes the install's file of a name, so a changed copy of a stock map (an editor copy in
             // Packages\MapsEd, or one from another install) runs against a stand-in install that holds it instead.
-            options.Progress?.Invoke($"the install has its own {Path.GetFileName(stock)}; converting {sdc} in its place");
-            install = InstallWithCopy(game, stock, sdc, work);
-        }
-        else if (stock is null)
-        {
-            addons = Addons(sdc, map, id, game, work);
+            options.Progress?.Invoke($"converting the selected {sdc} with its accompanying packages");
+            install = InstallWithCopy(game, stock ?? sdc, sdc, work, overrides);
+            foreach ((string original, string selected) in overrides)
+                findings.Add(Finding.Info("import.assetPackage", $"Using accompanying package {selected} in place of {original} for this import."));
         }
 
         string? contentRoot = options.ContentRoot ?? EditorServices.ContentRoot;
@@ -193,6 +193,7 @@ public sealed class SdcImporter : IMapImporter
         List<string> steps = haveClasses ? ["maps"] : ["classes", "maps"];
         options.Progress?.Invoke($"converting {map}.sdc with the content builder ({string.Join(", ", steps)})");
         int code = runner.Run(Arguments(steps, id, install, content, addons), work, OnLine);
+        bool bakedFromStock = false;
         string folder = Path.Combine(content, "svmap", id);
         if ((code != 0 || !SvMapImport.IsSvMapFolder(folder)) && layout == SdcLayout.Editor && stock is not null && install != game)
         {
@@ -201,7 +202,8 @@ public sealed class SdcImporter : IMapImporter
             string failure = Failure(code, log);
             options.Progress?.Invoke($"the content builder could not convert the editor copy {sdc} ({failure}); taking the baked world from the install's {stock}");
             DeleteStandIn(work);
-            install = game;
+            install = overrides.Count > 0 ? InstallWithCopy(game, stock, stock, work, overrides) : game;
+            bakedFromStock = true;
             log.Clear();
             code = runner.Run(Arguments(steps, map, install, content, addons), work, OnLine);
             string remedy = runner.ReadsEditorCopies switch
@@ -243,9 +245,17 @@ public sealed class SdcImporter : IMapImporter
                 "no shared sound library (shared/audio/audio.json in the content folder), so the map's ambient sounds are not imported"));
         }
 
-        // The brushes come from the .sdc itself (its own, or recovered from its BSP with its surfs), not the conversion.
-        ImportResult result = SvMapImport.Import(folder, options with { BrushRecovery = BrushRecoveryMode.Off });
+        ImportResult result = SvMapImport.Import(folder, options);
         result.Project.Source = new ProjectSource { Kind = "sdc", File = sdc, Sha256 = sha };
+        try
+        {
+            if (bakedFromStock) install = InstallWithCopy(game, stock!, sdc, work, overrides);
+            SdcAssets.Import(result.Project, id, install, addons, work, runner, options.Progress, findings);
+        }
+        catch (Exception ex) when (ex is not (OperationCanceledException or OutOfMemoryException))
+        {
+            findings.Add(Finding.Warning("import.assetsFailed", $"The asset dependency pass failed: {ex.Message}. Custom assets may be incomplete; the converted map is kept."));
+        }
         findings.Add(Finding.Info("import.sdc",
             $"converted with the content builder of {runner.Description} (game {game}{(addons is null ? "" : $", addons {addons}")}"
             + $"{(install == game ? "" : $", this copy in place of the install's {map}.sdc")}); "
@@ -285,9 +295,12 @@ public sealed class SdcImporter : IMapImporter
     {
         string? env = Environment.GetEnvironmentVariable("SVM_GAME_ROOT");
         DirectoryInfo? maps = string.IsNullOrEmpty(sdc) ? null : new FileInfo(sdc).Directory;
-        string? around = maps is { Parent: { Name: var pk, Parent: { } root } }
-            && pk.Equals("Packages", StringComparison.OrdinalIgnoreCase)
-            && IsInstall(root.FullName) ? root.FullName : null;
+        // RE+ also keeps maps in nested MapsEd/Recovery folders and custom working folders.
+        string? around = null;
+        for (DirectoryInfo? candidate = maps; candidate is not null; candidate = candidate.Parent)
+        {
+            if (IsInstall(candidate.FullName)) { around = candidate.FullName; break; }
+        }
         foreach (string? candidate in new[] { given, around, string.IsNullOrEmpty(env) ? null : env, DefaultGameRoot })
         {
             if (candidate is not null && IsInstall(candidate))
@@ -336,7 +349,7 @@ public sealed class SdcImporter : IMapImporter
     /// so it costs no disk space and the install is never changed (the builder only reads it). Editor copies
     /// (Packages\MapsEd) are left out: the builder never reads them.
     /// </summary>
-    private static string InstallWithCopy(string game, string stock, string sdc, string work)
+    private static string InstallWithCopy(string game, string stock, string sdc, string work, IReadOnlyDictionary<string, string> overrides)
     {
         DeleteStandIn(work);
         string root = Path.Combine(work, "game");
@@ -354,6 +367,11 @@ public sealed class SdcImporter : IMapImporter
 
             string to = Path.Combine(root, Path.GetRelativePath(game, full));
             Directory.CreateDirectory(Path.GetDirectoryName(to)!);
+            if (overrides.TryGetValue(full, out string? replacement))
+            {
+                File.Copy(replacement, to);
+                continue;
+            }
             if (!HardLink.Create(to, full))
             {
                 DeleteStandIn(work);
@@ -367,6 +385,24 @@ public sealed class SdcImporter : IMapImporter
         // The chosen copy is copied, not linked, under the install's file name.
         CopyIfChanged(sdc, Path.Combine(root, "Packages", "Maps", Path.GetFileName(fullStock)));
         return root;
+    }
+
+    private static Dictionary<string, string> AccompanyingOverrides(string game, string? addons)
+    {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        string? packages = addons is null ? null : Path.Combine(addons, "Packages");
+        if (packages is null || !Directory.Exists(packages)) return result;
+        var own = Directory.EnumerateFiles(packages, "*", SearchOption.AllDirectories)
+            .Where(f => s_packageExtensions.Contains(Path.GetExtension(f)))
+            .GroupBy(Path.GetFileName, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key!, g => g.First(), StringComparer.OrdinalIgnoreCase);
+        foreach (string dir in new[] { Path.Combine(game, "Packages"), Path.Combine(game, "System", "_PC_") }.Where(Directory.Exists))
+            foreach (string file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                if (!file.Contains(Path.DirectorySeparatorChar + "MapsEd" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+                    && own.TryGetValue(Path.GetFileName(file), out string? selected)
+                    && !SHA256.HashData(File.ReadAllBytes(file)).SequenceEqual(SHA256.HashData(File.ReadAllBytes(selected))))
+                    result[Path.GetFullPath(file)] = selected;
+        return result;
     }
 
     /// <summary>Removes the stand-in install. It holds only folders this importer made and hard links, so deleting it
@@ -396,13 +432,21 @@ public sealed class SdcImporter : IMapImporter
 
         // Stage the map and the files next to it (a downloaded map's textures, meshes and sounds, and its text) as an
         // addons folder laid out like an install.
-        string addons = Path.Combine(work, "addons");
+        string addons = Path.Combine(work, "addons-" + Guid.NewGuid().ToString("N"));
         string packages = Path.Combine(addons, "Packages");
         Directory.CreateDirectory(Path.Combine(packages, "Maps"));
         CopyIfChanged(sdc, Path.Combine(packages, "Maps", id + ".sdc"));
         foreach (string f in Directory.EnumerateFiles(dir.FullName))
         {
             StageAddonFile(f, map, id, addons, Path.Combine(packages, "Extra"));
+        }
+        foreach (string child in new[] { "Packages", "Textures", "StaticMeshes", "Sounds", "Animations", "Assets" })
+        {
+            string folder = Path.Combine(dir.FullName, child);
+            if (!Directory.Exists(folder)) continue;
+            foreach (string file in Directory.EnumerateFiles(folder, "*", new EnumerationOptions
+                { RecurseSubdirectories = true, AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = true }))
+                StageAddonFile(file, map, id, addons, Path.Combine(packages, "Extra"));
         }
 
         if (id != map)
@@ -475,7 +519,8 @@ public sealed class SdcImporter : IMapImporter
             : null;
         if (packageDir is not null && s_packageExtensions.Contains(ext) && (own is not null || !ownFilesOnly))
         {
-            CopyIfChanged(file, Path.Combine(packageDir, (own ?? name) + ext));
+            string to = Path.Combine(packageDir, (own ?? name) + ext);
+            if (!ownFilesOnly || !File.Exists(to)) CopyIfChanged(file, to);
         }
         else if (s_textExtensions.Contains(ext) && own is not null)
         {

@@ -11,7 +11,7 @@ public sealed record SoundSource(string Path, JsonObject Definition, string? Fil
 }
 
 /// <summary>Resolves both audio files and composite sounds without losing their original sound definitions.</summary>
-public sealed class SoundLibrary(AssetCatalog catalog, string? contentRoot)
+public sealed class SoundLibrary(AssetCatalog catalog, string? contentRoot, string? projectFolder = null)
 {
     private readonly Dictionary<string, JsonObject> _tables = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, string>? _maps;
@@ -41,6 +41,8 @@ public sealed class SoundLibrary(AssetCatalog catalog, string? contentRoot)
             if (_maps.TryGetValue(entry.Origin, out string? folder) && Find(Table(Path.Combine(folder, "audio", "audio.json")), entry.Path) is { } own)
                 foreach (var p in own) definition[p.Key] = p.Value?.DeepClone();
         }
+        if (projectFolder is not null && Find(ProjectAssets.For(projectFolder).Sounds, entry.Path) is { } local)
+            definition = local.DeepClone().AsObject();
         definition["kind"] ??= entry.SoundKind is "random" or "sequence" or "switch" ? entry.SoundKind : "wave";
         definition["flags"] ??= 0;
         definition["volume"] ??= 1f;

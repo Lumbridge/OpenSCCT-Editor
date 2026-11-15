@@ -213,6 +213,9 @@ public sealed class EditorSession
 
         // Outfit files from outside the map (an SVMap import, files picked before it had a folder) come in with it.
         Project.Outfits = Gameplay.ProjectOutfits.Localize(Project.Outfits, folder);
+        if (Folder is not null && Project.Source.Kind == "sdc" && Project.Source.File is { } source
+            && Path.GetFullPath(source).StartsWith(Path.Combine(Path.GetFullPath(Folder), Assets.ProjectAssets.Folder) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            Project.Source.File = Path.GetFullPath(Path.Combine(folder, Path.GetRelativePath(Folder, source)));
         // Saving an opened backup into its own project puts the backup's assets and prefabs back too.
         bool restoring = Folder is not null && string.Equals(Path.GetFullPath(folder), Folder, StringComparison.OrdinalIgnoreCase);
         SaveWarnings = ProjectStore.Save(Project, folder, ProjectBackups.Kept, restoring ? _restoreFrom : null);

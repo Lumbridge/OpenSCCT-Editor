@@ -14,6 +14,7 @@ public sealed class CompileContext
 
     public CompileContext(MapProject project, CompileOptions options, IClassCatalog? catalog)
     {
+        options = options with { ProjectFolder = Interop.Sdc.SdcAssets.ProjectFolder(project, options.ProjectFolder) };
         WindowFrameSources = project.Actors.Where(a => a.Window is not null).SelectMany(a => a.Window!.FrameCollisionSources).ToHashSet(StringComparer.OrdinalIgnoreCase);
         // Procedural traversal looks lower to ordinary brushes for every compiler consumer, including light previews.
         // The authored project remains parametric; expansion never changes it and is safe to call more than once.

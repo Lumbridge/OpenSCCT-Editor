@@ -24,9 +24,12 @@ public sealed class SkeletalLibrary
     private readonly Lazy<Dictionary<string, string>> _files;
     private readonly ConcurrentDictionary<string, SkeletalMeshFile?> _read = new(StringComparer.OrdinalIgnoreCase);
 
-    private SkeletalLibrary(string? contentRoot)
+    private readonly ProjectAssets? _project;
+
+    private SkeletalLibrary(string? contentRoot, ProjectAssets? project = null)
     {
         _contentRoot = contentRoot;
+        _project = project;
         _files = new Lazy<Dictionary<string, string>>(Index);
     }
 
@@ -34,6 +37,8 @@ public sealed class SkeletalLibrary
 
     public static SkeletalLibrary For(string? contentRoot) =>
         contentRoot is null || !Directory.Exists(contentRoot) ? Empty : s_libraries.GetOrAdd(Path.GetFullPath(contentRoot), r => new SkeletalLibrary(r));
+
+    public SkeletalLibrary WithProject(ProjectAssets project) => new(_contentRoot, project);
 
     internal static void Invalidate(string contentRoot) => s_libraries.TryRemove(Path.GetFullPath(contentRoot), out _);
 
@@ -49,6 +54,10 @@ public sealed class SkeletalLibrary
     private Dictionary<string, string> Index()
     {
         var index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (_project?.Manifest["skeletalMeshes"] is JsonObject meshes)
+            foreach (var (path, node) in meshes)
+                if (node?["file"]?.GetValue<string>() is { } file)
+                    index.TryAdd(AssetPaths.Short(path), _project.FilePath(file));
         if (_contentRoot is null)
         {
             return index;

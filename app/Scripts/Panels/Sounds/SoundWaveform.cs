@@ -3,10 +3,14 @@ using OpenScctEditor.Shell;
 
 namespace OpenScctEditor.Panels;
 
-/// <summary>PCM waveform and seek target; compressed clips still show a transport timeline.</summary>
+/// <summary>Waveform and seek target for PCM and compressed clips, decoded separately from audible playback.</summary>
 public partial class SoundWaveform : Control
 {
     private float[] _peaks = [];
+    private AudioStreamPlayback? _decoder;
+    private long _frames;
+    private long _decoded;
+    public double Length { get; private set; }
     public double Fraction { get; set; }
     public event Action<double>? SeekRequested;
 
@@ -20,7 +24,12 @@ public partial class SoundWaveform : Control
 
     public void SetStream(AudioStream? stream)
     {
+        _decoder?.Stop();
+        _decoder?.Dispose();
+        _decoder = null;
         _peaks = [];
+        Length = stream?.GetLength() ?? 0;
+        Fraction = 0;
         if (stream is AudioStreamWav wav && wav.Format is AudioStreamWav.FormatEnum.Format8Bits or AudioStreamWav.FormatEnum.Format16Bits)
         {
             byte[] data = wav.Data;
@@ -39,7 +48,50 @@ public partial class SoundWaveform : Control
                 }
             }
         }
+        else if (stream is not null && stream.GetLength() > 0)
+        {
+            _frames = Math.Max(1, (long)Math.Ceiling(stream.GetLength() * AudioServer.GetMixRate()));
+            _decoded = 0;
+            _peaks = new float[480];
+            _decoder = stream.InstantiatePlayback();
+            _decoder?.Start();
+        }
+        SetProcess(_decoder is not null);
         QueueRedraw();
+    }
+
+    public override void _Process(double delta)
+    {
+        // Bound work per frame so even a long OGG never stalls selection or seeking.
+        long start = System.Diagnostics.Stopwatch.GetTimestamp();
+        while (_decoder is not null && _decoded < _frames)
+        {
+            int count = (int)Math.Min(4096, _frames - _decoded);
+            Vector2[] samples = _decoder.MixAudio(1, count);
+            for (int i = 0; i < samples.Length; i++)
+            {
+                int bucket = (int)Math.Min(_peaks.Length - 1, (_decoded + i) * _peaks.Length / _frames);
+                _peaks[bucket] = Math.Max(_peaks[bucket], Math.Max(Math.Abs(samples[i].X), Math.Abs(samples[i].Y)));
+            }
+            _decoded += samples.Length;
+            if (samples.Length < count) _frames = _decoded;
+            if (System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds >= 3) break;
+        }
+        if (_decoded >= _frames)
+        {
+            _decoder?.Stop();
+            _decoder?.Dispose();
+            _decoder = null;
+            SetProcess(false);
+        }
+        QueueRedraw();
+    }
+
+    public override void _ExitTree()
+    {
+        _decoder?.Stop();
+        _decoder?.Dispose();
+        _decoder = null;
     }
 
     public override void _Draw()
