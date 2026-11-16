@@ -93,9 +93,9 @@ public sealed partial class CommandPalette
                 $"{lesson.Steps.Length} steps · Back, Next and Cancel at any time" + (completed.Contains(lesson.Id) ? " · Completed" : ""),
                 lesson.Keywords + DiscoverySearch.Aliases(lesson.Title), () => TutorialRunner.Instance?.Start(lesson)));
         foreach (Placeable p in Placeables.Available(EditorServices.Classes))
-            _index.Add(new("p:" + p.Class, p.Title, "Placeable", "Placeables › " + Placeables.GroupTitle(p.Group),
+            _index.Add(new("p:" + p.Key, p.Title, "Placeable", "Placeables › " + Placeables.GroupTitle(p.Group),
                 p.Summary + " Locate the tile, then drag it into your map.", p.Class + " " + p.Summary + DiscoverySearch.Aliases(p.Title),
-                () => PlaceablesPanel.Instance?.RevealClass(p.Class)));
+                () => PlaceablesPanel.Instance?.RevealClass(p.Key)));
         var known = Placeables.Available(EditorServices.Classes).Select(p => p.Class).ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (string name in (EditorServices.Classes?.All.Select(c => c.Name) ?? _ctx.Project.Actors.Select(a => a.Class)).Distinct(StringComparer.OrdinalIgnoreCase))
         {

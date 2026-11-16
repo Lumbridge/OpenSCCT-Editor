@@ -14,6 +14,9 @@ continues to work for launcher installations. This needs releases with launcher 
 
 Double-click "OpenSCCT Editor.exe". Keep the whole folder together: the exe needs the
 "data_OpenScctEditor_windows_x86_64" folder next to it.
+Keep the Data folder too: it contains the small verified PS2 ND133/vial authoring
+library. Those presets require OpenSCCT 0.8.158 or newer. Placing and saving them
+copies their assets into the project, so no PS2 map download is required.
 
 The editor is not signed yet, so Windows may show "Windows protected your PC" the first time.
 Click "More info", then "Run anyway". Updates the editor installs itself do not ask again.

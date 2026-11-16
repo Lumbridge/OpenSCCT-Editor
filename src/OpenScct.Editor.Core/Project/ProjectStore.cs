@@ -66,6 +66,7 @@ public static class ProjectStore
     /// deleted).</summary>
     public static IReadOnlyList<string> Save(MapProject p, string folder, int keepBackups = 0, string? restoreFrom = null)
     {
+        if (restoreFrom is null) Assets.Ps2ObjectiveAssets.EnsureProject(p, folder);
         var files = new List<(string Rel, byte[] Bytes)>();
         try
         {

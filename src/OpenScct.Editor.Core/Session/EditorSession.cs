@@ -218,6 +218,7 @@ public sealed class EditorSession
             Project.Source.File = Path.GetFullPath(Path.Combine(folder, Path.GetRelativePath(Folder, source)));
         // Saving an opened backup into its own project puts the backup's assets and prefabs back too.
         bool restoring = Folder is not null && string.Equals(Path.GetFullPath(folder), Folder, StringComparison.OrdinalIgnoreCase);
+        if (Folder is not null && Assets.Ps2ObjectiveAssets.Used(Project)) Assets.ProjectAssets.CopyFolder(Folder, folder);
         SaveWarnings = ProjectStore.Save(Project, folder, ProjectBackups.Kept, restoring ? _restoreFrom : null);
         _restoreFrom = null;
         CopyPrefabs(Folder, folder);
@@ -279,6 +280,7 @@ public sealed class EditorSession
         string target = Enumerable.Range(0, Math.Max(keep, 1))
             .Select(i => Path.Combine(autosaveRoot, $"{stem}.auto{i}{ProjectStore.Extension}"))
             .FirstOrDefault(slot => !Directory.Exists(slot)) ?? oldest!;
+        if (Folder is not null && Assets.Ps2ObjectiveAssets.Used(Project)) Assets.ProjectAssets.CopyFolder(Folder, target);
         ProjectStore.Save(Project, target);
         // The map's own prefabs, imported assets and pictures, so the copy opens like the map.
         CopyPrefabs(Folder, target);

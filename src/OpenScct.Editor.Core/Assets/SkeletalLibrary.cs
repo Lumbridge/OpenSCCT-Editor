@@ -25,11 +25,13 @@ public sealed class SkeletalLibrary
     private readonly ConcurrentDictionary<string, SkeletalMeshFile?> _read = new(StringComparer.OrdinalIgnoreCase);
 
     private readonly ProjectAssets? _project;
+    private readonly ProjectAssets? _fallback;
 
-    private SkeletalLibrary(string? contentRoot, ProjectAssets? project = null)
+    private SkeletalLibrary(string? contentRoot, ProjectAssets? project = null, ProjectAssets? fallback = null)
     {
         _contentRoot = contentRoot;
         _project = project;
+        _fallback = fallback;
         _files = new Lazy<Dictionary<string, string>>(Index);
     }
 
@@ -38,7 +40,8 @@ public sealed class SkeletalLibrary
     public static SkeletalLibrary For(string? contentRoot) =>
         contentRoot is null || !Directory.Exists(contentRoot) ? Empty : s_libraries.GetOrAdd(Path.GetFullPath(contentRoot), r => new SkeletalLibrary(r));
 
-    public SkeletalLibrary WithProject(ProjectAssets project) => new(_contentRoot, project);
+    public SkeletalLibrary WithProject(ProjectAssets project) => new(_contentRoot, project, _fallback);
+    public SkeletalLibrary WithFallback(ProjectAssets? fallback) => new(_contentRoot, _project, fallback);
 
     internal static void Invalidate(string contentRoot) => s_libraries.TryRemove(Path.GetFullPath(contentRoot), out _);
 
@@ -54,10 +57,11 @@ public sealed class SkeletalLibrary
     private Dictionary<string, string> Index()
     {
         var index = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (_project?.Manifest["skeletalMeshes"] is JsonObject meshes)
-            foreach (var (path, node) in meshes)
-                if (node?["file"]?.GetValue<string>() is { } file)
-                    index.TryAdd(AssetPaths.Short(path), _project.FilePath(file));
+        foreach (ProjectAssets? project in new[] { _project, _fallback })
+            if (project?.Manifest["skeletalMeshes"] is JsonObject meshes)
+                foreach (var (path, node) in meshes)
+                    if (node?["file"]?.GetValue<string>() is { } file)
+                        index.TryAdd(AssetPaths.Short(path), project.FilePath(file));
         if (_contentRoot is null)
         {
             return index;

@@ -6,6 +6,10 @@ neither has. Each row says where the feature lives in the new editor, whether it
 
 ## How to read the tables
 
+Editor 0.2.48 also provides the original [PS2 ND133 and vial authoring presets](PS2-OBJECTIVES.md): separate
+Neutralization hacking and Extraction carry objectives, portable bundled assets, linked console/vial placement,
+drop-zone wiring and strict OpenSCCT compilation. Native-game authoring uses RE+'s separate ND133 preset.
+
 **From:** `stock` = ChaosTheory_Editor (UnrealEd 2 plus Ubisoft's additions). `RE+` = Reloaded Editor Plus (builds on
 AllyPal's Reloaded Editor). `request` = asked for by map makers but in neither editor. `design` = a map design
 guideline or tool outside the editors. `new` = not in any of them.

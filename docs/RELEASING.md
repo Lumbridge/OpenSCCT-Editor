@@ -40,6 +40,14 @@ shows `0.2.0-dev (eb6af75)`. A `-dev` build never updates itself.
 
 ## Making a release
 
+The PS2 objective library is binary release data, not source-controlled assets. Prepare the ignored
+`local/ps2-objectives-bundle` with `tools/Build-Ps2ObjectiveBundle.py --source <verified-converted-map> --output <new-local-folder>`.
+Its contract must match `Assets/Ps2ObjectiveBundle.manifest.json`; `Package-Release.ps1` validates every file before
+copying it into the owned `Data/Gameplay/Ps2Objectives` entry. Keep it outside `app/` so unreviewed ignored resources
+cannot enter the Godot export. `-Ps2ObjectiveBundle <folder>` selects a verified bundle kept elsewhere. The package
+and launcher sidecar require game 0.8.158 for these runtime fields. Check that packaged `ose` can place/save/build
+the presets with installed PS2 maps unavailable before publishing.
+
 1. Bump `VersionPrefix` in `Directory.Build.props`, commit and push to `main`.
 2. Run `pwsh tools/Package-Release.ps1` (add `-Version 0.3.0-beta.1` for a pre-release). It checks that the tree is
    clean and pushed, `app/` holds no ignored files besides Godot's cache, the tag is free, the pinned OpenSCCT checkout matches `openscct.ref` and Godot's

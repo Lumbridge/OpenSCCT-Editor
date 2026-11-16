@@ -139,6 +139,7 @@ public static class PrefabStore
             list.Add(PrefabDefinition.FromJson(SvJson.Parse(ms.ToArray(), res), PrefabSource.Builtin, null));
         }
 
+        list.Add(Gameplay.Ps2ObjectivePresets.VialTemplate());
         return list;
     }
 }

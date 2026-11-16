@@ -131,8 +131,8 @@ public static class PlaceableLanding
         {
             return spot with { Rotation = rotation };
         }
-        var before = new Actor("ghost", entry.Class) { Rotation = spot.Rotation };
-        var after = new Actor("ghost", entry.Class) { Rotation = rotation };
+        var before = entry.Preview("ghost", rotation: spot.Rotation);
+        var after = entry.Preview("ghost", rotation: rotation);
         // Keep the same footprint centre and support plane after turning.
         if (StaticMeshDrawing.Loaded(before) is { } mesh)
         {
@@ -271,7 +271,7 @@ public static class PlaceableLanding
         Rot rotation = entry.RotationOn(normal);
         if (entry.Group != PlaceableGroup.Security || entry.Mount != PlaceableMount.Surface)
         {
-            var probe = new Actor("ghost", entry.Class) { Rotation = rotation };
+            var probe = entry.Preview("ghost", rotation: rotation);
             if (StaticMeshDrawing.Loaded(probe) is { } mesh)
             {
                 Vec3[] corners = ObjectGeometry.Corners(mesh.Min, mesh.Max)
@@ -313,7 +313,7 @@ public static class PlaceableLanding
 
         int yaw = 0; // A new prop starts square to the map, independent of the viewing angle.
         var rotation = new Rot(0, yaw, 0).Normalized();
-        var probe = new Actor("ghost", entry.Class) { Location = standOn with { Z = 0 }, Rotation = rotation };
+        var probe = entry.Preview("ghost", standOn with { Z = 0 }, rotation);
         return new PlaceableSpot(standOn with { Z = standOn.Z + Lift(probe) }, rotation, on, Vec3.UnitZ);
     }
 
@@ -393,7 +393,7 @@ public static class PlaceableLanding
     /// <summary>The faint copy of the placeable's mesh in the views (null hides it).</summary>
     public static void ShowGhost(Placeable? entry, PlaceableSpot? spot) =>
         ViewportLayout.Instance?.Scene.ShowPlacementGhost(entry is not null && spot is { } s
-            ? new Actor("ghost", entry.Class) { Location = s.Location, Rotation = s.Rotation }
+            ? entry.Preview("ghost", s.Location, s.Rotation)
             : null, SceneStyle.DropTarget);
 
     /// <summary>Draws where the placeable would go over a view: a mark and its facing, a camera's cone and sweep and
@@ -402,7 +402,7 @@ public static class PlaceableLanding
     public static void Draw(ViewCamera cam, Control canvas, Placeable entry, PlaceableSpot spot)
     {
         var batch = new OverlayBatch();
-        var ghost = new Actor("ghost", entry.Class) { Location = spot.Location, Rotation = spot.Rotation };
+        var ghost = entry.Preview("ghost", spot.Location, spot.Rotation);
         Color colour = SceneStyle.DropTarget;
         batch.Dot(spot.Location, colour, 5);
         TraversalWorld? world = GameplayState.Instance.WorldIfBuilt;

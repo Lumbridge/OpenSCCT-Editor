@@ -1074,6 +1074,11 @@ strategic map (no `MapFloors`) gets `floors: []`.
 
 ## Map-local assets (`assets/`)
 
+The built-in PS2 objective presets additionally copy their bounded source library into `assets/ps2-objectives` on
+first save. Its mesh/material aliases retain the source package names; `skeletalMeshes` entries point to the local
+console GLB. The `ps2Objectives` version-1 record lists required files and console output resources. The compiler
+validates that closure and copies it into the SVMap; an installed PS2 map is never a dependency. See [PS2 objectives](PS2-OBJECTIVES.md).
+
 `assets/assets.json` (format `osmap.assets/1`) lists the map's own assets, in the `MyLevel` package as UE2 names a
 map's own objects. Paths in it are relative to `assets/`.
 
