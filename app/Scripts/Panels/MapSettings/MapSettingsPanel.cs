@@ -23,7 +23,7 @@ namespace OpenScctEditor.Panels;
 public partial class MapSettingsPanel : EditorPanel
 {
     /// <summary>Modes the game knows, with their GameModeId (EGameMode index).</summary>
-    private static readonly (string Mode, int Id)[] s_modes = [("Story", 5), ("DiskHunt", 4), ("Deathmatch", 6), ("MercDeathmatch", 7)];
+    private static readonly (string Mode, int Id)[] s_modes = [("Story", 5), ("Neutralization", 3), ("Extraction", 1), ("DiskHunt", 4), ("Deathmatch", 6), ("MercDeathmatch", 7)];
 
     /// <summary>The ui/mapinfo.json strings (SBase.SMapSettings) and the per-mode strings object.</summary>
     private static readonly PropInfo[] s_mapInfoSchema =

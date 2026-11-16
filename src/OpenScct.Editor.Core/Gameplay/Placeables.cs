@@ -42,8 +42,16 @@ public enum PlaceableMount
 /// <param name="WallYaw">Yaw correction for a model whose authored facing differs from the security devices' +X.</param>
 /// <param name="Icon">The tile's icon kind when it is not the class's own (a plain mover tile shown as a door).</param>
 public sealed record Placeable(string Class, string Title, PlaceableGroup Group, PlaceableMount Mount, string Summary, int StockMaps,
-    double Gap = 8, int Pitch = 0, bool OnFloors = false, double WallHeight = 112, ActorKind? Icon = null, int WallYaw = 0, bool AlignToSurface = false)
+    double Gap = 8, int Pitch = 0, bool OnFloors = false, double WallHeight = 112, ActorKind? Icon = null, int WallYaw = 0, bool AlignToSurface = false, string? PresetId = null)
 {
+    public string Key => PresetId ?? Class;
+    public Actor Preview(string id = "preview", Vec3? location = null, Rot? rotation = null)
+    {
+        Actor actor = Ps2ObjectivePresets.Preview(this, id);
+        actor.Location = location ?? Vec3.Zero;
+        actor.Rotation = rotation ?? Rot.Zero;
+        return actor;
+    }
     public string ShortClass => Class[(Class.LastIndexOf('.') + 1)..];
 
     /// <summary>Its name in a sentence, with its article: "a security camera", "an alarm".</summary>
@@ -90,6 +98,13 @@ public sealed record Placeable(string Class, string Title, PlaceableGroup Group,
 /// </summary>
 public static class Placeables
 {
+    public static readonly IReadOnlyList<Placeable> Presets =
+    [
+        new("SBase.SComputerObjectiveTrigger", "PS2 ND133", PlaceableGroup.Objectives, PlaceableMount.Floor,
+            "The original PS2 vial console: spies hack it in Neutralization. Includes its objective and activating mission.", 0, PresetId: Ps2ObjectivePresets.Hack),
+        new("SBase.SFlag", "PS2 vial", PlaceableGroup.Objectives, PlaceableMount.Floor,
+            "The original PS2 tube and animated console. Spies carry the tube to a delivery zone in Extraction. Includes its objective and mission.", 0, PresetId: Ps2ObjectivePresets.Vial),
+    ];
     /// <summary>The converted stock maps the counts are over.</summary>
     public const int StockMapCount = 85;
 
@@ -217,6 +232,7 @@ public static class Placeables
             }
         }
 
+        list.AddRange(Presets.Where(p => catalog is null || catalog.Find(p.Class) is { } cls && CanPlace(catalog, cls)));
         IReadOnlyList<Placeable> result = list.OrderBy(p => p.Group).ToList();
         lock (s_lock)
         {
@@ -229,10 +245,16 @@ public static class Placeables
     /// <summary>The palette entry of a class (full or short name), or null when the palette has none.</summary>
     public static Placeable? Find(string className, IClassCatalog? catalog)
     {
+        if (Presets.FirstOrDefault(p => p.Key.Equals(className, StringComparison.OrdinalIgnoreCase)) is { } preset) return preset;
         string name = catalog?.Find(className)?.Name ?? className;
         return Available(catalog).FirstOrDefault(p => string.Equals(p.Class, name, StringComparison.OrdinalIgnoreCase)
             || string.Equals(p.ShortClass, name, StringComparison.OrdinalIgnoreCase));
     }
+
+    public static bool MatchesActor(Placeable entry, Actor actor) =>
+        entry.Class.Equals(actor.Class, StringComparison.OrdinalIgnoreCase) &&
+        (entry.PresetId is not null ? actor.Props.GetBool("bPS2Objective") && actor.Editor.PrefabPart != "console"
+            : !Presets.Any(p => p.Class.Equals(entry.Class, StringComparison.OrdinalIgnoreCase)) || !actor.Props.GetBool("bPS2Objective"));
 
     /// <summary>The kind of a placeable, for its icon.</summary>
     public static ActorKind Kind(Placeable p, IClassCatalog? catalog) => p.Icon ?? ActorKinds.OfClass(p.Class, catalog);

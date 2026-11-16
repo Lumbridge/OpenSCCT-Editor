@@ -75,7 +75,7 @@ public partial class MissionsPanel
         {
             var tile = new PlaceableTile(entry, false, null, ArmPlaceable, PlacementTargets);
             flow.AddChild(tile);
-            tile.Retip(Context.Project.Actors.Count(a => a.Class == entry.Class));
+            tile.Retip(Context.Project.Actors.Count(a => Placeables.MatchesActor(entry, a)));
         }
     }
 
@@ -89,7 +89,7 @@ public partial class MissionsPanel
     {
         IReadOnlyList<string> targets = PlacementTargets(entry);
         if (ToolManager.Instance is not { } tools) return;
-        tools.ArmPalette(entry.Class, targets);
+        tools.ArmPalette(entry.Key, targets);
         tools.Activate("place");
         tools.RefreshOptions();
         Context.SetStatus($"Click in a view to place {entry.InSentence}. " + (targets.Count > 0
@@ -99,7 +99,7 @@ public partial class MissionsPanel
     private void NewDevice()
     {
         List<string> classes = Placeables.Available(EditorServices.Classes)
-            .Where(p => MissionLinks.IsTrigger(new Actor("candidate", p.Class))).Select(p => p.Class).ToList();
+            .Where(p => MissionLinks.IsTrigger(new Actor("candidate", p.Class))).Select(p => p.Class).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         ClassPicker.Open(_objectivePicker, classes, "", cls =>
         {
             if (Placeables.Find(cls, EditorServices.Classes) is { } entry) ArmPlaceable(entry);

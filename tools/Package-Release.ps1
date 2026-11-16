@@ -49,11 +49,26 @@ param(
     [string]$Version = '',
     [switch]$Local,
     [string]$Out = '',
-    [string]$Godot = $env:OSE_GODOT
+    [string]$Godot = $env:OSE_GODOT,
+    [string]$Ps2ObjectiveBundle = ''
 )
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
+if (-not $Ps2ObjectiveBundle) { $Ps2ObjectiveBundle = Join-Path $repo 'local/ps2-objectives-bundle' }
+$ps2ContractFile = Join-Path $repo 'src/OpenScct.Editor.Core/Assets/Ps2ObjectiveBundle.manifest.json'
+$ps2Contract = Get-Content -LiteralPath $ps2ContractFile -Raw | ConvertFrom-Json
+if (!(Test-Path -LiteralPath (Join-Path $Ps2ObjectiveBundle 'bundle.json')) -or
+    (Get-FileHash -LiteralPath (Join-Path $Ps2ObjectiveBundle 'bundle.json')).Hash -ne (Get-FileHash -LiteralPath $ps2ContractFile).Hash) {
+    throw 'The verified PS2 objective bundle is missing or its contract differs. Build it with tools/Build-Ps2ObjectiveBundle.py.'
+}
+foreach ($entry in $ps2Contract.files.PSObject.Properties) {
+    $file = Join-Path $Ps2ObjectiveBundle $entry.Name
+    if (!(Test-Path -LiteralPath $file) -or (Get-Item -LiteralPath $file).Length -ne $entry.Value.size -or
+        (Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant() -ne $entry.Value.sha256) {
+        throw "The PS2 objective bundle asset is missing or differs: $($entry.Name)"
+    }
+}
 $app = Join-Path $repo 'app'
 $platform = 'win-x64'
 $folderName = 'OpenSCCT Editor'
@@ -245,6 +260,15 @@ $sections = @(
 Write-Text (Join-Path $folder 'THIRD-PARTY-NOTICES.txt') ($sections -join "`n")
 Remove-Item -LiteralPath $noticeProject -Recurse -Force
 
+# The original objective binaries stay outside Git and app/. Their bounded,
+# hash-verified library is an explicitly owned release entry and works for GUI and ose.
+$ps2Destination = Join-Path $folder 'Data/Gameplay/Ps2Objectives'
+foreach ($relative in @('bundle.json') + @($ps2Contract.files.PSObject.Properties.Name)) {
+    $destination = Join-Path $ps2Destination $relative
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $destination) | Out-Null
+    Copy-Item -LiteralPath (Join-Path $Ps2ObjectiveBundle $relative) -Destination $destination
+}
+
 # --- version.json --------------------------------------------------------------------------------------------------
 $entries = @(Get-ChildItem -LiteralPath $folder -Force | ForEach-Object Name) + 'version.json' | Sort-Object -Unique
 # Every file but version.json with its size and SHA-256: the updater checks an unpacked build against them before it
@@ -259,7 +283,7 @@ $files = @(Get-ChildItem -LiteralPath $folder -Recurse -File -Force | Where-Obje
     })
 $info = [ordered]@{
     launcherProtocol = 1
-    minimumGameVersion = '0.8.127'
+    minimumGameVersion = '0.8.158'
     format   = 1
     product  = 'OpenSCCT Editor'
     version  = $Version
@@ -272,7 +296,7 @@ $info = [ordered]@{
 [IO.File]::WriteAllText((Join-Path $folder 'version.json'), ($info | ConvertTo-Json -Depth 4) + "`n", $utf8)
 
 # --- Checks --------------------------------------------------------------------------------------------------------
-$expected = @($exeName, $dataName, 'ose', 'README.txt', 'THIRD-PARTY-NOTICES.txt', 'version.json')
+$expected = @($exeName, $dataName, 'ose', 'Data', 'README.txt', 'THIRD-PARTY-NOTICES.txt', 'version.json')
 $unexpected = $entries | Where-Object { $_ -notin $expected }
 $missing = $expected | Where-Object { $_ -notin $entries }
 if ($unexpected) { Fail "unexpected entries in the folder: $($unexpected -join ', ')" }
@@ -319,7 +343,7 @@ $line = "$hash  $zipName`n"
 [IO.File]::WriteAllText((Join-Path $Out 'SHA256SUMS'), $line, $utf8)
 
 $launcherName = "OpenSCCT-Editor-$Version-win-x64.launcher.json"
-[IO.File]::WriteAllText((Join-Path $Out $launcherName), (@{ launcherProtocol = 1; minimumGameVersion = '0.8.127' } | ConvertTo-Json) + "`n", $utf8)
+[IO.File]::WriteAllText((Join-Path $Out $launcherName), (@{ launcherProtocol = 1; minimumGameVersion = '0.8.158' } | ConvertTo-Json) + "`n", $utf8)
 
 # --- Notes and the publish command ---------------------------------------------------------------------------------
 $previous = git -C $repo describe --tags --abbrev=0 --match 'v*' HEAD 2>$null

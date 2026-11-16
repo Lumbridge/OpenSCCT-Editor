@@ -189,6 +189,7 @@ public sealed class ToolManager : IShellPart
         {
             AppSettings.Set("tools", "place_class", value);
             PlaceFromPalette = false;
+            PaletteKey = null;
             PaletteWiringTargets = null;
             Changed?.Invoke();
         }
@@ -198,12 +199,15 @@ public sealed class ToolManager : IShellPart
     /// then places by the palette's rule and wires the new actor (<see cref="Gameplay.PlaceableLanding"/>); a class typed
     /// or picked in the tool places the plain way.</summary>
     public bool PlaceFromPalette { get; private set; }
+    public string? PaletteKey { get; private set; }
     public IReadOnlyList<string>? PaletteWiringTargets { get; private set; }
 
     /// <summary>Arms the place tool with a palette class (a tile's click).</summary>
     public void ArmPalette(string className, IReadOnlyList<string>? wiringTargets = null)
     {
-        PlaceClass = className;
+        var entry = OpenScct.Editor.Core.Gameplay.Placeables.Find(className, OpenScct.Editor.Core.Services.EditorServices.Classes);
+        PlaceClass = entry?.Class ?? className;
+        PaletteKey = entry?.Key ?? className;
         PlaceFromPalette = true;
         PaletteWiringTargets = wiringTargets?.ToList();
     }

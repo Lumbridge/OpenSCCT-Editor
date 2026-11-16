@@ -75,6 +75,9 @@ public sealed partial class RenderBuild
         }
 
         r.AddMeshActors();
+        foreach (Model.Actor actor in ctx.Gameplay.Where(a => a.Props.GetBool("bPS2Objective")))
+            if (PropValues.AssetPath(actor.Props["Ps2SourceStaticMesh"]) is { } vial && r.ImportMesh(vial) is null)
+                ctx.Error("ps2.vial-missing", $"actor {actor.Id}: source vial mesh {vial} is missing", ObjectRef.Actor(actor.Id));
         r.AddBrushMovers();
         r.AddConveyors();
         r.WriteEmitters(baked);

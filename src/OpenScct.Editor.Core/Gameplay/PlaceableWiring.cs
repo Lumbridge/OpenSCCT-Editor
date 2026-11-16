@@ -64,10 +64,15 @@ public static class PlaceableWiring
         ArgumentNullException.ThrowIfNull(entry);
         ArgumentNullException.ThrowIfNull(selected);
         catalog ??= ClassDefaults.Catalog;
+        if (Ps2ObjectivePresets.Is(entry)) return Ps2ObjectivePresets.Place(p, entry, location, rotation, selected, catalog);
         Func<string, string> ids = GeShapes.IdSource(p);
         var actor = new Actor(ids(entry.ShortClass), entry.Class) { Location = GeEdits.Round(location), Rotation = rotation };
         MoverBase.Place(actor);
         List<Actor> chosen = selected.Select(p.FindActor).OfType<Actor>().ToList();
+        if (catalog.IsA(actor.Class, "SBase.SFlagDropZone") &&
+            (chosen.Count == 1 ? chosen[0] : p.Actors.Count(a => catalog.IsA(a.Class, "SBase.SFlag")) == 1
+                ? p.Actors.First(a => catalog.IsA(a.Class, "SBase.SFlag")) : null) is { } flag && flag.Props.GetBool("bPS2Objective"))
+            Ps2ObjectivePresets.DropZone(actor, catalog);
         var job = new Job(KindOf(entry.Class, catalog), actor, [actor], chosen, catalog);
 
         // A new receiver answers to a Tag of its own where its class-name Tag would be shared: an alarm always (the next

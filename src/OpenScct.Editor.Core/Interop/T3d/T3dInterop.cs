@@ -79,6 +79,8 @@ public sealed class T3dExporter : IMapExporter
     /// <see cref="ExportResult.Ok"/> is false then.</summary>
     public ExportResult Export(MapProject project, string path, ExportOptions options)
     {
+        if (Assets.Ps2ObjectiveAssets.Used(project))
+            return new ExportResult(false, [], [Finding.Error("ps2.originalUnsupported", "PS2 objective presets currently build for OpenSCCT. Use the native RE+ ND133 preset for original-game Neutralization objectives.")]);
         if (project.Actors.Any(a => MoverBase.IsMover(a) && OpenScct.Editor.Core.Gameplay.MoverSetup.Read(a).Keys.Count > 8))
             return new ExportResult(false, [], [Finding.Error("mover.original-limit", "Original-game export supports eight mover stops. Build this map for OpenSCCT to keep the complete paths.")]);
 
@@ -107,6 +109,8 @@ public sealed class T3dExporter : IMapExporter
     /// object checks of the lint.</summary>
     public static ExportResult ExportSelection(MapProject project, IReadOnlyCollection<ObjectRef> objects, string path, ExportOptions options)
     {
+        if (objects.Any(r => r.Kind == ObjectKind.Actor && project.FindActor(r.Id)?.Props.GetBool("bPS2Objective") == true))
+            return new ExportResult(false, [], [Finding.Error("ps2.originalUnsupported", "Selected PS2 objective presets require an OpenSCCT build; the original-game export was not written.")]);
         (T3dDocument doc, List<Finding> findings) = Selection(project, objects, options.ContentRoot);
         T3dWriter.WriteFile(doc, path);
         return new ExportResult(!findings.Any(f => f.Severity == Severity.Error), [Path.GetFullPath(path)], findings);

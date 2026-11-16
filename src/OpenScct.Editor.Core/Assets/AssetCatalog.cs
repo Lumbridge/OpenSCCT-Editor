@@ -83,6 +83,8 @@ public sealed class AssetCatalog
     {
         AssetCatalog content = contentRoot is null ? Empty : s_content.GetOrAdd(Path.GetFullPath(contentRoot),
             root => new Lazy<AssetCatalog>(() => BuildContent(root))).Value;
+        if (Ps2ObjectiveAssets.Bundled is { } bundle)
+            content = new AssetCatalog([AssetIndexer.IndexProject(bundle), .. content.Sources], "bundled PS2 objectives, " + content.Description);
         if (projectFolder is null || ProjectAssets.For(projectFolder) is not { } local || local.Manifest.Count <= 1)
         {
             return content;

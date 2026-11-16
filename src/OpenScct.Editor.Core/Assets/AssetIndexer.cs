@@ -250,6 +250,10 @@ public static class AssetIndexer
     public static AssetSource IndexProject(ProjectAssets assets)
     {
         var entries = new List<AssetEntry>();
+        if (assets.Manifest["skeletalMeshes"] is JsonObject skeletal)
+            foreach (var (path, entry) in skeletal)
+                if (entry?["file"]?.GetValue<string>() is { } file)
+                    entries.Add(new AssetEntry { Kind = AssetKind.Mesh, Path = path, Origin = AssetPaths.LocalPackage, File = assets.FilePath(file), Mesh = 0 });
         foreach ((string path, JsonNode? _) in assets.Materials)
         {
             if (assets.FindMaterial(path) is { } m)

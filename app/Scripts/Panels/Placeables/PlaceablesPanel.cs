@@ -187,7 +187,7 @@ public partial class PlaceablesPanel : EditorPanel
         EditorLifetime.Defer(() =>
         {
             if (revision != DiscoveryNavigation.Revision) return;
-            if (_tiles.FirstOrDefault(t => t.Entry.Class == entry.Class) is { } tile)
+            if (_tiles.FirstOrDefault(t => t.Entry.Key == entry.Key) is { } tile)
                 DiscoveryNavigation.Reveal(tile, lesson);
         });
     }
@@ -206,7 +206,7 @@ public partial class PlaceablesPanel : EditorPanel
         List<Placeable> all = Placeables.Available(EditorServices.Classes).Where(p => query.Length == 0 || p.Matches(query)).ToList();
         int tab = _tabs.CurrentTab;
         var sections = new List<(string Title, List<Placeable> Items)>();
-        List<Placeable> starred = all.Where(p => favourites.Contains(p.Class)).ToList();
+        List<Placeable> starred = all.Where(p => favourites.Contains(p.Key)).ToList();
         if (starred.Count > 0 && tab == FavouritesTab)
         {
             sections.Add(("Favourites", starred));
@@ -222,7 +222,7 @@ public partial class PlaceablesPanel : EditorPanel
                 }
 
                 // Favourites first in their group (starred), the rest in the palette's order.
-                List<Placeable> items = all.Where(p => p.Group == group).OrderBy(p => favourites.Contains(p.Class) ? 0 : 1).ToList();
+                List<Placeable> items = all.Where(p => p.Group == group).OrderBy(p => favourites.Contains(p.Key) ? 0 : 1).ToList();
                 if (items.Count > 0)
                 {
                     sections.Add((Placeables.GroupTitle(group), items));
@@ -244,7 +244,7 @@ public partial class PlaceablesPanel : EditorPanel
             _groups.AddChild(flow);
             foreach (Placeable p in items)
             {
-                var tile = new PlaceableTile(p, favourites.Contains(p.Class), this);
+                var tile = new PlaceableTile(p, favourites.Contains(p.Key), this);
                 flow.AddChild(tile);
                 _tiles.Add(tile);
             }
@@ -267,11 +267,9 @@ public partial class PlaceablesPanel : EditorPanel
     /// <summary>The tooltips count this map's uses: brought up to date after edits.</summary>
     private void Retip()
     {
-        Dictionary<string, int> counts = Context.Project.Actors.GroupBy(a => a.Class, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
         foreach (PlaceableTile tile in _tiles)
         {
-            tile.Retip(counts.GetValueOrDefault(tile.Entry.Class));
+            tile.Retip(Context.Project.Actors.Count(a => Placeables.MatchesActor(tile.Entry, a)));
         }
 
         ShowPinned();
@@ -285,7 +283,7 @@ public partial class PlaceablesPanel : EditorPanel
             return;
         }
 
-        tools.ArmPalette(p.Class);
+        tools.ArmPalette(p.Key);
         tools.Activate("place");
         tools.RefreshOptions();
         Context.SetStatus($"Place tool: click in a view to place {p.InSentence} {p.MountWords}");
@@ -294,9 +292,9 @@ public partial class PlaceablesPanel : EditorPanel
     internal void ToggleFavourite(Placeable p)
     {
         HashSet<string> favourites = Favourites;
-        if (!favourites.Remove(p.Class))
+        if (!favourites.Remove(p.Key))
         {
-            favourites.Add(p.Class);
+            favourites.Add(p.Key);
         }
 
         AppSettings.Set("placeables", "favourites", favourites.Order(StringComparer.OrdinalIgnoreCase).ToArray());
@@ -306,7 +304,7 @@ public partial class PlaceablesPanel : EditorPanel
     /// <summary>Selects every actor of the class in the map.</summary>
     internal void SelectAll(Placeable p)
     {
-        List<ObjectRef> found = Context.Project.Actors.Where(a => string.Equals(a.Class, p.Class, StringComparison.OrdinalIgnoreCase))
+        List<ObjectRef> found = Context.Project.Actors.Where(a => Placeables.MatchesActor(p, a))
             .Select(a => ObjectRef.Actor(a.Id)).ToList();
         Context.Selection.Set(found);
         Context.SetStatus($"Selected {PanelUi.Count(found.Count, p.Title.ToLowerInvariant())}");
@@ -521,7 +519,7 @@ public sealed partial class PlaceableTile : PanelContainer
     /// class icon moves to its corner.</summary>
     private void RequestPicture(Control frame)
     {
-        if (StaticMeshDrawing.MeshPath(new Actor("tile", Entry.Class)) is not { } path
+        if ((Entry.PresetId == Ps2ObjectivePresets.Vial ? Ps2ObjectivePresets.VialMesh : StaticMeshDrawing.MeshPath(Entry.Preview("tile"))) is not { } path
             || AssetService.Instance.Catalog.Find(AssetKind.Mesh, path) is not { } mesh)
         {
             return;

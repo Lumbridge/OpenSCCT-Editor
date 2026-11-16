@@ -25,7 +25,7 @@ editor is optional for players. This requires launcher and editor releases that 
 
 For a standalone installation:
 
-1. Install [OpenSCCT](https://github.com/Lumbridge/OpenSCCT#play) with its launcher (game version 0.8.116 or newer). The
+1. Install [OpenSCCT](https://github.com/Lumbridge/OpenSCCT#play) with its launcher (game version 0.8.158 or newer). The
    editor uses the content the launcher installs (class data, the converted maps, their materials and meshes) and
    starts the game for Play and test rounds.
 2. Download `OpenSCCT-Editor-<version>-win-x64.zip` from the
@@ -38,7 +38,9 @@ Windows 10/11, 64-bit. The editor is not signed yet, so Windows may show "Window
 click More info, then Run anyway.
 
 Importing a map from the original game (`.sdc`) and exporting one for it also need your own copy of Splinter Cell:
-Chaos Theory Versus. The editor contains no game files: it reads yours, and OpenSCCT's content, at run time.
+Chaos Theory Versus. It reads your native game files and OpenSCCT's content at run time. Releases also include a
+small converted PS2 objective library for the [ND133 and vial presets](docs/PS2-OBJECTIVES.md); no PS2 map download
+is needed to author them.
 
 The editor updates itself. A few seconds after it starts it asks GitHub whether a newer version is out (Edit >
 Preferences > General turns this off) and shows a link in the status bar; Update now downloads it in the background

@@ -47,7 +47,7 @@ public sealed class PlaceActorTool : IViewportTool
     }
 
     /// <summary>The palette entry of the class to place when a palette tile armed the tool, else null.</summary>
-    private Placeable? Palette => _tools.PlaceFromPalette ? Placeables.Find(ResolveClass(_tools.PlaceClass), EditorServices.Classes) : null;
+    private Placeable? Palette => _tools.PlaceFromPalette ? Placeables.Find(_tools.PaletteKey ?? ResolveClass(_tools.PlaceClass), EditorServices.Classes) : null;
 
     /// <summary>Builds the collision world in the background, so the first hover of a palette class does not wait.</summary>
     public void Activate()
