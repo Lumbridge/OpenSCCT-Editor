@@ -20,6 +20,7 @@
     <Compile Include="../tools/animation-checks/StudioInteractionChecks.cs" Link="Checks/StudioInteractionChecks.cs" />
     <Compile Include="../tools/ge-draw-checks/GeInteractionChecks.cs" Link="Checks/GeInteractionChecks.cs" />
     <ProjectReference Include="..\src\OpenScct.Editor.Core\OpenScct.Editor.Core.csproj" />
+    <ProjectReference Include="$(OpenScctDir)game/OpenScctGame.csproj" Aliases="GameRuntime" />
   </ItemGroup>
   <ItemGroup>
     <!-- Use the same simulation and particle geometry as the game, without its full scene or render pipeline. -->
@@ -36,4 +37,7 @@
     <Compile Include="$(OpenScctDir)game\Scripts\Render\WindowLightFilter.cs" Link="Shared\WindowLightFilter.cs" />
     <EmbeddedResource Include="$(OpenScctDir)game\Shaders\svm_window_light.gdshaderinc" LogicalName="WindowLightShader" />
   </ItemGroup>
+  <Target Name="StageGameAudio" BeforeTargets="BeforeBuild" Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <Exec Command="pwsh -NoProfile -File &quot;$(EditorRoot)tools/Stage-EditorAudio.ps1&quot; -OpenScctRoot &quot;$(OpenScctDir).&quot; -Destination &quot;$(MSBuildProjectDirectory)/addons/scct_audio&quot;" />
+  </Target>
 </Project>

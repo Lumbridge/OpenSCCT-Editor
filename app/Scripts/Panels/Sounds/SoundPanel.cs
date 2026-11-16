@@ -95,10 +95,13 @@ public partial class SoundPanel : EditorPanel
         _apply = PanelUi.Button(actions, "Apply to Selected", "Set the sound and settings on the selected actors as one undo step", Apply);
         _remove = PanelUi.Button(actions, "Remove Sound", "Clear ambient sound from the selected actors without deleting them", Remove);
         HFlowContainer listen = PanelUi.Toolbar(this);
-        _ambience = PanelUi.Toggle(listen, "Listen in Map", "Preview distance and panning from the perspective camera; zone occlusion and reverb are heard in Play", false,
+        _ambience = PanelUi.Toggle(listen, "Listen in Map", "Listen through the game sound engine from the perspective camera, including occlusion and room reverb", true,
             _ => Context.Run("audio.ambience"));
         _solo = PanelUi.Toggle(listen, "Solo Selected", "While listening in the map, play only the selected sources", false,
             _ => Context.Run("audio.solo"));
+        PanelUi.Toggle(listen, "Sound Paths", "Show the selected source's reach and acoustic paths", true,
+            on => { if (EditorAudio.Instance is { } audio) audio.ShowPaths = on; });
+        PanelUi.Caption(this, "Sound paths: green = mixer arrival, blue = direct reach, amber = reflection guides. Guides show geometry, not individual Steam Audio reflection rays.");
         _state = PanelUi.Caption(this, "");
 
         Context.AddAction(new EditorAction("sound.library", "Sound Library", "Assets", () => { DockTabs.ShowPanel("Sounds"); _search.GrabFocus(); })
@@ -224,7 +227,14 @@ public partial class SoundPanel : EditorPanel
         else if (audio.Play(_sound, Volume, Pitch)) _waveform.SetStream(audio.Stream);
         AudioChanged();
     }
-    private void Seek(double fraction) { if (EditorAudio.Instance is { } audio) audio.Seek(fraction * audio.Length); }
+    private void Seek(double fraction)
+    {
+        if (_sound is null || EditorAudio.Instance is not { } audio || _waveform.Length <= 0) return;
+        double position = Math.Clamp(fraction, 0, 1) * _waveform.Length;
+        if (!string.Equals(audio.CurrentPath, _sound, StringComparison.OrdinalIgnoreCase))
+            audio.Play(_sound, Volume, Pitch, position, paused: true);
+        else audio.Seek(position);
+    }
     private void AudioChanged()
     {
         if (_play is null) return;

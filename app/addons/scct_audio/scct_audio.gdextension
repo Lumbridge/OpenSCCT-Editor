@@ -1,0 +1,12 @@
+[configuration]
+entry_symbol = "scct_audio_library_init"
+compatibility_minimum = "4.7"
+reloadable = false
+
+[libraries]
+windows.x86_64 = "res://addons/scct_audio/bin/windows-x86_64/scct_audio.dll"
+linux.x86_64 = "res://addons/scct_audio/bin/linux-x86_64/libscct_audio.so"
+
+[dependencies]
+windows.x86_64 = { "res://addons/scct_audio/bin/windows-x86_64/phonon.dll": "" }
+linux.x86_64 = { "res://addons/scct_audio/bin/linux-x86_64/libphonon.so": "" }

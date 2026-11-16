@@ -32,3 +32,7 @@ app/override.cfg
 *.osmap/
 /build/
 /export/
+
+# Native audio is staged from the pinned game by MSBuild.
+app/addons/scct_audio/bin/
+app/addons/scct_audio/licenses/

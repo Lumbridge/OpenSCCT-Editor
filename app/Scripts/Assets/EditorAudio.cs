@@ -1,3 +1,4 @@
+extern alias GameRuntime;
 using Godot;
 using OpenScct.Editor.Core.Assets;
 using OpenScct.Editor.Core.Audio;
@@ -17,15 +18,20 @@ public partial class EditorAudio : Node, IShellPart
     public static bool Muted => AppSettings.GetBool("audio", "muted", false);
     public static event Action? Changed;
     private AudioStreamPlayer _preview = null!;
-    private AudioListener3D? _listener;
-    private readonly Dictionary<string, (Actor Actor, AudioStreamPlayer3D Player)> _sources = new(StringComparer.OrdinalIgnoreCase);
+    // A plain holder keeps Godot serialization away from the aliased game assembly.
+    private sealed class WorldTransport { public GameRuntime::OpenScctGame.Audio.SoundSystem? Sound; }
+    private readonly WorldTransport _transport = new();
+    private EditorAudioWorld? _world;
+    private bool _worldDirty = true;
+    private bool _worldReady;
     private readonly Dictionary<(string, bool), AudioStream?> _streams = new();
     private readonly Dictionary<string, double> _gains = new(StringComparer.OrdinalIgnoreCase);
     private EditorContext _ctx = null!;
     private SoundLibrary? _library;
-    private double _tick;
-    public bool Ambience { get; private set; }
+    public bool Ambience { get; private set; } = true;
     public bool SoloSelection { get; private set; }
+    public bool ShowPaths { get; set; } = true;
+    private SoundPaths? _paths;
     public bool Loop { get; set; }
     public double Length => _preview.Stream?.GetLength() ?? 0;
     public double Position => _preview.GetPlaybackPosition();
@@ -43,13 +49,15 @@ public partial class EditorAudio : Node, IShellPart
         window.AddChild(this);
         _preview = new AudioStreamPlayer { Name = "SoundPreview" };
         AddChild(_preview);
+        const string extension = "res://addons/scct_audio/scct_audio.gdextension";
+        if (!GDExtensionManager.IsExtensionLoaded(extension)) GDExtensionManager.LoadExtension(extension);
         _preview.Finished += () => { if (Loop) _preview.Play(); Changed?.Invoke(); };
         AudioServer.SetBusMute(0, Muted || BackgroundMode.Active);
         context.AddAction(new EditorAction("audio.mute", "Mute Editor Audio", "View/Audio", ToggleMute)
         { IsChecked = () => Muted, Description = "Quickly mute all sound previews and map ambience; remembered between sessions" });
         context.AddAction(new EditorAction("audio.ambience", "Preview Map Sounds", "View/Audio", () =>
         { Ambience = !Ambience; Stop(); Changed?.Invoke(); })
-        { IsChecked = () => Ambience, Description = "Listen from the perspective camera while moving through the map (distance and panning preview)" });
+        { IsChecked = () => Ambience, Description = "Listen through the game sound engine from the perspective camera" });
         context.AddAction(new EditorAction("audio.solo", "Solo Selected Sound Sources", "View/Audio", () =>
         { SoloSelection = !SoloSelection; Changed?.Invoke(); }) { IsChecked = () => SoloSelection });
         context.AddAction(new EditorAction("audio.stop", "Stop Sound Preview", "View/Audio", Stop));
@@ -61,6 +69,7 @@ public partial class EditorAudio : Node, IShellPart
         { IsChecked = () => ViewportLayout.Instance?.Scene.EffectsPaused == true });
         context.AddAction(new EditorAction("view.restartEffects", "Replay Map Emitters", "View/Show", () => ViewportLayout.Instance?.Scene.RestartEffects()));
         context.SessionReplaced += Reset;
+        context.ProjectChanged += _ => _worldDirty = true;
         AssetService.Instance.CatalogChanged += Reset;
         TreeExiting += () => { AssetService.Instance.CatalogChanged -= Reset; Instance = null; };
     }
@@ -119,7 +128,7 @@ public partial class EditorAudio : Node, IShellPart
     /// <summary>Loads a clip for its waveform without starting or interrupting playback.</summary>
     public AudioStream? PreviewStream(string path) => Resolve(path, false);
 
-    public bool Play(string path, double volume = 128, double pitch = 64)
+    public bool Play(string path, double volume = 128, double pitch = 64, double position = 0, bool paused = false)
     {
         Stop();
         _preview.Stream = Resolve(path, false);
@@ -132,7 +141,8 @@ public partial class EditorAudio : Node, IShellPart
         }
         SetPreviewSettings(volume, pitch);
         _preview.StreamPaused = false;
-        _preview.Play();
+        _preview.Play((float)Math.Clamp(position, 0, Length));
+        _preview.StreamPaused = paused;
         Changed?.Invoke();
         return true;
     }
@@ -144,7 +154,24 @@ public partial class EditorAudio : Node, IShellPart
     }
 
     public void Pause() { _preview.StreamPaused = !_preview.StreamPaused; Changed?.Invoke(); }
-    public void Seek(double seconds) { if (_preview.Stream is not null) _preview.Seek((float)Math.Clamp(seconds, 0, Length)); }
+    public void Seek(double seconds)
+    {
+        if (_preview.Stream is null) return;
+        bool paused = _preview.StreamPaused;
+        // Seek is ignored by Godot when no playback is active. Keep an idle preview
+        // paused at the requested position so Play/Resume starts from there.
+        if (!_preview.Playing)
+        {
+            _preview.Play((float)Math.Clamp(seconds, 0, Length));
+            _preview.StreamPaused = true;
+        }
+        else
+        {
+            _preview.Seek((float)Math.Clamp(seconds, 0, Length));
+            _preview.StreamPaused = paused;
+        }
+        Changed?.Invoke();
+    }
     public void Stop() { _preview.Stop(); _preview.StreamPaused = false; Changed?.Invoke(); }
 
     private void Reset()
@@ -159,50 +186,56 @@ public partial class EditorAudio : Node, IShellPart
 
     private void ClearSources()
     {
-        foreach (var source in _sources.Values) { source.Player.Stop(); source.Player.QueueFree(); }
-        _sources.Clear();
+        _transport.Sound?.StopAll();
+        _worldDirty = true;
     }
 
     public override void _Process(double delta)
     {
-        _tick -= delta;
-        if (_tick > 0) return;
-        _tick = 0.1;
-        if (!Ambience) { if (_sources.Count > 0) ClearSources(); return; }
-        if (ViewportLayout.Instance is not { } views) return;
-        if (_listener is null || !IsInstanceValid(_listener))
+        if (!Ambience) { _transport.Sound?.StopAll(); _paths?.Clear(); return; }
+        if (ViewportLayout.Instance is not { } views || views.Views.FirstOrDefault(v => !v.Cam.IsOrtho) is not { } view) return;
+        // Audio belongs to the perspective SubViewport, not the shell viewport or
+        // one of the orthographic cameras sharing its World3D.
+        view.Sub.AudioListenerEnable3D = true;
+        if (_transport.Sound is null)
         {
-            _listener = new AudioListener3D();
-            views.Scene.AddChild(_listener);
-            _listener.MakeCurrent();
+            _transport.Sound = new GameRuntime::OpenScctGame.Audio.SoundSystem { Name = "MapSoundSystem" };
+            view.Sub.AddChild(_transport.Sound);
+            _transport.Sound.SetProcess(false);
         }
-        Camera3D? camera = views.Views.FirstOrDefault(v => !v.Cam.IsOrtho)?.Cam.Camera;
-        if (camera is null) return;
-        _listener.GlobalTransform = camera.GlobalTransform;
-        var selected = _ctx.Selection.Items.ToHashSet();
-        var wanted = _ctx.Project.Actors.Where(a => SoundAuthoring.Sound(a) is not null && views.Scene.ShowActors &&
-            ObjectFilter.IsVisible(_ctx.Project, a.Editor) && (!SoloSelection || selected.Contains(ObjectRef.Actor(a.Id))) &&
-            Space.ToGodot(a.Location).DistanceTo(camera.GlobalPosition) < SoundAuthoring.Number(a, "SoundRadius", 64))
-            .OrderBy(a => Space.ToGodot(a.Location).DistanceSquaredTo(camera.GlobalPosition)).Take(32)
-            .ToDictionary(a => a.Id, StringComparer.OrdinalIgnoreCase);
-        foreach (string id in _sources.Keys.ToArray())
-            if (!wanted.TryGetValue(id, out var actor) || !ReferenceEquals(_sources[id].Actor, actor))
-            { _sources[id].Player.Stop(); _sources[id].Player.QueueFree(); _sources.Remove(id); }
-        foreach (var actor in wanted.Values)
+        if (_worldDirty)
         {
-            if (_sources.ContainsKey(actor.Id) || Resolve(SoundAuthoring.Sound(actor)!, true) is not { } stream) continue;
-            float radius = (float)SoundAuthoring.Number(actor, "SoundRadius", 64);
-            if (radius <= 0) continue;
-            var player = new AudioStreamPlayer3D
+            _worldDirty = false;
+            _worldReady = false;
+            try
             {
-                Stream = stream, Position = Space.ToGodot(actor.Location), MaxDistance = radius,
-                UnitSize = Math.Max(0.01f, radius * 0.1f),
-                VolumeDb = Mathf.LinearToDb((float)Math.Clamp(SoundAuthoring.Number(actor, "SoundVolume", 128) / 255 * _gains.GetValueOrDefault(SoundAuthoring.Sound(actor)!, 1), 0.00001, 1)),
-                PitchScale = (float)Math.Clamp(SoundAuthoring.Number(actor, "SoundPitch", 64) / 64, 1f / 64, 255f / 64),
-            };
-            views.Scene.AddChild(player);
-            player.Play();
-            _sources[actor.Id] = (actor, player);
+                _world = new EditorAudioWorld(_ctx, () => SoloSelection);
+                _transport.Sound.Acoustics = _world.Acoustics;
+                var library = _world.LoadLibrary();
+                var previous = _transport.Sound.Library;
+                _transport.Sound.Bind(library, _world);
+                _worldReady = true;
+                previous?.ReleaseStreams();
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or InvalidOperationException or System.Text.Json.JsonException)
+            {
+                _transport.Sound.StopAll();
+                _ctx.Log($"Map sound preview unavailable: {ex.Message}", OpenScct.Editor.Core.Services.Severity.Warning);
+                return;
+            }
         }
+        if (!_worldReady) return;
+        var camera = view.Cam;
+        _transport.Sound.SetListener(EditorAudioWorld.Vector(camera.Location), new OpenScct.Core.FRotator((int)camera.Rotation.Pitch, (int)camera.Rotation.Yaw, (int)camera.Rotation.Roll));
+        _transport.Sound.Update(delta);
+        if (_paths is null)
+        {
+            _paths = new SoundPaths();
+            views.Scene.AddChild(_paths);
+        }
+        _paths.Update(delta, ShowPaths, _world, _transport.Sound, _ctx.Selection.Items);
     }
+
+    public object? WorldSound => _transport.Sound;
+    public EditorAudioWorld? AudioWorld => _world;
 }

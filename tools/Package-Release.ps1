@@ -106,9 +106,9 @@ $zip = Join-Path $Out $zipName
 $commit = git -C $repo rev-parse HEAD 2>$null
 if ($LASTEXITCODE -ne 0 -or -not $commit) { Fail 'run it from a git clone of the editor' }
 $commit = ([string]$commit).Trim()
-# The export takes every resource under app/, ignored files too: only Godot's cache and override.cfg (excluded from
-# the export) may be there.
-$strays = @(git -C $repo status --porcelain --ignored -- app | Where-Object { $_ -like '!! *' } |
+# The export includes the native audio staged from the pinned game, plus Godot's
+# cache and override.cfg. Reject other ignored files.
+$strays = @(git -C $repo status --porcelain --ignored -- app | Where-Object { $_ -like '!! *' -and $_ -notlike '!! app/addons/scct_audio/*' } |
     ForEach-Object { $_.Substring(3) } | Where-Object { $_ -notin @('app/.godot/', 'app/override.cfg') })
 if ($strays.Count -gt 0) {
     $message = "ignored files under app/ would go into the export: $($strays -join ', ')"
@@ -258,6 +258,7 @@ $sections = @(
     (Get-Content -LiteralPath (Join-Path $dotnetRoot 'ThirdPartyNotices.txt') -Raw)
 )
 Write-Text (Join-Path $folder 'THIRD-PARTY-NOTICES.txt') ($sections -join "`n")
+Copy-Item -LiteralPath (Join-Path $app 'addons/scct_audio/licenses') -Destination (Join-Path $folder 'Audio-Licenses') -Recurse -Force
 Remove-Item -LiteralPath $noticeProject -Recurse -Force
 
 # The original objective binaries stay outside Git and app/. Their bounded,
@@ -296,7 +297,7 @@ $info = [ordered]@{
 [IO.File]::WriteAllText((Join-Path $folder 'version.json'), ($info | ConvertTo-Json -Depth 4) + "`n", $utf8)
 
 # --- Checks --------------------------------------------------------------------------------------------------------
-$expected = @($exeName, $dataName, 'ose', 'Data', 'README.txt', 'THIRD-PARTY-NOTICES.txt', 'version.json')
+$expected = @($exeName, $dataName, 'ose', 'Data', 'Audio-Licenses', 'scct_audio.dll', 'phonon.dll', 'README.txt', 'THIRD-PARTY-NOTICES.txt', 'version.json')
 $unexpected = $entries | Where-Object { $_ -notin $expected }
 $missing = $expected | Where-Object { $_ -notin $entries }
 if ($unexpected) { Fail "unexpected entries in the folder: $($unexpected -join ', ')" }
