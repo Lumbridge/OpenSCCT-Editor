@@ -72,6 +72,7 @@ public static partial class ChangeApplier
         Gameplay.NewLights.Place(actor);
         SetProps(ctx, actor, op, "props");
         SetProps(ctx, actor, op, "set");
+        Gameplay.Ps2ObjectivePresets.Normalize(actor, EditorServices.Classes);
         if ((op["brush"] ?? op["shape"]) is { } shapeSpec)
         {
             (List<ShapePart> parts, Vec3? _) = BrushSpecs.Build(shapeSpec, op["brush"] is null ? "shape" : "brush", ctx.Body);

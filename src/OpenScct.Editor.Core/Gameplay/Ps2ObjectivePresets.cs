@@ -107,12 +107,13 @@ public static class Ps2ObjectivePresets
         var vial = new Actor("vial", "SBase.SFlag") { Location = new Vec3(0, 0, 25) };
         Console(console, s_previewClasses.Value);
         VialFields(vial, s_previewClasses.Value, "$console");
+        vial.Props.Set("Ps2Computer", SvJsonNode.String("$console"));
         foreach (Actor actor in new[] { console, vial }) actor.Props.Set("TriggerName", SvJsonNode.String("Tube"));
         SvJsonObject Create(Actor actor)
         {
             var props = new SvJsonObject();
             foreach (var (key, value) in actor.Props)
-                props.Add(key, key == "StaticMesh" && value.Kind == SvJsonKind.Null ? Asset("None") : value);
+                props.Add(key, value);
             return new SvJsonObject
             {
                 { "op", SvJsonNode.String("create") }, { "id", SvJsonNode.String("$" + actor.Id) },
@@ -126,6 +127,14 @@ public static class Ps2ObjectivePresets
             { "summary", SvJsonNode.String("The original PS2 extraction tube and its animated console companion.") },
             { "ops", new SvJsonArray(new SvJsonNode[] { Create(console), Create(vial) }) }
         }, PrefabSource.Builtin, null);
+    }
+
+    /// <summary>Runtime opt-in clears the PC console mesh after normal API null/unset coercion.</summary>
+    public static void Normalize(Actor actor, IClassCatalog? catalog)
+    {
+        if (actor.Props.GetBool("bPS2Objective") &&
+            (catalog?.IsA(actor.Class, "SBase.SComputerObjectiveTrigger") ?? actor.Class == "SBase.SComputerObjectiveTrigger"))
+            actor.Props.Set("StaticMesh", SvJsonNode.Null);
     }
 
     public static PlacedPlaceable Place(MapProject project, Placeable entry, Vec3 location, Rot rotation,
