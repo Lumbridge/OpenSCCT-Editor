@@ -16,13 +16,28 @@ public sealed partial class AssetDropTarget
     private EditorViewport? _stairSnapView;
     private Actor? _windowGhost;
     private Actor? _doorGhost;
+    private DoorPrefabPlacement? _doorAssembly;
+    private NeighbourDrag? _doorSnap;
+    private EditorViewport? _doorSnapView;
 
     private bool ShowPrefab(EditorViewport view, Vector2 at, PrefabDragData prefab)
     {
+        if (_doorSnapView != view) { _doorSnapView = view; _doorSnap = null; }
+        _doorSnap ??= new NeighbourDrag(ToolManager.Instance!, view, SnapUse.Move, [], () => null);
+        if (prefab.DoorAssembly is { } assembly)
+        {
+            bool valid = assembly.Preview(view, at, prefab.DoorYaw, _doorSnap);
+            _doorAssembly = assembly;
+            _prefabTarget = (view, assembly.Point); _over = view;
+            _pointer = EditorPointer.Global(view); _frame = Engine.GetProcessFrames();
+            _ctx.SetStatus(assembly.Problem ?? "Drop door assembly · R flips wall facing · Alt toggles neighbour snap");
+            view.Redraw(); return valid;
+        }
         if (prefab.DoorPreview is { } door)
         {
             var (actor, why) = Tools.DoorTool.Preview(view, at, door, prefab.DoorYaw);
             _doorGhost = actor; _stairPlacementProblem = why; prefab.DoorPlacement = why is null ? actor : null;
+            if (actor is not null) OpenScct.Editor.Core.Prefabs.PrefabTransform.Place(DoorTool.SnapPreview(view, [actor], [], _doorSnap, actor.Rotation), Rot.Zero).Apply(actor);
             _prefabTarget = (view, actor?.Location ?? Vec3.Zero); _over = view;
             _pointer = EditorPointer.Global(view); _frame = Engine.GetProcessFrames();
             _ctx.SetStatus(why ?? "Drop to place door · R rotates / flips wall facing");

@@ -32,7 +32,7 @@ public static class DoorAssets
         var resolver = assets ?? AssetResolver.For(EditorServices.ContentRoot, null);
         string TextureHash(string name) => resolver.FindMaterial(name) is { Texture: { } texture } lib && File.Exists(Path.Combine(lib.RenderDir, texture))
             ? Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(lib.RenderDir, texture)))) : "";
-        string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(d.ToJson() + TextureHash(d.Material) + TextureHash(d.FrameMaterial))))[..24].ToLowerInvariant();
+        string hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("door-mesh/2" + d.ToJson() + TextureHash(d.Material) + TextureHash(d.FrameMaterial))))[..24].ToLowerInvariant();
         string asset = "EditorDoor.D" + hash;
         lock (Gate)
         {

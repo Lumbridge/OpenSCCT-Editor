@@ -146,4 +146,18 @@ var builtKit = new MapCompiler().Compile(kit,Path.Combine(output,"PrefabGallery"
 Check(builtKit.Ok,"Kit builds and loads: " + string.Join(';',builtKit.Findings.Where(f => f.Severity == Severity.Error).Select(f => f.Message)));
 Check(!builtKit.Findings.Any(f => f.Code.Contains("missing",StringComparison.Ordinal)),"All kit materials are packaged");
 DoorAssemblyChecks.Run(Check,output);
+foreach (string name in new[] { "double_sliding_door", "sliding_door", "roller_door" })
+{
+    var preview = PrefabPreview.Expand(name, null, out var why);
+    Check(preview is not null, "Sliding assembly preview expands: " + name + " " + why);
+    foreach (var leaf in preview!.Actors.Where(a => a.Door is not null))
+    {
+        var design = leaf.Door!;
+        var vertices = DoorGeometry.Leaf(design).SelectMany(p => p.Shape.Faces).SelectMany(f => f.Vertices).ToArray();
+        Check(vertices.Min(p => p.Y) <= -design.Width / 2 && vertices.Max(p => p.Y) >= design.Width / 2, name + " seals both side edges");
+        Check(vertices.Min(p => p.Z) <= -design.Height / 2 && vertices.Max(p => p.Z) >= design.Height / 2, name + " seals top and bottom");
+    }
+}
+var customDoorPreview = PrefabPreview.Expand("double_sliding_door", null, out _, ApiJson.Obj(("width", ApiJson.Num(480)), ("height", ApiJson.Num(320))));
+Check(customDoorPreview!.Actors.Where(a => a.Door is not null).All(a => a.Door!.Width == 240 && a.Door.Height == 320), "Assembly preview uses the selected dimensions");
 Console.WriteLine($"PASS {checks} door/prefab checks. Samples: {output}");

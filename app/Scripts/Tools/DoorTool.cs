@@ -4,7 +4,9 @@ using OpenScct.Editor.Core.Doors;
 using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Geometry;
 using OpenScct.Editor.Core.Geometry.Edit;
+using OpenScct.Editor.Core.Geometry.Snap;
 using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Prefabs;
 using OpenScct.Editor.Core.Scripting;
 using OpenScctEditor.Core;
 using OpenScctEditor.Shell;
@@ -32,14 +34,29 @@ public sealed class DoorTool : IViewportTool
     private Actor? preview;
     private string? problem;
     private Vector2 pointer;
+    private NeighbourDrag? snap;
+    public DoorPrefabPlacement? Prefab { get; private set; }
+    public void SelectPrefab(DoorPrefabPlacement? prefab) { Prefab = prefab; preview = null; snap = null; RefreshPreview(); }
+    public void RefreshPreview()
+    {
+        if (view is null) return;
+        snap ??= new NeighbourDrag(tools, view, SnapUse.Move, [], () => null);
+        if (Prefab is not null) Prefab.Preview(view, pointer, Yaw, snap);
+        else
+        {
+            (preview, problem) = Preview(view, pointer, Settings, Yaw);
+            if (preview is not null) PrefabTransform.Place(SnapPreview(view, [preview], [], snap, preview.Rotation), Rot.Zero).Apply(preview);
+        }
+        view.Redraw();
+    }
     public DoorDesign Settings { get; set; } = new();
     public int Yaw { get; set; }
     public string Id => "doors";
     public string Title => "Doors";
     public string Shortcut => "";
     public string Description => "Place a framed mover door, then edit its size, style and opening behaviour";
-    public DoorTool(ToolManager manager) { tools = manager; tools.Context.SessionReplaced += () => preview = null; }
-    public void Deactivate() { preview = null; view?.Redraw(); }
+    public DoorTool(ToolManager manager) { tools = manager; tools.Context.SessionReplaced += () => { preview = null; Prefab = null; snap = null; view?.Redraw(); }; }
+    public void Deactivate() { preview = null; Prefab?.ClearPreview(); snap = null; view?.Redraw(); }
     public void BuildOptions(HBoxContainer bar)
     {
         bar.AddChild(new Label { Text = "Click at the bottom of the doorway · R rotates · Esc cancels" });
@@ -47,11 +64,21 @@ public sealed class DoorTool : IViewportTool
     }
     public bool Input(EditorViewport target, InputEvent e)
     {
+        if (view != target) snap = null;
         view = target;
         if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.R }) { Yaw = Rot.Wrap(Yaw + 16384); e = new InputEventMouseMotion { Position = pointer }; }
         if (e is not InputEventMouseMotion && e is not InputEventMouseButton) return false;
         pointer = e is InputEventMouseMotion motion ? motion.Position : ((InputEventMouseButton)e).Position;
-        (preview, problem) = Preview(target, pointer, Settings, Yaw); target.Redraw();
+        RefreshPreview();
+        if (Prefab is not null)
+        {
+            if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+            {
+                Prefab.Commit();
+                if (Prefab.Problem is { } why) tools.Context.SetStatus(why);
+            }
+            return true;
+        }
         if (e is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
         {
             if (preview is not null && problem is null)
@@ -66,8 +93,29 @@ public sealed class DoorTool : IViewportTool
         if (problem is not null) tools.Context.SetStatus(problem);
         return true;
     }
-    public bool Cancel() { bool had = preview is not null; preview = null; view?.Redraw(); return had; }
-    public void Draw(EditorViewport target, Control canvas) { if (preview is not null && view == target) DrawPreview(target, canvas, preview, problem is not null); }
+    public bool Cancel() { bool had = preview is not null || Prefab?.LeafCount > 0; preview = null; Prefab?.ClearPreview(); snap = null; view?.Redraw(); return had; }
+    public void Draw(EditorViewport target, Control canvas)
+    {
+        if (view != target || target.GetViewport().GuiIsDragging()) return;
+        if (Prefab is not null) Prefab.Draw(target, canvas);
+        else if (preview is not null) DrawPreview(target, canvas, preview, problem is not null);
+        snap?.Draw(target, canvas);
+    }
+    internal static Vec3 SnapPreview(EditorViewport view, IEnumerable<Actor> actors, IEnumerable<Brush> brushes, NeighbourDrag snap, Rot rotation)
+    {
+        snap.AltHeld = Godot.Input.IsKeyPressed(Key.Alt);
+        var vertices = actors.Where(a => a.Door is not null).SelectMany(a => DoorGeometry.Leaf(a.Door!).SelectMany(p => p.Shape.Faces).SelectMany(f => f.Vertices).Select(a.LocalToWorld))
+            .Concat(actors.Where(a => a.Door is not null).SelectMany(DoorGeometry.Parts).Where(b => b.Oper == CsgOper.Add).SelectMany(b => b.WorldFaces()).SelectMany(f => f.Vertices))
+            .Concat(brushes.Where(b => b.Oper == CsgOper.Add).SelectMany(b => b.WorldFaces()).SelectMany(f => f.Vertices)).Select(rotation.Unrotate).ToArray();
+        if (vertices.Length == 0) return Vec3.Zero;
+        Vec3 min = vertices.Aggregate(Vec3.Min), max = vertices.Aggregate(Vec3.Max);
+        var box = new Brush("DoorSnap") { Shape = Box.Shape(max - min), Location = rotation.Rotate((min + max) / 2), Rotation = rotation };
+        if (SnapFaces.Shape(SnapFaces.OfBrush(box), null) is not { } shape) return Vec3.Zero;
+        int depth = view.Cam.IsOrtho ? ViewAxes.DepthAxis(view.Cam.Kind) : Placement.DominantAxis(rotation.Axes().Forward);
+        var solved = snap.Move(shape, Vec3.Zero, [.. new[] { 0, 1, 2 }.Where(axis => axis != depth)]);
+        snap.Moved(solved.Offset);
+        return solved.Offset;
+    }
     public static (Actor? Actor, string? Problem) Preview(EditorViewport view, Vector2 at, DoorDesign settings, int yaw)
     {
         var ctx = EditorContext.Instance; var d = settings.Clone(); d.CutDepth = 0; d.Wall = null;

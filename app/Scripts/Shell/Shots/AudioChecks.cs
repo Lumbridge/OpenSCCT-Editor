@@ -12,6 +12,7 @@ using OpenScctEditor.Core;
 using OpenScctEditor.Panels;
 using OpenScctEditor.Viewports;
 using GameRuntime::OpenScctGame.Audio;
+using FVector = OpenScct.Core.FVector;
 
 namespace OpenScctEditor.Shell.Shots;
 
@@ -44,6 +45,29 @@ public partial class AudioChecks : Node, IShellPart
         float peak = -200;
         try
         {
+            AcousticRayHit Room(FVector origin, FVector direction, float range, int material)
+            {
+                float nearest = range; FVector normal = default; bool hit = false;
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    float o = axis == 0 ? origin.X : axis == 1 ? origin.Y : origin.Z;
+                    float d = axis == 0 ? direction.X : axis == 1 ? direction.Y : direction.Z;
+                    if (Math.Abs(d) < .001) continue;
+                    float distance = (Math.Sign(d) * 1000 - o) / d;
+                    if (distance < .001 || distance > nearest) continue;
+                    nearest = distance; hit = true;
+                    normal = axis == 0 ? new(-Math.Sign(d), 0, 0) : axis == 1 ? new(0, -Math.Sign(d), 0) : new(0, 0, -Math.Sign(d));
+                }
+                return new(hit, nearest, normal, material);
+            }
+            var hard = SoundReflectionPaths.Trace(default, new(0, 0, 1), 10000, 64, 1, (o, d, r) => Room(o, d, r, 19)).ToArray();
+            var soft = SoundReflectionPaths.Trace(default, new(0, 0, 1), 10000, 64, 1, (o, d, r) => Room(o, d, r, 1)).ToArray();
+            Check(hard.Length == SoundReflectionPaths.MaximumBounces, "Reflection inspection follows four 3D bounces");
+            Check(hard.All(s => Math.Abs(s.Start.Z) <= 1000.01f && Math.Abs(s.End.Z) <= 1000.01f), "Reflections terminate at real ceiling/floor intersections");
+            Check(hard.Zip(hard.Skip(1)).All(p => p.Second.Power < p.First.Power), "Reflection energy decreases with material loss and path distance");
+            Check(hard[0].Power > soft[0].Power && hard[0].HighFrequencyPower > soft[0].HighFrequencyPower, "Hard and absorbent materials use the shared game absorption model");
+            var limited = SoundReflectionPaths.Trace(default, new(1, 0, 0), 3500, 64, 1, (o, d, r) => Room(o, d, r, 19)).ToArray();
+            Check(limited.Length > 0 && limited.All(s => s.Distance <= 3500.01f), "Reflection paths respect the source's total remaining range");
             await Wait(2);
             var actor = context.Project.Actors.First(a => SoundAuthoring.Sound(a) is not null);
             string path = SoundAuthoring.Sound(actor)!;
@@ -119,6 +143,7 @@ public partial class AudioChecks : Node, IShellPart
             Check(mixer.OcclusionQueries > 0, "Game mixer queries the editor's acoustic geometry");
             Check(mixer.CaptureVoices().Any(v => (v.Arrival - v.Location).Size() > 1), "Game propagation routes the sound around the wall");
             Check(mixer.Buses!.CaptureGeometry().Any(g => g.Rays > 0), "Adaptive reverb samples the editable room");
+            Check(layout.Scene.GetChildren().OfType<SoundPaths>().Any(p => p.ReflectionSegments > 0), "Live preview draws material-aware 3D reflections");
             audio.ShowPaths = false;
             await Wait(0.2);
             Check(layout.Scene.GetChildren().OfType<SoundPaths>().All(p => p.Segments == 0), "Sound Paths switch clears the visualization");

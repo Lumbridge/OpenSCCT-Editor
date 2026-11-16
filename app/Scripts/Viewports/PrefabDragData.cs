@@ -25,6 +25,7 @@ public sealed partial class PrefabDragData : RefCounted
     public OpenScct.Editor.Core.Doors.DoorDesign? DoorPreview { get; init; }
     public Actor? DoorPlacement { get; set; }
     public int DoorYaw { get; set; }
+    public Tools.DoorPrefabPlacement? DoorAssembly { get; init; }
     public Actor? WindowPlacement { get; set; }
     public int WindowYaw { get; set; }
     public void Place(Vec3 point) => _place?.Invoke(point);

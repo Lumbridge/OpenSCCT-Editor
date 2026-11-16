@@ -67,7 +67,7 @@ public static partial class TutorialCatalog
             S("Place across a wall", "Drag the prefab into the map at the floor in the middle of a wall. Its wall runs along Y and the switch is on +X. Move or rotate the whole instance so the opening reaches open space on both sides. The switch needs a reachable approach.", "view:"),
             S("Edit a placed assembly", "Select any part and use Show in list in Prefabs to reveal its definition. Change the parameters and choose Apply to selected to rebuild that instance. To keep individual hand edits, Break the instance first. Door dimensions and movement can also be edited in Inspector.", "panel:Prefabs"),
             S("Test the switch and door", "Run Map Check, then build and play. Use the switch from its front and watch the door open. Try a second copy too: each switch should control its own door. The switch model requires shared gameplay content.", "action:build.check")]),
-        .. DoorLessons(),
+        .. DoorLessons().Where(t => t.Id is not ("door-hinged" or "door-double-hinged")),
         .. AnimationLessons(),
         new("prefabs", "Browse and customise prefabs", "prefab library favourites furniture storage industrial props parameters thumbnail", [
             S("Browse the library", "Prefabs includes shaded previews of architecture, furniture, storage, industrial props, lights, doors and gameplay assemblies. Search by name or description, then narrow the category and library filters.", "panel:Prefabs"),

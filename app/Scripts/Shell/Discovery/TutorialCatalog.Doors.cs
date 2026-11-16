@@ -4,10 +4,9 @@ public static partial class TutorialCatalog
 {
     public static string? DoorTutorialForPrefab(string name) => name switch
     {
-        "swing_door" or "glazed_door" => "door-hinged",
+        "glazed_door" => "door-sliding",
         "sliding_door" => "door-sliding",
         "roller_door" => "door-rising",
-        "double_hinged_door" => "door-double-hinged",
         "double_sliding_door" => "door-double-sliding",
         "hackable_door" => "door-hacking",
         "automatic_door" => "door-automatic",
@@ -62,7 +61,7 @@ public static partial class TutorialCatalog
             S("Tune the placed panel", "With the panel selected, Inspector's Door hack panel section offers Hack time and Select linked doors. Change the duration there to keep its current position and event link. Select linked doors lets you verify the connection and inspect the target leaves.", "panel:Inspector|Door hack panel"),
             S("Test success and cancellation", "Check, Build and Play as a spy. Start a hack and cancel before completion: the door should remain shut. Complete the configured duration and verify timed closing or permanent opening. Test another copy for event isolation, and start a fresh round to check its initial state.", "action:build.check")]),
         new("door-automatic", "Build doors with automatic team access", "door automatic proximity sensor spies spy mercs mercenary both neither front back side access asymmetric one way", [
-            S("Choose an automatic assembly", "Automatic access door is selected in Prefabs. It contains a door and a separate sensor on each side. Double hinged doors and Double sliding doors offer the same access parameters and open both leaves together.", "prefab:automatic_door"),
+            S("Choose an automatic assembly", "Automatic access door is selected in Prefabs. It contains a door and a separate sensor on each side. Double sliding doors offer the same access parameters and open both leaves together.", "prefab:automatic_door"),
             S("Configure the front", "Front access controls the +X side before the assembly is rotated. Choose spies, mercs, both or none. For example, set spies here to let only spies activate this side automatically. The rule controls activation; an already open doorway can still be crossed.", "prefab:automatic_door|Front access"),
             S("Configure the back independently", "Back access controls the opposite, -X side and has the same four choices. For a different rule on each side, try front spies and back mercs. Both allows either team; none disables that side's automatic opening. Rotate the whole assembly so these sides face the intended rooms.", "prefab:automatic_door|Back access"),
             S("Choose the detection space", "Approach sets the depth of each side's detection volume beyond the wall. Place the assembly with sensors in accessible space on their own sides, clear of nearby routes that should not activate this door. The two sensor volumes stay apart through the doorway.", "prefab:automatic_door|Approach"),

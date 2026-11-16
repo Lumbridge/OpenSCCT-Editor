@@ -13,7 +13,11 @@ public static class DoorGeometry
     {
         d.Validate();
         var parts = new List<Part>();
-        double w = d.Width - d.Clearance * 2, h = d.Height - d.Clearance * 2, t = d.Thickness;
+        // Sliding leaves seal against their frame and each other. The swing
+        // clearance is only needed by a leaf rotating through its opening.
+        bool sliding = d.Motion.StartsWith("slide", StringComparison.Ordinal) || d.Motion == "raise";
+        double w = sliding ? d.Width : d.Width - d.Clearance * 2;
+        double h = sliding ? d.Height : d.Height - d.Clearance * 2, t = d.Thickness;
         string face = string.IsNullOrWhiteSpace(d.Material) ? "Editor.Door_" + d.Style : d.Material;
         void BoxPart(Vec3 size, Vec3 at, string material)
         {

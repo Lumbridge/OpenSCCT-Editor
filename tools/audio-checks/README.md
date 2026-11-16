@@ -30,8 +30,11 @@ For example, after building the editor:
 
 The Sound Paths switch shows selected sources even when the camera is outside
 hearing range. Green lines come from live mixer arrival positions; blue outlines
-sample direct reach against the same geometry; amber lines are geometric first
-reflection guides. They are not captured Steam Audio reflection rays or a full
+sample direct reach against the same geometry; amber lines trace up to four reflections in 3D, fading with the game
+material absorption model and distance gain. High-frequency loss also changes
+their colour. They are not captured Steam Audio reflection rays or a full
 acoustic pressure field. Imported maps use their BSP zones, portals and material
-collision data. Editable CSG uses the shared ray query with default wall acoustic
-material; actors are evaluated in their authored state, without running gameplay.
+collision data. Editable CSG reads the authored surface material where available, using the generic
+material as fallback. Placed mesh collision joins the queries once the background
+traversal cache is ready. Actors are evaluated in their authored state, without
+running gameplay.

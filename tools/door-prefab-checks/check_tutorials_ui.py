@@ -27,10 +27,8 @@ def nav(text):
 def shot(name): return call('ui.shot', dict(name=name, dir=str(run/'shots')))
 
 lessons = [
-    ('Build a hinged door', 'door-hinged', 5),
     ('Build a sliding door', 'door-sliding', 5),
     ('Build a rising security door', 'door-rising', 5),
-    ('Build double hinged doors', 'door-double-hinged', 5),
     ('Build double sliding doors', 'door-double-sliding', 5),
     ('Choose door activation and timing', 'door-activation', 6),
     ('Build a hackable door and move its panel', 'door-hacking', 6),
@@ -39,7 +37,6 @@ lessons = [
 ]
 destinations = {
     'door-rising': {0: ('Raised security door', None), 1: ('Raised security door', 'Height')},
-    'door-double-hinged': {0: ('Double hinged doors', None), 1: ('Double hinged doors', 'Width'), 2: ('Double hinged doors', 'Front access')},
     'door-double-sliding': {0: ('Double sliding doors', None), 1: ('Double sliding doors', 'Width'), 2: ('Double sliding doors', 'Back access')},
     'door-activation': {2: ('Door with a switch', 'State')},
     'door-hacking': {0: ('Hackable access door', None), 1: ('Hackable access door', 'Hack time'), 2: ('Hackable access door', 'Panel height')},
@@ -103,16 +100,16 @@ assert query
 step('key', key='Escape')
 nav('panels: Doors')
 scroll = next(c for c in tree() if c['type'] == 'ScrollContainer' and '/Doors/Doors/' in c['path'])
-step('scroll', at=scroll['path'], clicks=40); step('click', at='text:Hinged pair')
+step('scroll', at=scroll['path'], clicks=40); step('click', at='text:Sliding pair')
 details = next(c for c in tree() if c['type'] == 'ScrollContainer' and '/Prefabs/Prefabs/' in c['path'])
 step('scroll', at=details['path'], clicks=40); step('click', at='text:Learn this door')
-assert any(c.get('tutorial') == 'door-double-hinged' and c.get('tutorialStep') == 0 for c in tree())
+assert any(c.get('tutorial') == 'door-double-sliding' and c.get('tutorialStep') == 0 for c in tree())
 step('click', at='text:Next'); step('click', at='text:Next'); step('click', at='text:Back')
-assert any(c.get('tutorial') == 'door-double-hinged' and c.get('tutorialStep') == 1 for c in tree())
+assert any(c.get('tutorial') == 'door-double-sliding' and c.get('tutorialStep') == 1 for c in tree())
 step('click', at='text:Cancel'); nav('commands: Resume Last Tutorial')
-assert any(c.get('tutorial') == 'door-double-hinged' and c.get('tutorialStep') == 1 for c in tree())
+assert any(c.get('tutorial') == 'door-double-sliding' and c.get('tutorialStep') == 1 for c in tree())
 step('click', at='text:Show me again')
 assert any(c.get('highlightTarget') for c in tree())
-shot('tutorial-double-hinged-resumed'); step('click', at='text:Cancel')
+shot('tutorial-double-sliding-resumed'); step('click', at='text:Cancel')
 assert call('summary')['counts'] == before and call('editor')['dirty'] == dirty, 'Lessons must not change the map'
 print(f'PASS {checked} new door tutorial destinations; shared tutorial browser, contextual entry, Back, Cancel, Resume and Show me again; map unchanged', flush=True)

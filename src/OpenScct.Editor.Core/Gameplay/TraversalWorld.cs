@@ -28,7 +28,11 @@ public readonly record struct SurfacePoly(Vec3[] Verts, Vec3 Normal, SurfaceSour
 }
 
 /// <summary>A line trace hit.</summary>
-public readonly record struct TraceHit(Vec3 Point, Vec3 Normal, double Distance);
+public readonly record struct TraceHit(Vec3 Point, Vec3 Normal, double Distance)
+{
+    public int SurfaceType { get; init; }
+    public int OcclusionType { get; init; }
+}
 
 /// <summary>
 /// The level geometry as the traversal tools see it: OpenSCCT's own collision world (the engine's line and box traces)
@@ -167,7 +171,7 @@ public sealed class TraversalWorld
                 Vec3 p = from + dir * d;
                 if (best is null || d < best.Value.Distance)
                 {
-                    best = new TraceHit(p, V(hit.Normal), d);
+                    best = new TraceHit(p, V(hit.Normal), d) { SurfaceType = hit.SurfaceType, OcclusionType = w.OcclusionTypeOf(hit.Material) };
                 }
             }
         }

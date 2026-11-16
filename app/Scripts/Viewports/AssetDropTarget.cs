@@ -129,7 +129,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
         {
             if (PrefabDragData.Read(data) is { } prefab)
             {
-                if ((prefab.WindowPreview is not null || prefab.DoorPreview is not null) && !ShowPrefab(view, Pointer(view, position), prefab)) return;
+                if ((prefab.WindowPreview is not null || prefab.DoorPreview is not null || prefab.DoorAssembly is not null) && !ShowPrefab(view, Pointer(view, position), prefab)) return;
                 if (prefab.GeometryPreview is not null && !ShowPrefab(view, Pointer(view, position), prefab)) return;
                 prefab.Place((prefab.StairPreview is not null || prefab.GeometryPreview is not null) && _stairGhost is { } stairGhost ? stairGhost.Location : PrefabPoint(view, Pointer(view, position), prefab.SurfaceOffset));
             }
@@ -167,7 +167,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     public override void _Input(InputEvent e)
     {
         if (e is InputEventKey { Pressed: true, Echo: false, Keycode: Key.R } && GetViewport().GuiIsDragging()
-            && PrefabDragData.Read(GetViewport().GuiGetDragData()) is { DoorPreview: not null } doorDrag)
+            && PrefabDragData.Read(GetViewport().GuiGetDragData()) is { } doorDrag && (doorDrag.DoorPreview is not null || doorDrag.DoorAssembly is not null))
         {
             doorDrag.DoorYaw = Rot.Wrap(doorDrag.DoorYaw + 16384);
             if (_over is { } doorView) CanDrop(doorView, EditorPointer.Local(doorView), GetViewport().GuiGetDragData());
@@ -780,8 +780,9 @@ public sealed partial class AssetDropTarget : Node, IShellPart
     {
         if (_prefabTarget is { } targetPoint && targetPoint.View == view && view.Cam.ToScreen(targetPoint.Point) is { } screen)
         {
-            if (_doorGhost is not null) Tools.DoorTool.DrawPreview(view, canvas, _doorGhost, _stairPlacementProblem is not null);
-            if (_windowGhost is not null) Tools.WindowTool.DrawPreview(view, canvas, _windowGhost, _stairPlacementProblem is not null);
+            if (_doorAssembly is not null) _doorAssembly.Draw(view, canvas);
+            else if (_doorGhost is not null) Tools.DoorTool.DrawPreview(view, canvas, _doorGhost, _stairPlacementProblem is not null);
+            else if (_windowGhost is not null) Tools.WindowTool.DrawPreview(view, canvas, _windowGhost, _stairPlacementProblem is not null);
             else if (_stairGhost is { Stair: not null })
             {
                 Tools.StairTool.DrawPreview(view, canvas, _stairGhost, _stairPlacementProblem is not null);
@@ -794,6 +795,8 @@ public sealed partial class AssetDropTarget : Node, IShellPart
                         if (view.Cam.ToScreen(ghostFace.Vertices[i]) is { } a && view.Cam.ToScreen(ghostFace.Vertices[(i + 1) % ghostFace.Vertices.Count]) is { } b)
                             canvas.DrawLine(a, b, SceneStyle.DropTarget, 1.5f, true);
             }
+            _doorSnap?.Draw(view, canvas);
+            if (_doorAssembly is not null || _doorGhost is not null) return;
             canvas.DrawCircle(screen, 7, SceneStyle.DropTarget, filled: false, width: 2);
             canvas.DrawLine(screen - new Vector2(12, 0), screen + new Vector2(12, 0), SceneStyle.DropTarget);
             canvas.DrawLine(screen - new Vector2(0, 12), screen + new Vector2(0, 12), SceneStyle.DropTarget);
@@ -890,6 +893,7 @@ public sealed partial class AssetDropTarget : Node, IShellPart
             _stairSnap = null; _stairSnapView = null;
             _windowGhost = null;
             _doorGhost = null;
+            _doorAssembly = null; _doorSnap = null; _doorSnapView = null;
             if (IsInstanceValid(prefabTarget.View)) prefabTarget.View.Redraw();
         }
 

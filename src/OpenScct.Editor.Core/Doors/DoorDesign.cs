@@ -9,9 +9,10 @@ public sealed class DoorDesign
     internal bool IsLowered { get; set; }
     public static readonly string[] Styles = ["plain", "panelled", "industrial", "glazed", "louvred", "security"];
     public static readonly string[] Motions = ["swing left", "swing right", "slide left", "slide right", "raise"];
+    public static readonly string[] PlacementMotions = ["slide left", "slide right", "raise"];
     public static readonly string[] Behaviours = ["BumpOpenTimed", "TriggerOpenTimed", "TriggerToggle", "TriggerControl", "TriggerOpenOnceOnly"];
     public string Style { get; set; } = "panelled";
-    public string Motion { get; set; } = "swing left";
+    public string Motion { get; set; } = "slide left";
     public string Behaviour { get; set; } = "BumpOpenTimed";
     public double Width { get; set; } = 128;
     public double Height { get; set; } = 224;

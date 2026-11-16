@@ -4,6 +4,7 @@ using OpenScct.Core;
 using OpenScct.Editor.Core.Assets;
 using OpenScct.Editor.Core.Audio;
 using OpenScct.Editor.Core.Model;
+using OpenScct.Editor.Core.Gameplay;
 using OpenScct.Editor.Core.Scripting;
 using OpenScct.Editor.Core.Services;
 using OpenScctEditor.Core;
@@ -23,6 +24,14 @@ public sealed class EditorAudioWorld : IAudioWorld
     private readonly Dictionary<int, Actor> _actors = [];
     private readonly Dictionary<int, string> _zones = [];
     private readonly string? _bakedFolder;
+    private TraversalWorld? _traversal;
+    private uint _revision;
+    private readonly Dictionary<(string, int), (int Surface, int Occlusion)> _materials = [];
+    public void SetTraversal(TraversalWorld? traversal)
+    {
+        if (ReferenceEquals(_traversal, traversal)) return;
+        _traversal = traversal; _revision++;
+    }
     public AcousticScene? Acoustics { get; }
     public WorldGeometry Geometry => _geometry;
 
@@ -113,20 +122,44 @@ public sealed class EditorAudioWorld : IAudioWorld
     }
     public int SurfaceOf(FVector start, FVector end) => OcclusionBetween(start, end, out _) ? 0 : -1;
     public byte SoundOcclusionOf(int actorId) => (byte)Math.Clamp(_actors.TryGetValue(actorId, out var actor) ? SoundAuthoring.Number(actor, "SoundOcclusion", 0) : 0, 0, 255);
-    public bool SupportsReverbGeometry => _geometry.HasGeometry;
-    public uint AcousticRevision => _geometry.BakedWorld?.GeometryRevision ?? 0;
+    public bool SupportsReverbGeometry => _geometry.HasGeometry || _traversal?.HasGeometry == true;
+    public uint AcousticRevision => (_geometry.BakedWorld?.GeometryRevision ?? 0) + _revision;
     public AcousticRayHit TraceReverb(FVector origin, FVector direction, float range)
     {
+        AcousticRayHit result;
         if (_geometry.BrushCount == 0 && _geometry.BakedWorld is { } baked)
         {
-            lock (WorldGeometry.BakedQueryLock) return LevelAudioWorld.TraceReverbGeometry(baked, origin, direction, range);
+            lock (WorldGeometry.BakedQueryLock) result = LevelAudioWorld.TraceReverbGeometry(baked, origin, direction, range);
         }
-        var hit = _geometry.Raycast(Vector(origin), Vector(direction), range);
-        return hit is null ? new(false, range, default) : new(true, (float)hit.Distance, Vector(hit.Normal));
+        else
+        {
+            var hit = _geometry.Raycast(Vector(origin), Vector(direction), range);
+            var material = hit is null ? default : Material(hit.BrushId, hit.Face);
+            result = hit is null ? new(false, range, default) : new(true, (float)hit.Distance, Vector(hit.Normal), material.Surface, material.Occlusion);
+            if (hit is { BrushId: null } && _geometry.BakedWorld is { } world)
+            {
+                lock (WorldGeometry.BakedQueryLock) result = LevelAudioWorld.TraceReverbGeometry(world, origin, direction, range);
+            }
+        }
+        // The background traversal cache also includes placed mesh collision.
+        if (_traversal?.Trace(Vector(origin), Vector(origin + direction * range)) is { } mesh && (!result.Hit || mesh.Distance < result.Distance - .05))
+            result = new(true, (float)mesh.Distance, Vector(mesh.Normal), mesh.SurfaceType, mesh.OcclusionType);
+        return result;
+    }
+    private (int Surface, int Occlusion) Material(string? brush, int face)
+    {
+        if (brush is null) return default;
+        if (_materials.TryGetValue((brush, face), out var result)) return result;
+        string? path = _context.Project.FindBrush(brush)?.Shape.Faces.ElementAtOrDefault(face)?.Material;
+        var props = path is null ? null : AssetResolver.For(EditorServices.ContentRoot, AssetService.ProjectFolder).FindMaterial(path)?.Gameplay;
+        static int Number(JsonNode? value) => value is JsonValue v && v.TryGetValue<int>(out var number) ? number : 0;
+        result = (Number(props?["SurfaceType"]), Number(props?["OcclusionType"]));
+        _materials[(brush, face)] = result;
+        return result;
     }
     public bool OcclusionBetween(FVector listener, FVector source, out OcclusionHits hits)
     {
-        if (_geometry.BrushCount == 0 && _geometry.BakedWorld is { } baked)
+        if (_traversal is null && _geometry.BrushCount == 0 && _geometry.BakedWorld is { } baked)
         {
             lock (WorldGeometry.BakedQueryLock) return LevelAudioWorld.TraceOcclusion(baked, listener, source, out hits);
         }
@@ -134,11 +167,11 @@ public sealed class EditorAudioWorld : IAudioWorld
         FVector delta = source - listener;
         float distance = delta.Size();
         if (distance < 0.1f) return false;
-        var near = _geometry.Raycast(Vector(listener), Vector(delta / distance), distance);
-        if (near is null || near.Distance >= distance - 0.1) return false;
-        var far = _geometry.Raycast(Vector(source), Vector(-delta / distance), distance);
-        hits = new(Vector(near.Point), far is null ? source : Vector(far.Point), 0, 0,
-            ZoneIndexAt(listener), ZoneIndexAt(source), Vector(near.Normal), far is null ? default : Vector(far.Normal));
+        var near = TraceReverb(listener, delta / distance, distance);
+        if (!near.Hit || near.Distance >= distance - .1) return false;
+        var far = TraceReverb(source, -delta / distance, distance);
+        hits = new(listener + delta / distance * near.Distance, far.Hit ? source - delta / distance * far.Distance : source, near.Occlusion, far.Hit ? far.Occlusion : 0,
+            ZoneIndexAt(listener), ZoneIndexAt(source), near.Normal, far.Hit ? far.Normal : default);
         return true;
     }
 }

@@ -13,16 +13,15 @@ public static class PrefabPreview
 {
     /// <summary>The scratch map holding the prefab's parts, or null when the prefab does not expand (the reason is in
     /// <paramref name="problem"/>). <paramref name="mapFolder"/> finds the map's own prefabs.</summary>
-    public static MapProject? Expand(string name, string? mapFolder, out string? problem)
+    public static MapProject? Expand(string name, string? mapFolder, out string? problem, SvJsonObject? parameters = null)
     {
         var session = new EditorSession(MapProject.CreateDefault("Preview", "Prefab preview"), mapFolder);
+        var place = ApiJson.Obj(("op", ApiJson.Str("prefab.place")), ("name", ApiJson.Str(name)), ("at", ApiJson.Vec(Vec3.Zero)));
+        if (parameters is not null) place.Add("params", parameters);
         SvJsonObject doc = ApiJson.Obj(
             ("format", ApiJson.Str(ChangeApplier.Format)),
             ("label", ApiJson.Str("Prefab preview")),
-            ("ops", ApiJson.Arr([ApiJson.Obj(
-                ("op", ApiJson.Str("prefab.place")),
-                ("name", ApiJson.Str(name)),
-                ("at", ApiJson.Vec(Vec3.Zero)))])));
+            ("ops", ApiJson.Arr([place])));
         ChangeResult result = ChangeApplier.Apply(session, doc, writeFiles: false);
         problem = result.Ok ? null : (result.Json["error"] as SvJsonObject)?["message"] is SvJsonString m ? m.Value : "it does not expand";
         return result.Ok ? session.Project : null;

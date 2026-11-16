@@ -210,6 +210,7 @@ public partial class EditorAudio : Node, IShellPart
             try
             {
                 _world = new EditorAudioWorld(_ctx, () => SoloSelection);
+                OpenScctEditor.Gameplay.GameplayState.Instance.Prewarm();
                 _transport.Sound.Acoustics = _world.Acoustics;
                 var library = _world.LoadLibrary();
                 var previous = _transport.Sound.Library;
@@ -225,6 +226,7 @@ public partial class EditorAudio : Node, IShellPart
             }
         }
         if (!_worldReady) return;
+        _world?.SetTraversal(OpenScctEditor.Gameplay.GameplayState.Instance.WorldIfBuilt);
         var camera = view.Cam;
         _transport.Sound.SetListener(EditorAudioWorld.Vector(camera.Location), new OpenScct.Core.FRotator((int)camera.Rotation.Pitch, (int)camera.Rotation.Yaw, (int)camera.Rotation.Roll));
         _transport.Sound.Update(delta);

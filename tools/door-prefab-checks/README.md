@@ -30,3 +30,12 @@ actual leaf/frame material drags, undo/redo, the four access-assembly shortcuts 
 background Editor. It verifies the actual preset and highlighted parameter for every prefab destination, conditional
 sliding controls, discovery alongside existing tutorials, contextual entry points and Back/Cancel/Resume/Finish.
 The obsolete combined access lesson has been replaced by separate hacking and automatic-access lessons.
+
+## Palette placement regression
+
+`-- --door-placement-checks=<absolute-result.json>` runs opt-in checks in an isolated
+background editor. It exercises live prefab selection and dimension changes, matching
+door-mode and drag previews, wall-facing placement, linked assembly commits and exact
+top/bottom/left/right neighbour snapping with snapping on and off. It saves a result
+and screenshot and quits without saving its disposable map. New palette choices are
+sliding or rising doors; legacy swinging designs remain loadable and scriptable.

@@ -22,13 +22,12 @@ public partial class DoorsPanel : EditorPanel
         foreach (string style in DoorDesign.Styles)
         {
             var button = new Button { Text = CultureInfo.InvariantCulture.TextInfo.ToTitleCase(style), Icon = Thumbnail(style), ToggleMode = true, IconAlignment = HorizontalAlignment.Center, VerticalIconAlignment = VerticalAlignment.Top, CustomMinimumSize = new(112, 110), TooltipText = "Choose or drag this door style", ButtonPressed = style == "panelled" };
-            void Choose() { DoorTools.Tool.Settings.Style = style; foreach (var tile in tiles) tile.ButtonPressed = tile == button; Rebuild(); }
+            void Choose() { DoorTools.Tool.SelectPrefab(null); DoorTools.Tool.Settings.Style = style; foreach (var tile in tiles) tile.ButtonPressed = tile == button; Rebuild(); DoorTools.Tool.RefreshPreview(); }
             button.Pressed += Choose; flow.AddChild(button); tiles.Add(button);
             button.SetDragForwarding(Callable.From<Vector2, Variant>(_ => { if (DoorTools.Tool.Settings.Style != style) Choose(); return Drag(button); }), Callable.From<Vector2, Variant, bool>((_, _) => false), Callable.From<Vector2, Variant>((_, _) => { }));
         }
         PanelUi.Header(body, "Door assemblies");
         var pairs = PanelUi.Toolbar(body);
-        PanelUi.Button(pairs, "Hinged pair", "Open the editable double-door prefab; both leaves follow the linked side sensors", () => PrefabsPanel.ShowPrefab("double_hinged_door"));
         PanelUi.Button(pairs, "Sliding pair", "Open the split sliding-door prefab; both leaves open together", () => PrefabsPanel.ShowPrefab("double_sliding_door"));
         PanelUi.Button(pairs, "Automatic access", "Configure spies, mercs, both or neither separately on each side", () => PrefabsPanel.ShowPrefab("automatic_door"));
         PanelUi.Button(pairs, "Hack panel", "A timed hack panel with a movable link to its door; also available on either double-door assembly", () => PrefabsPanel.ShowPrefab("hackable_door"));
@@ -40,7 +39,7 @@ public partial class DoorsPanel : EditorPanel
     private void Rebuild()
     {
         foreach (var child in fields.GetChildren()) { fields.RemoveChild(child); child.QueueFree(); }
-        DoorFields.Build(fields, DoorTools.Tool.Settings, edit => { var next = DoorTools.Tool.Settings.Clone(); edit(next); next.Validate(); DoorTools.Tool.Settings = next; }, Context.SetStatus, () => EditorLifetime.Defer(Rebuild));
+        DoorFields.Build(fields, DoorTools.Tool.Settings, edit => { var next = DoorTools.Tool.Settings.Clone(); edit(next); next.Validate(); DoorTools.Tool.Settings = next; DoorTools.Tool.RefreshPreview(); }, Context.SetStatus, () => EditorLifetime.Defer(Rebuild));
     }
     private Variant Drag(Control tile)
     {
@@ -88,7 +87,7 @@ public static class DoorFields
             double accepted = value; spin.ValueChanged += v => { if (Apply(x => set(x, v))) accepted = v; else spin.SetValueNoSignal(accepted); };
         }
         Pick("Style", d.Style, DoorDesign.Styles, (x, v) => x.Style = v, "Built-in door finish and details");
-        Pick("Movement", d.Motion, DoorDesign.Motions, (x, v) => x.Motion = v, "Swing about a jamb or slide out of the opening");
+        Pick("Movement", d.Motion, DoorDesign.PlacementMotions.Contains(d.Motion) ? DoorDesign.PlacementMotions : [d.Motion, .. DoorDesign.PlacementMotions], (x, v) => x.Motion = v, "Slide sideways or raise out of the opening");
         Number("Width", d.Width, 48, 8192, (x, v) => x.Width = v, "Clear doorway width in Unreal units");
         Number("Height", d.Height, 64, 8192, (x, v) => x.Height = v, "Clear doorway height");
         Number("Thickness", d.Thickness, 1, 512, (x, v) => x.Thickness = v, "Door leaf thickness");

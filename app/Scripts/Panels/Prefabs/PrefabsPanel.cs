@@ -184,6 +184,7 @@ public partial class PrefabsPanel : EditorPanel
         string[] stars = AppSettings.GetStrings("prefabs", "favourites");
         _shown.Clear();
         _shown.AddRange(_all.Where(p =>
+            !(p.Source == PrefabSource.Builtin && p.Name is "swing_door" or "double_hinged_door") &&
             (_source.Selected == 0 || p.Source == (_source.Selected == 1 ? PrefabSource.Builtin : _source.Selected == 2 ? PrefabSource.Project : PrefabSource.Library)) &&
             (!_favourites.ButtonPressed || stars.Contains(p.Name, StringComparer.OrdinalIgnoreCase)) &&
             (category is null || string.Equals(p.Category, category, StringComparison.OrdinalIgnoreCase)) &&
@@ -301,6 +302,8 @@ public partial class PrefabsPanel : EditorPanel
             SvJsonNode value = instance?.Params.GetValueOrDefault(param.Name) ?? _remembered.GetValueOrDefault(def.Name + def.Hash)?[param.Name] ?? param.Default;
             ParamRow(param, value);
         }
+        Tools.DoorTools.Tool.SelectPrefab(string.Equals(def.Category, "doors", StringComparison.OrdinalIgnoreCase)
+            ? DoorPlacement(def, () => Params(def)) : null);
 
         HFlowContainer row = PanelUi.Toolbar(_details);
         if (def.Params.Count > 0) PanelUi.Button(row, "Reset settings", "Restore this prefab's default parameters for new placements", () =>
@@ -348,30 +351,42 @@ public partial class PrefabsPanel : EditorPanel
                 spin.CustomArrowStep = whole ? 1 : 0.01;
                 spin.SizeFlagsHorizontal = SizeFlags.ExpandFill;
                 _paramValues[param.Name] = () => ApiJson.Num(spin.Value);
+                spin.ValueChanged += _ => Tools.DoorTools.Tool.RefreshPreview();
                 break;
             case SvJsonString when param.Options is { Count: > 0 } options:
                 OptionButton pick = PanelUi.Options(row, param.Summary ?? "");
                 pick.SizeFlagsHorizontal = SizeFlags.ExpandFill;
-                foreach (string o in options)
+                var visibleOptions = options.Where(o => ShowDoorMovement(param.Name, o)).ToArray();
+                // A custom legacy prefab may expose only a hinged motion. Keep
+                // its saved value readable without offering a new swing choice.
+                if (visibleOptions.Length == 0) { visibleOptions = [(value as SvJsonString)?.Value ?? options[0]]; pick.Disabled = true; }
+                else pick.Disabled = visibleOptions.Length == 1;
+                foreach (string o in visibleOptions)
                 {
                     pick.AddItem(o);
                 }
 
-                pick.Select(Math.Max(0, options.ToList().IndexOf((value as SvJsonString)?.Value ?? "")));
+                pick.Select(Math.Max(0, visibleOptions.ToList().IndexOf((value as SvJsonString)?.Value ?? "")));
                 _paramValues[param.Name] = () => ApiJson.Str(pick.GetItemText(pick.Selected));
+                pick.ItemSelected += _ => Tools.DoorTools.Tool.RefreshPreview();
                 break;
             case SvJsonString:
                 var text = new LineEdit { Text = (value as SvJsonString)?.Value ?? "", SizeFlagsHorizontal = SizeFlags.ExpandFill };
                 row.AddChild(text);
                 _paramValues[param.Name] = () => ApiJson.Str(text.Text);
+                text.TextChanged += _ => Tools.DoorTools.Tool.RefreshPreview();
                 break;
             default:
                 var check = new CheckBox { ButtonPressed = value.Kind == SvJsonKind.True };
                 row.AddChild(check);
                 _paramValues[param.Name] = () => ApiJson.Bool(check.ButtonPressed);
+                check.Toggled += _ => Tools.DoorTools.Tool.RefreshPreview();
                 break;
         }
     }
+
+    private bool ShowDoorMovement(string parameter, string option) =>
+        Selected?.Category != "doors" || parameter != "movement" || option is not ("hinged" or "swing left" or "swing right");
 
     /// <summary>The parameter values that differ from the prefab's defaults (the rest stay defaults).</summary>
     private SvJsonObject Params(PrefabDefinition def)
@@ -405,7 +420,7 @@ public partial class PrefabsPanel : EditorPanel
         Place(def, Params(def), at ?? Context.PlacementPoint?.Invoke() ?? Context.Project.Workspace.CameraLocation);
     }
 
-    private void Place(PrefabDefinition def, SvJsonObject given, Vec3 point)
+    private void Place(PrefabDefinition def, SvJsonObject given, Vec3 point, Rot? rotation = null)
     {
         if (FeaturedGameplay.Conditions.ContainsKey(def.Name) && FeaturedGameplay.Problem(def.Name, given, Folder,
             OpenScct.Editor.Core.Assets.AssetResolver.For(EditorServices.ContentRoot, Folder), EditorServices.Classes) is { } problem)
@@ -415,6 +430,7 @@ public partial class PrefabsPanel : EditorPanel
             return;
         }
         SvJsonObject op = Op("prefab.place", ("name", ApiJson.Str(def.Name)), ("at", ApiJson.Vec(point)));
+        if (rotation is { } turn) op.Add("rot", ApiJson.Rotator(turn));
         if (given.Count > 0)
         {
             op.Add("params", given);
@@ -677,6 +693,12 @@ public partial class PrefabsPanel : EditorPanel
         SvJsonObject given = Params(def);
         var session = Context.Session;
         _list.SetDragPreview(new Label { Text = def.Title ?? def.Name, MouseFilter = MouseFilterEnum.Ignore });
+        if (string.Equals(def.Category, "doors", StringComparison.OrdinalIgnoreCase))
+        {
+            var assembly = DoorPlacement(def, () => given);
+            return Variant.From(new PrefabDragData(def.Title ?? def.Name, _ => assembly.Commit())
+            { DoorAssembly = assembly, DoorYaw = Tools.DoorTools.Tool.Yaw });
+        }
         return Variant.From(new PrefabDragData(def.Title ?? def.Name, point =>
         {
             if (Context.Session == session)
@@ -684,6 +706,15 @@ public partial class PrefabsPanel : EditorPanel
                 Place(def, given, point);
             }
         }));
+    }
+
+    private Tools.DoorPrefabPlacement DoorPlacement(PrefabDefinition definition, Func<SvJsonObject> parameters)
+    {
+        var session = Context.Session;
+        return new(definition.Name, Folder, parameters, (given, point, rotation) =>
+        {
+            if (Context.Session == session) Place(definition, given, point, rotation);
+        });
     }
 
     private void RegisterActions()

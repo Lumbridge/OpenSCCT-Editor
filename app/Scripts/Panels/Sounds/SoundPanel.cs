@@ -101,7 +101,7 @@ public partial class SoundPanel : EditorPanel
             _ => Context.Run("audio.solo"));
         PanelUi.Toggle(listen, "Sound Paths", "Show the selected source's reach and acoustic paths", true,
             on => { if (EditorAudio.Instance is { } audio) audio.ShowPaths = on; });
-        PanelUi.Caption(this, "Sound paths: green = mixer arrival, blue = direct reach, amber = reflection guides. Guides show geometry, not individual Steam Audio reflection rays.");
+        PanelUi.Caption(this, "Sound paths: green = mixer arrival, blue = direct reach, amber = material-aware reflections (up to four bounces). Reflections are estimates, not captured Steam Audio rays.");
         _state = PanelUi.Caption(this, "");
 
         Context.AddAction(new EditorAction("sound.library", "Sound Library", "Assets", () => { DockTabs.ShowPanel("Sounds"); _search.GrabFocus(); })
