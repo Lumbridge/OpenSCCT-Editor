@@ -70,7 +70,11 @@ public sealed partial class WorldScene
             lines.Polyline(points, SceneStyle.OverlayGuide, true);
         }
         var mesh = AddMesh(root, lines.Build(), SceneStyle.Lines, VisualLayers.Common);
-        if (mesh is not null) mesh.Visible = false;
+        if (mesh is not null)
+        {
+            mesh.Name = "SoundRadius";
+            mesh.Visible = false;
+        }
         return mesh;
     }
 }

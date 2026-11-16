@@ -255,3 +255,5 @@ reads your own game files and OpenSCCT's content at run time.
 ## Texture and material authoring
 
 See [Advanced materials](docs/ADVANCED-MATERIALS.md) for texture-set import, animated textures, PBR/depth controls, optional displaced collision and the actual original-game compatibility matrix.
+
+Sound rays can be toggled in **Sounds > Sound Rays** or **View > Show > Sound Rays**. The spherical radius guide stays visible for selected sources, and the ray setting is remembered between sessions.

@@ -35,6 +35,7 @@ public partial class SoundPanel : EditorPanel
     private Button _remove = null!;
     private Button _ambience = null!;
     private Button _solo = null!;
+    private Button _rays = null!;
     private Button _loopMap = null!;
     private SpinBox _repeatMap = null!;
     private string? _sound;
@@ -109,8 +110,8 @@ public partial class SoundPanel : EditorPanel
             _ => Context.Run("audio.ambience"));
         _solo = PanelUi.Toggle(listen, "Solo Selected", "While listening in the map, play only the selected sources", false,
             _ => Context.Run("audio.solo"));
-        PanelUi.Toggle(listen, "Sound Paths", "Show the selected source's reach and acoustic paths", true,
-            on => { if (EditorAudio.Instance is { } audio) audio.ShowPaths = on; });
+        _rays = PanelUi.Toggle(listen, "Sound Rays", "Show propagation rays for selected sources; the spherical radius stays visible", EditorAudio.Instance?.ShowPaths == true,
+            _ => Context.Run("view.soundRays"));
         PanelUi.Caption(this, "Sound paths: green = mixer arrival, blue = direct reach, amber = material-aware reflections (up to four bounces). Reflections are estimates, not captured Steam Audio rays.");
         _state = PanelUi.Caption(this, "");
 
@@ -262,6 +263,7 @@ public partial class SoundPanel : EditorPanel
         _play.Text = current && audio!.Paused ? "Resume" : current && audio!.Playing ? "Pause" : "Play";
         _ambience.SetPressedNoSignal(audio?.Ambience == true);
         _solo.SetPressedNoSignal(audio?.SoloSelection == true);
+        _rays.SetPressedNoSignal(audio?.ShowPaths == true);
         _state.Text = EditorAudio.Muted ? "Audio muted — use the speaker button in the main toolbar to unmute." :
             audio?.Ambience == true ? "Listening from the perspective camera. Move through the map to audition reach." : "";
     }

@@ -30,7 +30,17 @@ public partial class EditorAudio : Node, IShellPart
     private SoundLibrary? _library;
     public bool Ambience { get; private set; } = true;
     public bool SoloSelection { get; private set; }
-    public bool ShowPaths { get; set; } = true;
+    public bool ShowPaths
+    {
+        get => AppSettings.GetBool("audio", "show_rays", true);
+        set
+        {
+            if (ShowPaths == value) return;
+            AppSettings.Set("audio", "show_rays", value);
+            if (!value) _paths?.Clear();
+            Changed?.Invoke();
+        }
+    }
     private SoundPaths? _paths;
     public bool Loop { get; set; }
     public double Length => _preview.Stream?.GetLength() ?? 0;
@@ -60,6 +70,11 @@ public partial class EditorAudio : Node, IShellPart
         { IsChecked = () => Ambience, Description = "Listen through the game sound engine from the perspective camera" });
         context.AddAction(new EditorAction("audio.solo", "Solo Selected Sound Sources", "View/Audio", () =>
         { SoloSelection = !SoloSelection; Changed?.Invoke(); }) { IsChecked = () => SoloSelection });
+        context.AddAction(new EditorAction("view.soundRays", "Sound Rays", "View/Show", () => ShowPaths = !ShowPaths)
+        {
+            IsChecked = () => ShowPaths,
+            Description = "Show sound propagation rays for selected sources; the spherical radius stays visible. Remembered between sessions"
+        });
         context.AddAction(new EditorAction("audio.stop", "Stop Sound Preview", "View/Audio", Stop));
         context.AddAction(new EditorAction("view.effects", "Particle Effects", "View/Show", () =>
         { if (ViewportLayout.Instance?.Scene is { } scene) scene.SetEffects(!scene.EffectsVisible, scene.EffectsPaused); })
