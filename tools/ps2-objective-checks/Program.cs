@@ -33,6 +33,16 @@ Check(coercion.Coerce("SBase.SFlag", "Ps2Computer", new SvJsonObject { { "$actor
 bool rejected = false;
 try { coercion.Lookup("SBase.SFlag", "Ps2Misspelled", "probe", []); } catch (ApiException) { rejected = true; }
 Check(rejected, "unknown properties remain rejected");
+var templateProject = MapProject.CreateDefault("TemplateD", "Template check");
+var templateSession = new EditorSession(templateProject);
+var templateResult = ChangeApplier.Apply(templateSession, (SvJsonObject)SvJson.Parse("""
+{"format":"osmap.changes/1","ops":[{"op":"prefab.place","name":"ps2_vial","at":[0.0,0.0,96.0]}]}
+"""), writeFiles: false);
+Check(templateResult.Ok, "linked vial template places through normal scripting API");
+Actor templateFlag = templateProject.Actors.Single(a => a.Class == "SBase.SFlag");
+Actor templateConsole = templateProject.Actors.Single(a => a.Class == "SBase.SComputerObjectiveTrigger");
+Check(PropValues.ActorId(templateFlag.Props["Ps2Computer"]) == templateConsole.Id, "template companion reference remaps to actual actor");
+Check(templateConsole.Props["StaticMesh"]?.Kind == SvJsonKind.Null, "template keeps explicit cleared PC console mesh");
 
 var project = MapProject.CreateDefault("Ps2AuthorD", "PS2 authoring check");
 Starter.AddStarterRoom(project);
