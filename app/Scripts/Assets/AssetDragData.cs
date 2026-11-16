@@ -28,18 +28,18 @@ public sealed partial class AssetDragData : RefCounted
 
     public LightPreset? FixtureLight { get; }
 
-    private AssetDragData(AssetDrag drag, double volume, double pitch, double radius)
-    { Drag = drag; SoundSettings = (volume, pitch, radius); }
+    private AssetDragData(AssetDrag drag, double volume, double pitch, double radius, bool loop, double repeatInterval)
+    { Drag = drag; SoundSettings = (volume, pitch, radius, loop, repeatInterval); }
 
-    public (double Volume, double Pitch, double Radius)? SoundSettings { get; }
+    public (double Volume, double Pitch, double Radius, bool Loop, double RepeatInterval)? SoundSettings { get; }
 
-    public static Variant StartSound(Control from, AssetDrag drag, double volume, double pitch, double radius)
+    public static Variant StartSound(Control from, AssetDrag drag, double volume, double pitch, double radius, bool loop = true, double repeatInterval = 0)
     {
         from.SetDragPreview(Preview(drag.Name, Icons.Get("type-sound", EditorTheme.Text)));
-        return Variant.From(new AssetDragData(drag, volume, pitch, radius));
+        return Variant.From(new AssetDragData(drag, volume, pitch, radius, loop, repeatInterval));
     }
 
-    public static (double Volume, double Pitch, double Radius)? ReadSoundSettings(Variant data) =>
+    public static (double Volume, double Pitch, double Radius, bool Loop, double RepeatInterval)? ReadSoundSettings(Variant data) =>
         data.VariantType == Variant.Type.Object && data.AsGodotObject() is AssetDragData payload ? payload.SoundSettings : null;
 
     public static Variant StartFixture(Control from, AssetEntry mesh, LightPreset light, Texture2D? picture)

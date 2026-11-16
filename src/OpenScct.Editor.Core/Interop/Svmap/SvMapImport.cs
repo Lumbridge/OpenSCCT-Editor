@@ -558,6 +558,8 @@ public static class SvMapImport
             }
 
             SetIfNotDefault(a, schema, "SoundRadius", s["soundRadius"]);
+            if (s["loop"] is { } loop) a.Props.Set("SoundLoop", loop);
+            if (s["repeatInterval"] is { } interval) a.Props.Set("SoundRepeatInterval", interval);
             SetIfNotDefault(a, schema, "SoundVolume", s["soundVolume"]);
             SetIfNotDefault(a, schema, "SoundPitch", s["soundPitch"]);
         }

@@ -35,6 +35,8 @@ public partial class SoundPanel : EditorPanel
     private Button _remove = null!;
     private Button _ambience = null!;
     private Button _solo = null!;
+    private Button _loopMap = null!;
+    private SpinBox _repeatMap = null!;
     private string? _sound;
     private string? _pendingImport;
     private bool _syncing;
@@ -52,7 +54,7 @@ public partial class SoundPanel : EditorPanel
         var tabs = new TabContainer { Name = "SoundLists", CustomMinimumSize = new Vector2(0, 92), SizeFlagsVertical = SizeFlags.ExpandFill, SizeFlagsStretchRatio = 1.8f };
         split.AddChild(tabs);
         _assets = new SoundAssetTree { Name = "Library", HideRoot = true, SizeFlagsVertical = SizeFlags.ExpandFill };
-        _assets.Settings = () => (Volume, Pitch, _radius.Value);
+        _assets.Settings = () => (Volume, Pitch, _radius.Value, _loopMap.ButtonPressed, _repeatMap.Value);
         _assets.ItemSelected += PickAsset;
         _assets.ItemActivated += Play;
         tabs.AddChild(_assets);
@@ -75,7 +77,7 @@ public partial class SoundPanel : EditorPanel
         HFlowContainer transport = PanelUi.Toolbar(detail);
         _play = PanelUi.Button(transport, "Play", "Play, pause or resume the selected sound", Play);
         PanelUi.Button(transport, "Stop", "Stop the current sound preview", () => EditorAudio.Instance?.Stop());
-        PanelUi.Toggle(transport, "Loop Preview", "Repeat the preview; placed ambient sources loop in the map", false,
+        PanelUi.Toggle(transport, "Loop Preview", "Repeat only this library preview; Loop Sound controls placed sources", false,
             on => { if (EditorAudio.Instance is { } audio) audio.Loop = on; });
         _time = new Label { Text = "0:00 / 0:00", ThemeTypeVariation = "Caption" };
         transport.AddChild(_time);
@@ -83,6 +85,14 @@ public partial class SoundPanel : EditorPanel
         _volume = PanelUi.Spin(PanelUi.Row(detail, "Volume (%)"), 0, 100, 0.1, 50, "Source volume; 100% is SoundVolume 255");
         _pitch = PanelUi.Spin(PanelUi.Row(detail, "Pitch (×)"), 1.0 / 64, 255.0 / 64, 0.01, 1, "Playback speed and pitch; 1× is the original sound");
         _radius = PanelUi.Spin(PanelUi.Row(detail, "Radius (m)"), 0, 255, 0.01, 64, "Maximum reach before zone attenuation; shown around selected sources in the viewport");
+        _loopMap = new CheckBox { Name = "LoopSound", Text = "Loop Sound", ButtonPressed = true,
+            TooltipText = "Repeat this placed sound while in range. Off: play once on entering range; leaving and returning replays it. Saved with the map." };
+        detail.AddChild(_loopMap);
+        _repeatMap = PanelUi.Spin(PanelUi.Row(detail, "Repeat every (s)"), 0, 86400, .1, 0,
+            "Seconds between starts. 0 loops continuously. A longer clip finishes before replaying, so it never overlaps itself.");
+        _repeatMap.Name = "SoundRepeatInterval";
+        _loopMap.Toggled += _ => UpdateLoopSettings();
+        _repeatMap.ValueChanged += _ => UpdateLoopSettings();
         _volume.ValueChanged += _ => UpdatePreviewSettings();
         _pitch.ValueChanged += _ => UpdatePreviewSettings();
         HFlowContainer ranges = PanelUi.Toolbar(detail);
@@ -206,8 +216,11 @@ public partial class SoundPanel : EditorPanel
             _volume.SetValueNoSignal(SoundAuthoring.Number(source, "SoundVolume", 128) * 100 / 255);
             _pitch.SetValueNoSignal(SoundAuthoring.Number(source, "SoundPitch", 64) / 64);
             _radius.SetValueNoSignal(SoundAuthoring.Number(source, "SoundRadius", 64));
+            _loopMap.SetPressedNoSignal(SoundAuthoring.Loops(source));
+            _repeatMap.SetValueNoSignal(SoundAuthoring.RepeatInterval(source));
+            _repeatMap.Editable = _loopMap.ButtonPressed;
             if (actors.Skip(1).Any(a => SoundAuthoring.Sound(a) != SoundAuthoring.Sound(source) ||
-                new[] { "SoundVolume", "SoundPitch", "SoundRadius" }.Any(p => SoundAuthoring.Number(a, p, p == "SoundVolume" ? 128 : 64) != SoundAuthoring.Number(source, p, p == "SoundVolume" ? 128 : 64))))
+                SoundAuthoring.Loops(a) != SoundAuthoring.Loops(source) || Math.Abs(SoundAuthoring.RepeatInterval(a) - SoundAuthoring.RepeatInterval(source)) > .000001 || new[] { "SoundVolume", "SoundPitch", "SoundRadius" }.Any(p => SoundAuthoring.Number(a, p, p == "SoundVolume" ? 128 : 64) != SoundAuthoring.Number(source, p, p == "SoundVolume" ? 128 : 64))))
                 _selection.Text += " Mixed values; controls show the first sound source.";
         }
         UpdateButtons();
@@ -220,6 +233,12 @@ public partial class SoundPanel : EditorPanel
         _remove.Disabled = !SelectedActors().Any(a => SoundAuthoring.Sound(a) is not null);
     }
     private void UpdatePreviewSettings() => EditorAudio.Instance?.SetPreviewSettings(Volume, Pitch);
+    private void UpdateLoopSettings()
+    {
+        _repeatMap.Editable = _loopMap.ButtonPressed;
+        var command = SoundAuthoring.EditLoop(SelectedActors(), _loopMap.ButtonPressed, _repeatMap.Value);
+        if (!command.IsEmpty) Context.Execute(command);
+    }
     private void Play()
     {
         if (_sound is null || EditorAudio.Instance is not { } audio) return;
@@ -266,7 +285,7 @@ public partial class SoundPanel : EditorPanel
     {
         if (_sound is null) return;
         Vec3 at = ToolManager.Instance?.Builder.Location ?? Context.PlacementPoint?.Invoke() ?? Context.Project.Workspace.CameraLocation;
-        Actor actor = SoundAuthoring.Create(Context.Project, _sound, at, Volume, Pitch, _radius.Value);
+        Actor actor = SoundAuthoring.Create(Context.Project, _sound, at, Volume, Pitch, _radius.Value, _loopMap.ButtonPressed, _repeatMap.Value);
         Context.Execute(new AddObjectsCommand("Place sound source", actors: [actor]));
         Context.Selection.Set([ObjectRef.Actor(actor.Id)]);
         Context.SetStatus($"Placed {actor.Id}; select it to see its sound radius.");
@@ -274,7 +293,7 @@ public partial class SoundPanel : EditorPanel
     private void Apply()
     {
         if (_sound is null) return;
-        var command = SoundAuthoring.Edit(SelectedActors(), _sound, Volume, Pitch, _radius.Value);
+        var command = SoundAuthoring.Edit(SelectedActors(), _sound, Volume, Pitch, _radius.Value, _loopMap.ButtonPressed, _repeatMap.Value);
         if (!command.IsEmpty) Context.Execute(command);
     }
     private void Remove()
@@ -309,11 +328,11 @@ public partial class SoundPanel : EditorPanel
 
 public partial class SoundAssetTree : Tree
 {
-    public Func<(double Volume, double Pitch, double Radius)>? Settings { get; set; }
+    public Func<(double Volume, double Pitch, double Radius, bool Loop, double RepeatInterval)>? Settings { get; set; }
     public override Variant _GetDragData(Vector2 atPosition)
     {
         if (GetItemAtPosition(atPosition)?.GetMetadata(0).AsString() is not { Length: > 0 } path) return default;
-        var settings = Settings?.Invoke() ?? (128, 64, 64);
-        return AssetDragData.StartSound(this, new AssetDrag(AssetKind.Sound, path, AssetPaths.Split(path).Name), settings.Item1, settings.Item2, settings.Item3);
+        var settings = Settings?.Invoke() ?? (128, 64, 64, true, 0);
+        return AssetDragData.StartSound(this, new AssetDrag(AssetKind.Sound, path, AssetPaths.Split(path).Name), settings.Item1, settings.Item2, settings.Item3, settings.Item4, settings.Item5);
     }
 }

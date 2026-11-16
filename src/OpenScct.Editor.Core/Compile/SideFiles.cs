@@ -58,6 +58,8 @@ public static class SideFiles
             record["soundPitch"] = (int)ctx.Rules.Number(a, "SoundPitch", 64);
             record["soundRadius"] = (float)ctx.Rules.Number(a, "SoundRadius", 64);
             record["soundVolume"] = (int)ctx.Rules.Number(a, "SoundVolume", 128);
+            record["loop"] = Audio.SoundAuthoring.Loops(a);
+            record["repeatInterval"] = Audio.SoundAuthoring.RepeatInterval(a);
             actors.Add(record);
             kept.Add(id);
         }
@@ -81,9 +83,11 @@ public static class SideFiles
                 zone["soundPitch"] = (int)ctx.Rules.Number(actor, "SoundPitch", 64);
                 zone["soundRadius"] = (float)ctx.Rules.Number(actor, "SoundRadius", 64);
                 zone["soundVolume"] = (int)ctx.Rules.Number(actor, "SoundVolume", 128);
+                zone["loop"] = Audio.SoundAuthoring.Loops(actor);
+                zone["repeatInterval"] = Audio.SoundAuthoring.RepeatInterval(actor);
             }
             else if (actor.Props.Contains("AmbientSound"))
-                foreach (string key in new[] { "ambientSound", "soundPitch", "soundRadius", "soundVolume" }) zone.Remove(key);
+                foreach (string key in new[] { "ambientSound", "soundPitch", "soundRadius", "soundVolume", "loop", "repeatInterval" }) zone.Remove(key);
         }
         ctx.Files["audio/audio.json"] = RenderBuild.Json(audio);
         ctx.Count("audio.actors", actors.Count);
@@ -109,6 +113,8 @@ public static class SideFiles
                 ["soundPitch"] = (int)ctx.Rules.Number(a, "SoundPitch", 64),
                 ["soundRadius"] = (float)ctx.Rules.Number(a, "SoundRadius", 64),
                 ["soundVolume"] = (int)ctx.Rules.Number(a, "SoundVolume", 128),
+                ["loop"] = Audio.SoundAuthoring.Loops(a),
+                ["repeatInterval"] = Audio.SoundAuthoring.RepeatInterval(a),
                 ["zoneNumber"] = ctx.ZoneAt(a.Location),
             };
         }
@@ -228,6 +234,8 @@ public static class SideFiles
                 entry["soundPitch"] = (int)ctx.Rules.Number(zone, "SoundPitch", 64);
                 entry["soundRadius"] = (float)ctx.Rules.Number(zone, "SoundRadius", 64);
                 entry["soundVolume"] = (int)ctx.Rules.Number(zone, "SoundVolume", 128);
+                entry["loop"] = Audio.SoundAuthoring.Loops(zone);
+                entry["repeatInterval"] = Audio.SoundAuthoring.RepeatInterval(zone);
             }
 
             zones.Add(entry);

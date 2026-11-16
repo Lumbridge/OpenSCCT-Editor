@@ -36,15 +36,27 @@ Check(File.ReadAllBytes(ProjectAssets.For(folder).FilePath(ProjectAssets.For(fol
 string bad = Path.Combine(root, "Bad.wav"); File.WriteAllText(bad, "not audio");
 try { SoundImporter.Import(folder, bad); throw new Exception("Malformed audio imported"); } catch (InvalidDataException) { checks++; }
 Actor actor = SoundAuthoring.Create(map, sound, new(50, 70, 100), 200, 96, 8);
+Check(SoundAuthoring.Loops(actor) && SoundAuthoring.RepeatInterval(actor) == 0, "Existing sound defaults remain continuous looping");
+var timed = SoundAuthoring.EditLoop([actor], true, 3.5);
 var add = new AddObjectsCommand("Place sound", actors: [actor]); add.Do(map);
+timed.Do(map);
+Check(SoundAuthoring.RepeatInterval(map.FindActor(actor.Id)!) == 3.5, "Loop interval edits apply to placed sources");
+timed.Undo(map);
+var once = SoundAuthoring.Create(map, second, Vec3.Zero, loop: false, repeatInterval: 4.5);
+Check(!SoundAuthoring.Loops(once) && SoundAuthoring.RepeatInterval(once) == 4.5, "One-shot mode retains its configured interval");
+SoundAuthoring.Set(once, sound, 20, 64, 10);
+Check(!SoundAuthoring.Loops(once) && SoundAuthoring.RepeatInterval(once) == 4.5, "Other sound edits preserve loop settings");
+try { SoundAuthoring.EditLoop([actor], true, double.NaN); throw new Exception("Invalid interval accepted"); } catch (ArgumentException) { checks++; }
 Check(SoundAuthoring.Create(map, sound, Vec3.Zero).Id != actor.Id, "Repeated placements have unique actor ids");
 var edit = SoundAuthoring.Edit([actor], second, 25, 32, 12); edit.Do(map);
 Check(SoundAuthoring.Sound(map.FindActor(actor.Id)!) == second, "Apply changes the ambient sound reference");
 edit.Undo(map);
 Check(SoundAuthoring.Sound(map.FindActor(actor.Id)!) == sound && map.FindActor(actor.Id)!.Props.GetInt("SoundVolume") == 200, "Undo restores the sound and original settings together");
 add.Undo(map); Check(map.Actors.Count == 0, "Undo placement removes the sound source"); add.Do(map);
+SoundAuthoring.Set(map.Actors[0], sound, 200, 96, 8, false, 3.5);
 ProjectStore.Save(map, folder);
 map = ProjectStore.Load(folder);
+Check(!SoundAuthoring.Loops(map.Actors[0]) && SoundAuthoring.RepeatInterval(map.Actors[0]) == 3.5, "Loop and interval survive save/reopen");
 Check(SoundAuthoring.Sound(map.Actors[0]) == sound && SoundAuthoring.Number(map.Actors[0], "SoundPitch", 64) == 96, "Sound settings survive save/reopen");
 var catalog = AssetCatalog.For(null, folder);
 Check(new SoundLibrary(catalog, null).Leaves(sound).Single().File is { } resolved && File.Exists(resolved), "Imported sound resolves for preview");
@@ -55,6 +67,7 @@ var compiled = new MapCompiler().Compile(map, output, new CompileOptions { Proje
 Check(compiled.Ok, "Compiled imported sound: " + string.Join("; ", compiled.Findings.Where(f => f.Severity == Severity.Error)));
 JsonObject audio = JsonNode.Parse(File.ReadAllBytes(Path.Combine(output, "audio/audio.json")))!.AsObject();
 JsonObject record = audio["actors"]!.AsArray()[0]!.AsObject();
+Check(record["loop"]!.GetValue<bool>() == false && record["repeatInterval"]!.GetValue<double>() == 3.5, "Export includes loop mode and repeat interval for the game engine");
 Check(record["soundVolume"]!.GetValue<int>() == 200 && record["soundPitch"]!.GetValue<int>() == 96 && record["soundRadius"]!.GetValue<double>() == 8, "Exported settings match the authored source");
 JsonObject definition = audio["sounds"]![sound]!.AsObject();
 Check(definition["root"]!.GetValue<string>() == "map" && definition["flags"] is not null && definition["kind"]!.GetValue<string>() == "wave", "Export uses a complete runtime sound definition");
@@ -101,7 +114,7 @@ Check(bundled.ContainsKey("Test.Random") && bundled.ContainsKey("Test.Leaf") && 
     "Composite export includes its definition, leaf and original clip gain");
 
 // A small, self-contained visual fixture with deliberately obvious particles and a two-second sound.
-map.Baked = null; map.Actors.Remove(attachment); SoundAuthoring.Set(map.Actors[0], sound, 128, 64, 8);
+map.Baked = null; map.Actors.Remove(attachment); SoundAuthoring.Set(map.Actors[0], sound, 128, 64, 8, true, 0);
 map.Actors[0].Location = new(0, 100, 100);
 var emitter = new Actor("PreviewEmitter", "Engine.Emitter") { Location = new(0, 0, 100) };
 EmitterBuild.WithSystems(emitter, (SvJsonArray)SvJson.Parse("""

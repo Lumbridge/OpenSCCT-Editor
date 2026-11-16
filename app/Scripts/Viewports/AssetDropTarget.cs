@@ -147,8 +147,8 @@ public sealed partial class AssetDropTarget : Node, IShellPart
             }
             else if (drag is { Kind: AssetKind.Sound })
             {
-                var settings = AssetDragData.ReadSoundSettings(data) ?? (128, 64, 64);
-                Actor actor = OpenScct.Editor.Core.Audio.SoundAuthoring.Create(_ctx.Project, drag.Path, PrefabPoint(view, Pointer(view, position)), settings.Item1, settings.Item2, settings.Item3);
+                var settings = AssetDragData.ReadSoundSettings(data) ?? (128, 64, 64, true, 0);
+                Actor actor = OpenScct.Editor.Core.Audio.SoundAuthoring.Create(_ctx.Project, drag.Path, PrefabPoint(view, Pointer(view, position)), settings.Item1, settings.Item2, settings.Item3, settings.Item4, settings.Item5);
                 _ctx.Execute(new AddObjectsCommand("Place sound source", actors: [actor]));
                 _ctx.Selection.Set([ObjectRef.Actor(actor.Id)]);
                 _ctx.SetStatus($"Placed sound {actor.Id}");

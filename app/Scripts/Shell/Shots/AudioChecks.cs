@@ -43,8 +43,20 @@ public partial class AudioChecks : Node, IShellPart
     {
         string? error = null;
         float peak = -200;
+        Directory.CreateDirectory(Path.GetDirectoryName(_output)!);
         try
         {
+            string metadata = Path.Combine(Path.GetDirectoryName(_output)!, "loop-metadata.json");
+            File.WriteAllText(metadata, """
+                {"format":"svm.mapaudio/1","actors":[
+                  {"id":"Old","class":"AmbientSound","category":"render","location":{"X":0,"Y":0,"Z":0}},
+                  {"id":"Once","class":"AmbientSound","category":"render","location":{"X":0,"Y":0,"Z":0},"loop":false,"repeatInterval":3.5},
+                  {"id":"Timed","class":"AmbientSound","category":"render","location":{"X":0,"Y":0,"Z":0},"loop":true,"repeatInterval":4}
+                ],"zones":[]}
+                """);
+            var parsed = MapAudioDoc.Load(metadata);
+            Check(parsed.Loops("Old") && parsed.RepeatInterval("Old") == 0, "Game audio metadata preserves continuous looping for older maps");
+            Check(!parsed.Loops("Once") && parsed.RepeatInterval("Once") == 3.5f && parsed.Loops("Timed") && parsed.RepeatInterval("Timed") == 4, "Game runtime reads placed loop and repeat interval metadata");
             AcousticRayHit Room(FVector origin, FVector direction, float range, int material)
             {
                 float nearest = range; FVector normal = default; bool hit = false;
@@ -124,6 +136,36 @@ public partial class AudioChecks : Node, IShellPart
             await Wait(0.7);
             Check(mixer.CaptureVoices().Any(v => v.AppliedGain > 0.001f), "Returning to the source restores playback");
             Check(layout.Scene.GetChildren().OfType<SoundPaths>().Any(p => p.Segments > 0), "Reach remains visible after returning to the source");
+            var loop = Field<Button>(panel, "_loopMap");
+            var repeat = Field<SpinBox>(panel, "_repeatMap");
+            Check(loop is CheckBox && loop.Text == "Loop Sound", "Placed source uses the Loop Sound checkbox");
+            loop.ButtonPressed = false;
+            await Wait(0.5);
+            Check(!SoundAuthoring.Loops(context.Project.FindActor(actor.Id)!) && !repeat.Editable, "Checkbox immediately updates selected map sound and disables interval");
+            long onceStarts = mixer.StartCount;
+            await Wait(2.5);
+            Check(mixer.StartCount == onceStarts && !mixer.CaptureVoices().Any(v => v.Ambient), "Loop off plays once and stays stopped while the listener remains nearby");
+            view.Cam.Location = actor.Location + new Vec3(100000, 0, 0);
+            await Wait(.4);
+            view.Cam.Location = actor.Location + new Vec3(100, 0, 0);
+            await Wait(.4);
+            Check(mixer.StartCount > onceStarts, "One-shot source rearms after leaving its range");
+            repeat.Value = 3;
+            loop.ButtonPressed = true;
+            await Wait(.5);
+            long intervalStarts = mixer.StartCount;
+            await Wait(2);
+            Check(mixer.StartCount == intervalStarts, "Timed source waits for its configured repeat interval");
+            await Wait(1);
+            Check(mixer.StartCount > intervalStarts && mixer.Starts[^1].Time - mixer.Starts[^2].Time >= 2.95, "Timed source repeats at the configured interval between starts");
+            repeat.Value = .1;
+            await Wait(4.8);
+            Check(mixer.Starts.Count >= 2 && mixer.Starts[^1].Time - mixer.Starts[^2].Time >= 1.9 && mixer.CaptureVoices().Count(v => v.Ambient) <= 1, "Short repeat interval waits for the two-second clip and never overlaps itself");
+            repeat.Value = 0;
+            await Wait(.5);
+            long continuousStarts = mixer.StartCount;
+            await Wait(2.5);
+            Check(mixer.StartCount == continuousStarts && mixer.CaptureVoices().Any(v => v.Ambient), "Zero interval restores continuous playback without restarting voices");
             var room = new Brush("AudioCheckRoom")
             {
                 Oper = CsgOper.Subtract,

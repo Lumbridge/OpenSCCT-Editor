@@ -111,7 +111,7 @@ public sealed class EditorAudioWorld : IAudioWorld
                 (byte)Math.Clamp(SoundAuthoring.Number(actor, "SoundPitch", 64), 0, 255),
                 actor.Class.EndsWith("ZoneInfo", StringComparison.Ordinal) || actor.Class.EndsWith("LevelInfo", StringComparison.Ordinal),
                 (int)SoundAuthoring.Number(actor, "LightType", 0),
-                (float)SoundAuthoring.Number(actor, "LightBrightness", 64), SoundOcclusionOf(id)));
+                (float)SoundAuthoring.Number(actor, "LightBrightness", 64), SoundOcclusionOf(id), Loop: SoundAuthoring.Loops(actor), RepeatInterval: (float)SoundAuthoring.RepeatInterval(actor)));
         }
     }
 
