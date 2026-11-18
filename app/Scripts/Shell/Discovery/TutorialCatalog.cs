@@ -164,7 +164,7 @@ public static partial class TutorialCatalog
             S("Check again after edits", "An old result becomes stale when the map changes. Run the check again, then build and play to verify collision, visuals and live gameplay.", "action:build.check")]),
         new("play", "Build and play your map", "test compile launch game bots", [
             S("Save and check", "Save the project and run Map Check. Resolve errors that prevent building or make the round unplayable.", "action:build.check"),
-            S("Build and Play", "Build and Play compiles the current map and opens it in OpenSCCT. The game and required content must be configured; the first-map setup guide can help with missing prerequisites.", "action:build.play"),
+            S("Play your build", "Play in Godot and Play in Unreal both compile the current map before opening it. Pick a client from the toolbar or Build menu. Unreal uses this build even when the launcher has a cooked copy of the map.", "action:build.play"),
             S("Review problems", "After play, inspect Log and Map Check for build errors. Test both teams and the full objective sequence; a successful launch is only the first check.", "panel:Log")]),
         new("assets", "Find assets and install content packs", "library search downloads materials mesh texture sound", [
             S("Search all installed assets", "Assets searches installed names, packages and English descriptions. Ctrl+Shift+P also finds individual assets without needing the right asset tab first.", "panel:Assets"),

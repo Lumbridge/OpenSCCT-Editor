@@ -9,6 +9,7 @@ using OpenScctEditor.Shell;
 
 int checks = 0;
 void Check(bool ok, string message) { if (!ok) throw new Exception(message); checks++; }
+CheckUnrealLaunch();
 string? previousContent = EditorServices.ContentRoot;
 try
 {
@@ -52,3 +53,51 @@ try
 }
 finally { EditorServices.ContentRoot = previousContent; }
 Console.WriteLine($"PASS {checks} play mode checks");
+
+void CheckUnrealLaunch()
+{
+    string root = Directory.CreateTempSubdirectory("ose unreal play ").FullName;
+    string? previousLauncher = Environment.GetEnvironmentVariable(GameExe.LauncherRootVariable);
+    string? previousUnreal = Environment.GetEnvironmentVariable("OSE_UNREAL_EXE");
+    try
+    {
+        Environment.SetEnvironmentVariable(GameExe.LauncherRootVariable, root);
+        Environment.SetEnvironmentVariable("OSE_UNREAL_EXE", null);
+        string install = Path.Combine(root, "unreal");
+        string active = Path.Combine(install, "versions", "0.1.3");
+        Directory.CreateDirectory(active);
+        string exe = Path.Combine(active, "OpenSCCTUnreal.exe");
+        File.WriteAllBytes(exe, []);
+        File.WriteAllText(Path.Combine(install, "install.json"), """{"Current":"0.1.3","Pending":"0.1.4"}""");
+        string manifest = Path.Combine(active, "version.json");
+        File.WriteAllText(manifest, """{"launcherProtocol":1}""");
+        bool rejected = false;
+        try { GameExe.FindUnreal(); } catch (InvalidOperationException) { rejected = true; }
+        Check(rejected, "An installed client that would silently ignore the editor map is refused");
+        File.WriteAllText(manifest, """{"editorMapProtocol":1}""");
+        Check(GameExe.FindUnreal() == exe, "The active Unreal version is selected");
+
+        string build = Path.Combine(root, "fresh build", "AquaE");
+        Directory.CreateDirectory(Path.Combine(build, "render"));
+        File.WriteAllText(Path.Combine(build, "manifest.json"), "{}");
+        rejected = false;
+        try { GameLauncher.UnrealArguments(build, new(), null); } catch (InvalidOperationException) { rejected = true; }
+        Check(rejected, "An incomplete editor build cannot start the game");
+        File.WriteAllBytes(Path.Combine(build, "render", "world.glb"), [1]);
+        var options = new PlayOptions { Side = "merc", Mode = "DiskHunt", Difficulty = "hard", Bots = 3, Rules = "map", Smoke = "volumetric-full" };
+        var args = GameLauncher.UnrealArguments(build, options, root);
+        Check(args[0] == "--scct-editor-map=" + build && args.Contains("--svm-content=" + root), "Spaces survive in the exact output and content arguments");
+        Check(args.Contains("-ScctEditorSide=merc") && args.Contains("-ScctEditorMode=DiskHunt") && args.Contains("-ScctEditorBots=3")
+            && args.Contains("-ScctEditorDifficulty=hard") && args.Contains("-ScctEditorMatchPlayers=4") && args.Contains("-ScctEditorPlayLevel=0")
+            && args.Contains("-ScctEditorResponsiveSmoke=1"), "Editor play options reach the Unreal client");
+        string project = Path.Combine(root, "OpenSCCTUnreal.uproject");
+        File.WriteAllText(project, "{}");
+        Check(GameLauncher.UnrealArguments(build, options, root, project).Take(2).SequenceEqual([project, "-game"]), "Source builds launch as the game");
+    }
+    finally
+    {
+        Environment.SetEnvironmentVariable(GameExe.LauncherRootVariable, previousLauncher);
+        Environment.SetEnvironmentVariable("OSE_UNREAL_EXE", previousUnreal);
+        Directory.Delete(root, true);
+    }
+}

@@ -77,8 +77,11 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   and editable brushes recovered from cooked copies). Export to T3D, to `.sdc` written natively, or to a folder with
   the steps for RE+.
 - **Build and play.** A compiler to OpenSCCT's SVMap format (CSG, BSP, zones, collision, lightmaps, vertex-lit
-  meshes), checked with OpenSCCT's own loader. Play the map in OpenSCCT from the editor, or run a headless test
-  round with bots, a scripted route or a host and a joining client.
+  meshes), checked with OpenSCCT's own loader. **Play in Godot** and **Play in Unreal** build the current map
+  with your play options. Unreal opens the build folder even when a cooked map has the same ID. Install a version
+  with editor map support from the launcher's Unreal tab. For a local Unreal build, set `OSE_UNREAL_EXE` to its
+  executable. When using `UnrealEditor.exe`, also set `OSE_UNREAL_PROJECT` to the game's `.uproject`.
+  Headless test rounds support bots, a scripted route or a host and a joining client.
 - **Doors.** The [Doors palette](docs/DOORS.md) creates six styles of framed doors with hinged, sliding or raised
   movement. Preview wall cuts, edit dimensions and opening behaviour in Inspector, and resize with viewport handles.
   Built-in tutorials cover placement, editing and switches. Editable doors build for OpenSCCT.

@@ -20,6 +20,35 @@ public static class GameExe
 
     public static string LauncherRoot => ManagedLauncherRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenSCCT");
 
+    /// <summary>The active Unreal install, or a developer's explicitly selected build. Older clients ignore editor launches.</summary>
+    public static string FindUnreal()
+    {
+        string root = Path.Combine(LauncherRoot, "unreal");
+        string? exe = Environment.GetEnvironmentVariable("OSE_UNREAL_EXE");
+        bool developer = !string.IsNullOrWhiteSpace(exe);
+        if (!developer && CurrentVersion(root) is { } version && version == Path.GetFileName(version))
+            exe = Path.Combine(root, "versions", version, "OpenSCCTUnreal.exe");
+        if (string.IsNullOrEmpty(exe) || !File.Exists(exe))
+            throw new InvalidOperationException("Install OpenSCCT Unreal with the launcher, or set OSE_UNREAL_EXE to a build with editor map support.");
+
+        exe = Path.GetFullPath(exe);
+        string manifest = Path.Combine(Path.GetDirectoryName(exe)!, "version.json");
+        if (developer && !File.Exists(manifest))
+            return exe;
+        try
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(manifest));
+            if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("editorMapProtocol", out var p)
+                && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out int protocol) && protocol >= 1)
+                return exe;
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
+        {
+            throw new InvalidOperationException($"Cannot read Unreal's build information at {manifest}. Repair or update the Unreal installation.", ex);
+        }
+        throw new InvalidOperationException("This Unreal build predates Play in Unreal. Update OpenSCCT Unreal to a version with editor map support.");
+    }
+
     /// <summary>The full path of the first candidate that exists, or null.</summary>
     public static string? Find(string? given = null)
     {
@@ -199,9 +228,9 @@ public static class GameExe
     public const string MapShotOption = "--svm-mapshot=";
 
     /// <summary>The launcher's current version (install.json <c>Current</c>), or null.</summary>
-    private static string? CurrentVersion()
+    private static string? CurrentVersion(string? productRoot = null)
     {
-        string file = Path.Combine(LauncherRoot, "install.json");
+        string file = Path.Combine(productRoot ?? LauncherRoot, "install.json");
         if (!File.Exists(file))
         {
             return null;

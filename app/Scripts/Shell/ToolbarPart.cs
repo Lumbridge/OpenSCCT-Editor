@@ -121,7 +121,8 @@ public sealed class ToolbarPart : IShellPart
         Button("build.build", "Build");
         Button("build.check", "Check");
         row.AddChild(new Control { CustomMinimumSize = new Vector2(EditorTheme.SpaceXs, 0) });
-        Button("build.play", "Play", "PrimaryButton", Icons.Get("play", EditorTheme.TextOnAccent));
+        Button("build.play", "Play in Godot", "PrimaryButton", Icons.Get("play", EditorTheme.TextOnAccent));
+        Button("build.playUnreal", "Play in Unreal", icon: Icons.Get("play", EditorTheme.Text));
 
         var options = new HBoxContainer { Name = "ToolOptions" };
         options.AddThemeConstantOverride("separation", 4);

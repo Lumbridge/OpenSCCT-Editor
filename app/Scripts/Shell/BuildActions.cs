@@ -24,6 +24,7 @@ namespace OpenScctEditor.Shell;
 [ShellPart(Order = -40)]
 public sealed class BuildActions : IShellPart
 {
+    private enum PlayClient { Godot, Unreal }
     private const string ModePrefix = "build.mode.";
     private EditorContext _ctx = null!;
     private string _modes = "";
@@ -36,13 +37,17 @@ public sealed class BuildActions : IShellPart
         _ctx = context;
         bool CanBuild() => EditorServices.Compiler is not null && !BackgroundJobs.IsRunning("Build");
         bool CanCheck() => EditorServices.Checker is not null && !BackgroundJobs.IsRunning("Check");
-        context.AddAction(new EditorAction("build.build", "Build", "Build", () => Build(play: false))
+        context.AddAction(new EditorAction("build.build", "Build", "Build", () => Build())
         {
             Shortcut = "F7", Order = 100, IsEnabled = CanBuild, Description = "Compile the map to an SVMap folder",
         });
-        context.AddAction(new EditorAction("build.play", "Build and Play", "Build", () => Build(play: true))
+        context.AddAction(new EditorAction("build.play", "Play in Godot", "Build", () => Build(PlayClient.Godot))
         {
             Shortcut = "Ctrl+P", Order = 110, IsEnabled = CanBuild, Description = "Build, then play it in OpenSCCT with the play options",
+        });
+        context.AddAction(new EditorAction("build.playUnreal", "Play in Unreal", "Build", () => Build(PlayClient.Unreal))
+        {
+            Order = 111, IsEnabled = CanBuild, Description = "Build, then play this exact map in OpenSCCT Unreal",
         });
         context.AddAction(new EditorAction("build.playFromCamera", "Build and Play From Camera", "Build", () => PlayFrom(CameraStart()))
         {
@@ -210,10 +215,10 @@ public sealed class BuildActions : IShellPart
         }
 
         _ctx.Log(FormattableString.Invariant($"Playing from {grounded.Location} (yaw {Rot.ToDegrees(grounded.Rotation.Yaw):0}°)"));
-        Build(play: true, grounded);
+        Build(PlayClient.Godot, grounded);
     }
 
-    private void Build(bool play, PlayStart? startAt = null)
+    private void Build(PlayClient? client = null, PlayStart? startAt = null)
     {
         if (EditorServices.Compiler is not { } compiler)
         {
@@ -244,14 +249,36 @@ public sealed class BuildActions : IShellPart
             _ctx.Log($"Build {(result.Ok ? "done" : "failed")} in {result.Elapsed.TotalSeconds:0.0} s{(stats.Length > 0 ? ": " + stats : "")}",
                 result.Ok ? Severity.Info : Severity.Error);
             _ctx.SetStatus(result.Ok ? $"Built {snapshot.Id}" : "Build failed");
-            if (play && result.Ok && ReferenceEquals(session, _ctx.Session) && FirstMapGuide.Revision(snapshot) == FirstMapGuide.Revision(_ctx.Project))
+            if (client is not null && result.Ok && ReferenceEquals(session, _ctx.Session) && FirstMapGuide.Revision(snapshot) == FirstMapGuide.Revision(_ctx.Project))
             {
-                Launch(snapshot.Id, startAt, FirstMapGuide.Revision(snapshot));
+                if (client == PlayClient.Unreal)
+                    LaunchUnreal(output, snapshot, options.ContentRoot);
+                else
+                    Launch(snapshot.Id, startAt, FirstMapGuide.Revision(snapshot));
             }
         });
     }
 
     private void PlayLast() => Launch(_ctx.Project.Id);
+
+    private void LaunchUnreal(string output, MapProject snapshot, string? content)
+    {
+        try
+        {
+            string exe = GameExe.FindUnreal();
+            string? project = Path.GetFileName(exe).Equals("UnrealEditor.exe", StringComparison.OrdinalIgnoreCase)
+                ? System.Environment.GetEnvironmentVariable("OSE_UNREAL_PROJECT") ?? "" : null;
+            IReadOnlyList<string> args = GameLauncher.UnrealArguments(output, snapshot.Workspace.Play, content, project);
+            int pid = GameLauncher.Play(exe, args);
+            _ctx.UpdateGuide(g => g.PlayedRevision = FirstMapGuide.Revision(snapshot));
+            _ctx.Log($"Playing {output} in Unreal (pid {pid}): {exe}");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception or IOException or UnauthorizedAccessException)
+        {
+            _ctx.Log(ex.Message, Severity.Error);
+            _ctx.SetStatus(ex.Message);
+        }
+    }
 
     private void Launch(string mapId, PlayStart? startAt = null, string? verifiedRevision = null)
     {
