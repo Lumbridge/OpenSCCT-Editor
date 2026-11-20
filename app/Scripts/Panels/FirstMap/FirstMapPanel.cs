@@ -231,7 +231,7 @@ public partial class FirstMapPanel : EditorPanel
         if (GameExe.Find() is not { } exe) return "Install OpenSCCT through its launcher before playing your map.";
         if (GameExe.TooOld(exe) is { } old) return old;
         if (EditorServices.ContentRoot is not { } content || !File.Exists(Path.Combine(content, "shared", "classes.json")))
-            return "Install the shared content pack to give gameplay objects their models and settings.";
+            return "Build game content from your Steam installation to load the models and settings for gameplay objects.";
         return null;
     }
 
@@ -241,7 +241,7 @@ public partial class FirstMapPanel : EditorPanel
         var body = new VBoxContainer { CustomMinimumSize = new Vector2(EditorTheme.PreferencesNavWidth * 3, 0) };
         dialog.AddChild(body);
         PanelUi.Caption(body, PrerequisiteProblem() ?? "The game and shared content are available.");
-        PanelUi.Caption(body, "Use the OpenSCCT launcher to install or update the game and shared content. Use Get Packs in Assets for map asset libraries. Restart the editor after installing the game if it is not found yet.");
+        PanelUi.Caption(body, "Install the Godot game in the OpenSCCT launcher. In the Editor, choose Tools > Content Packs > Build from Steam to prepare the original maps and assets.");
         PanelUi.Button(body, "Get OpenSCCT", "Open the OpenSCCT download and installation page", () => ExternalPrograms.Open("https://github.com/OpenSCCT/OpenSCCT#play"));
         if (ContextForSetup().FindAction("content.packs") is not null)
             PanelUi.Button(body, "Get content packs", "Open the editor's content pack installer", () => ContextForSetup().Run("content.packs"));

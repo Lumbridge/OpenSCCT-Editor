@@ -50,7 +50,7 @@ public static class FeaturedGameplay
         if (missing.Count > 0) return "Install the content containing these models before placing: " + string.Join(", ", missing.Take(4)) + ". Use Get content packs.";
         if (name is "objective_computer" or "camera_alarm" or "laser_grid_alarm" &&
             (EditorServices.ContentRoot is not { } root || !File.Exists(Path.Combine(root, "shared", "classes.json"))))
-            return "Install the shared content pack before placing this gameplay piece.";
+            return "Build game content from your Steam installation before placing this gameplay piece.";
         return null;
     }
 }

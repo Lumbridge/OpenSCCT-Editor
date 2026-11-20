@@ -1,4 +1,6 @@
 using System.Text.Json;
+using OpenScct.Launcher.Unreal;
+using OpenScct.Launcher.Versioning;
 
 namespace OpenScct.Editor.Core.Services;
 
@@ -18,7 +20,7 @@ public static class GameExe
     public static string? ManagedLauncherRoot => Environment.GetEnvironmentVariable(LauncherRootVariable) is { Length: > 0 } root
         ? Path.GetFullPath(root) : null;
 
-    public static string LauncherRoot => ManagedLauncherRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "OpenSCCT");
+    public static string LauncherRoot => ManagedLauncherRoot ?? OpenScct.Launcher.Install.LauncherLayout.DefaultRoot;
 
     /// <summary>The active Unreal install, or a developer's explicitly selected build. Older clients ignore editor launches.</summary>
     public static string FindUnreal()
@@ -39,14 +41,16 @@ public static class GameExe
         {
             using var doc = JsonDocument.Parse(File.ReadAllText(manifest));
             if (doc.RootElement.ValueKind == JsonValueKind.Object && doc.RootElement.TryGetProperty("editorMapProtocol", out var p)
-                && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out int protocol) && protocol >= 1)
+                && p.ValueKind == JsonValueKind.Number && p.TryGetInt32(out int protocol) && protocol >= 1 &&
+                doc.RootElement.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String &&
+                SemVersion.TryParse(v.GetString(), out var release) && UnrealService.SupportsSteamContent(release))
                 return exe;
         }
         catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
             throw new InvalidOperationException($"Cannot read Unreal's build information at {manifest}. Repair or update the Unreal installation.", ex);
         }
-        throw new InvalidOperationException("This Unreal build predates Play in Unreal. Update OpenSCCT Unreal to a version with editor map support.");
+        throw new InvalidOperationException($"Update OpenSCCT Unreal to {UnrealService.MinimumSteamVersion} or later to play from the Editor with Steam content.");
     }
 
     /// <summary>The full path of the first candidate that exists, or null.</summary>
@@ -67,10 +71,7 @@ public static class GameExe
     public static string? LauncherContent(string exe)
     {
         if (!exe.StartsWith(Path.Combine(LauncherRoot, "versions") + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)) return null;
-        string packs = Path.Combine(LauncherRoot, "packs");
-        if (File.Exists(Path.Combine(packs, "shared", "classes.json"))) return packs;
-        string content = Path.Combine(LauncherRoot, "content");
-        return ManagedLauncherRoot is null && Directory.Exists(content) ? content : null;
+        return EditorSteamContent.ActiveRoot;
     }
 
     /// <summary>
@@ -136,7 +137,7 @@ public static class GameExe
     }
 
     /// <summary>The oldest OpenSCCT the editor starts: older games lack options and map data the editor's builds use.</summary>
-    public static readonly Version MinimumVersion = new(0, 8, 127);
+    public static readonly Version MinimumVersion = new(0, 8, 166);
 
     /// <summary>
     /// The version of the game at <paramref name="exe"/>: the version in its <c>openscct-build.json</c> (a release), else

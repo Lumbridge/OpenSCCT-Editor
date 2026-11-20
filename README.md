@@ -16,36 +16,35 @@ for [OpenSCCT](https://github.com/OpenSCCT/OpenSCCT), the community rewrite of t
 [OpenSCCT](https://github.com/OpenSCCT/OpenSCCT) ·
 [Report a bug](https://github.com/OpenSCCT/OpenSCCT-Editor/issues)
 
-The [OpenSCCT project directory](https://github.com/OpenSCCT/OpenSCCT) covers the PS2, PC/Steam
-and modern Unreal editions. In this editor, export a Versus map as `.sdc` for the original PC game
-or build an SVMap and choose **Play in Unreal** for the [Unreal client](https://github.com/OpenSCCT/OpenSCCT-Unreal).
-The [command-line guide](docs/CLI.md) lists the build targets and their inputs.
+The [OpenSCCT project directory](https://github.com/OpenSCCT) groups PS2 and PC/Steam under **Originals**.
+Export a Versus map as `.sdc` for the original PC game. For the **Modernisations**, build an SVMap
+and choose **Play in Godot** or **Play in Unreal**. The [command-line guide](docs/CLI.md) lists
+the build targets and their inputs.
 
 ## Get it
 
-The Windows OpenSCCT launcher includes an optional **Editor** tab. Choose **Set up Editor** there to install the
+The Windows OpenSCCT launcher's **Tools** section includes **OpenSCCT Editor**. Choose **Set up Editor** to install the
 editor and any missing game/content prerequisites, then **Open Editor**. The launcher keeps the editor in its own
 `editor` folder and can update it; Help > Check for Updates inside the editor continues to work too. Installing the
 editor is optional for players. This requires launcher and editor releases that include launcher integration.
 
 For a standalone installation:
 
-1. Install [OpenSCCT](https://github.com/OpenSCCT/OpenSCCT#play) with its launcher (game version 0.8.158 or newer). The
-   editor uses the content the launcher installs (class data, the converted maps, their materials and meshes) and
-   starts the game for Play and test rounds.
+1. Prepare your installed Chaos Theory Steam copy in the launcher. The stock Versus maps, assets and shared files
+   built there supply the editor and both engines. Install [Godot](https://master.lumbridge.co.uk/projects/godot)
+   or [Unreal](https://master.lumbridge.co.uk/projects/unreal) for the corresponding **Play** command.
 2. Download `OpenSCCT-Editor-<version>-win-x64.zip` from the
    [latest release](https://github.com/OpenSCCT/OpenSCCT-Editor/releases/latest) and extract it to a folder your
    account can write to (Documents, a games folder). There is no installer.
 3. Double-click **OpenSCCT Editor.exe**. Keep the folder together: it also holds the editor's data folder and `ose`,
    the command line tool.
+4. Open an installed stock map or add an approved community-created map for authoring.
 
 Windows 10/11, 64-bit. The editor is not signed yet, so Windows may show "Windows protected your PC" the first time:
 click More info, then Run anyway.
 
-Importing a map from the original game (`.sdc`) and exporting one for it also need your own copy of Splinter Cell:
-Chaos Theory Versus. It reads your native game files and OpenSCCT's content at run time. Releases also include a
-small converted PS2 objective library for the [ND133 and vial presets](docs/PS2-OBJECTIVES.md); no PS2 map download
-is needed to author them.
+Importing or exporting an original PC map (`.sdc`) uses your own copy of Splinter Cell Chaos Theory Versus.
+To use a local PS2 objective library, set `OSE_PS2_OBJECTIVES` to its folder. The [PS2 objective notes](docs/PS2-OBJECTIVES.md) describe the ND133 and vial presets.
 
 The editor updates itself. A few seconds after it starts it asks GitHub whether a newer version is out (Edit >
 Preferences > General turns this off) and shows a link in the status bar; Update now downloads it in the background
@@ -73,11 +72,8 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 
 - **Projects.** `.osmap` project folders made for version control, undo and redo, autosave, crash recovery and
   rotating save backups.
-- **Download and open.** Use **Download & Open** on the toolbar or in **File** to browse maps from OpenSCCT-Content,
-  search by name or code, and filter by category or download status. The editor downloads the map and required
-  shared packs, then opens it as an unsaved project. Choose **Save As** to keep your edits; installed maps can be opened again.
-  The map's world comes back as editable brushes too (the **Recovered brushes** layer), rebuilt from the BSP the
-  converted map keeps, as a cooked `.sdc` import does, with zone portals rebuilt where two zones meet.
+- **Open maps.** Open a locally built Steam map or an approved community-created map as an unsaved project.
+  Choose **Save As** to keep your edits.
 - **Import and export.** OpenSCCT's converted maps, T3D from the stock editor, and `.sdc` map packages (static lights
   and editable brushes recovered from cooked copies). Export to T3D, to `.sdc` written natively, or to a folder with
   the steps for RE+.
@@ -149,9 +145,7 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
 - **Assets and prefabs.** An asset catalogue of the materials, meshes, textures and sounds a map can use, glTF and OBJ
   mesh import with generated collision, and 42 built-in prefabs with shaded previews, category/library filters,
   favourites and remembered settings. The common furniture, storage and industrial kit includes its own finishes.
-  Use **Get Packs…** in Assets to download
-  shared data and map asset libraries from [OpenSCCT-Content](https://github.com/OpenSCCT/OpenSCCT-Content). The editor
-  indexes the new assets as soon as installation finishes. Open **Tools > Emitter Library** to browse,
+  The editor indexes the prepared Steam assets and installed community map content for authoring. Open **Tools > Emitter Library** to browse,
   preview and place the 37 RE+ stock effects from installed OpenSCCT maps, save your own effects or import RE+ effect packs.
   Placed effects animate in the perspective viewport; **View > Show** includes particle visibility, pause and replay.
 - **Sound authoring.** The toolbar's sound-library button opens **Sounds**: search installed sounds (including composite

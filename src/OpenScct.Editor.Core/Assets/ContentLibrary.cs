@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using OpenScct.Editor.Core.Compile.Output;
+using OpenScct.Editor.Core.Services;
+using OpenScct.Maps;
 
 namespace OpenScct.Editor.Core.Assets;
 
@@ -32,6 +34,7 @@ public sealed class ContentLibrary
 
     private readonly string? _svmapRoot;
     private readonly string? _onlyMap;
+    private readonly string? _optionalMaps;
     private readonly Lazy<Dictionary<string, LibraryMaterial>> _materials;
     private readonly Lazy<Dictionary<string, LibraryMesh>> _meshes;
 
@@ -39,6 +42,14 @@ public sealed class ContentLibrary
     {
         _svmapRoot = svmapRoot;
         _onlyMap = onlyMap;
+        if (onlyMap is null && svmapRoot is not null)
+        {
+            var generation = Directory.GetParent(svmapRoot);
+            if (generation?.Parent is { } builds && Guid.TryParseExact(generation.Name, "N", out _) &&
+                string.Equals(builds.FullName, Path.Combine(EditorSteamContent.Layout.Content, SteamContentInstall.BuildsDirectory),
+                    OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                _optionalMaps = Path.Combine(EditorSteamContent.Layout.Packs, "svmap");
+        }
         _materials = new Lazy<Dictionary<string, LibraryMaterial>>(IndexMaterials);
         _meshes = new Lazy<Dictionary<string, LibraryMesh>>(IndexMeshes);
     }
@@ -73,7 +84,10 @@ public sealed class ContentLibrary
         }
 
         string? dir = _svmapRoot is null ? null : Path.Combine(_svmapRoot, map);
-        return dir is not null && File.Exists(Path.Combine(dir, "manifest.json")) ? dir : null;
+        if (dir is not null && File.Exists(Path.Combine(dir, "manifest.json"))) return dir;
+        if (_optionalMaps is null || !ContentIndex.IsSafeCode(map) || SteamVersusMaps.Contains(map)) return null;
+        string optional = Path.Combine(_optionalMaps, map);
+        return File.Exists(Path.Combine(optional, "manifest.json")) ? optional : null;
     }
 
     /// <summary>A material by its full path (Package.Group.Name), else by Package.Name, ignoring case.</summary>
@@ -97,9 +111,16 @@ public sealed class ContentLibrary
     }
 
     /// <summary>The library's map folders (those with a manifest), in name order.</summary>
-    public IEnumerable<string> MapDirs() => _onlyMap is not null ? [_onlyMap]
-        : _svmapRoot is null ? []
-        : Directory.GetDirectories(_svmapRoot).Order(StringComparer.Ordinal).Where(d => File.Exists(Path.Combine(d, "manifest.json")));
+    public IEnumerable<string> MapDirs()
+    {
+        if (_onlyMap is not null) return [_onlyMap];
+        if (_svmapRoot is null) return [];
+        var stock = Directory.EnumerateDirectories(_svmapRoot).Order(StringComparer.Ordinal);
+        var optional = _optionalMaps is not null && Directory.Exists(_optionalMaps)
+            ? Directory.EnumerateDirectories(_optionalMaps).Where(dir => !SteamVersusMaps.Contains(Path.GetFileName(dir))).Order(StringComparer.Ordinal)
+            : Enumerable.Empty<string>();
+        return stock.Concat(optional).Where(dir => File.Exists(Path.Combine(dir, "manifest.json")));
+    }
 
     private Dictionary<string, LibraryMaterial> IndexMaterials()
     {

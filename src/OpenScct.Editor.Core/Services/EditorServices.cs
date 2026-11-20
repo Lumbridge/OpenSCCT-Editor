@@ -473,24 +473,16 @@ public static class ContentLocator
 
     public static string? FindContentRoot()
     {
-        static bool HasContent(string root) => File.Exists(Path.Combine(root, "shared", "classes.json")) ||
-            File.Exists(Path.Combine(root, "installed.json"));
-
-        if (GameExe.ManagedLauncherRoot is { } managed)
+        if (GameExe.ManagedLauncherRoot is not null) return EditorSteamContent.ActiveRoot;
+        if (Environment.GetEnvironmentVariable("OSE_CONTENT") is { Length: > 0 } explicitRoot &&
+            File.Exists(Path.Combine(explicitRoot, "shared", "classes.json"))) return Path.GetFullPath(explicitRoot);
+        if (EditorSteamContent.ActiveRoot is { } active) return active;
+        if (OpenScct.Editor.Core.Updates.EditorRelease.IsDevBuild)
         {
-            string downloaded = Path.Combine(managed, "packs");
-            return HasContent(downloaded) ? downloaded : null;
+            return Candidates("OSE_CONTENT", ".content").FirstOrDefault(c => c is not null &&
+                File.Exists(Path.Combine(c, "shared", "classes.json")));
         }
-        foreach (string? c in Candidates("OSE_CONTENT", ".content"))
-        {
-            if (c is not null && HasContent(c))
-            {
-                return Path.GetFullPath(c);
-            }
-        }
-
-        string packs = Path.Combine(GameExe.LauncherRoot, "packs");
-        return HasContent(packs) ? packs : null;
+        return null;
     }
 
     public static string? FindOpenScctRoot()

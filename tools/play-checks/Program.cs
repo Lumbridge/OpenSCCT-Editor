@@ -64,17 +64,21 @@ void CheckUnrealLaunch()
         Environment.SetEnvironmentVariable(GameExe.LauncherRootVariable, root);
         Environment.SetEnvironmentVariable("OSE_UNREAL_EXE", null);
         string install = Path.Combine(root, "unreal");
-        string active = Path.Combine(install, "versions", "0.1.3");
+        string active = Path.Combine(install, "versions", "0.1.10");
         Directory.CreateDirectory(active);
         string exe = Path.Combine(active, "OpenSCCTUnreal.exe");
         File.WriteAllBytes(exe, []);
-        File.WriteAllText(Path.Combine(install, "install.json"), """{"Current":"0.1.3","Pending":"0.1.4"}""");
+        File.WriteAllText(Path.Combine(install, "install.json"), """{"Current":"0.1.10","Pending":"0.1.11"}""");
         string manifest = Path.Combine(active, "version.json");
         File.WriteAllText(manifest, """{"launcherProtocol":1}""");
         bool rejected = false;
         try { GameExe.FindUnreal(); } catch (InvalidOperationException) { rejected = true; }
         Check(rejected, "An installed client that would silently ignore the editor map is refused");
-        File.WriteAllText(manifest, """{"editorMapProtocol":1}""");
+        File.WriteAllText(manifest, """{"editorMapProtocol":1,"version":"0.1.9"}""");
+        rejected = false;
+        try { GameExe.FindUnreal(); } catch (InvalidOperationException) { rejected = true; }
+        Check(rejected, "A release that downloads stock packs is refused");
+        File.WriteAllText(manifest, """{"editorMapProtocol":1,"version":"0.1.10"}""");
         Check(GameExe.FindUnreal() == exe, "The active Unreal version is selected");
 
         string build = Path.Combine(root, "fresh build", "AquaE");

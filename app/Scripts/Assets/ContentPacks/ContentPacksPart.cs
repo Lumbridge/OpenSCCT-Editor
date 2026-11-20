@@ -19,7 +19,7 @@ public sealed class ContentPacksPart : IShellPart
         context.AddAction(new EditorAction("content.packs", "Content Packs…", "Tools", () => Open())
         {
             Order = 810,
-            Description = "Find and download map asset libraries and shared data from OpenSCCT-Content",
+            Description = "Build stock game assets from Steam and browse community maps",
         });
         context.AddAction(new EditorAction("file.downloadOpen", "Download & Open…", "File", () =>
         {
@@ -29,8 +29,11 @@ public sealed class ContentPacksPart : IShellPart
         {
             Order = 115,
             IsEnabled = () => !BackgroundJobs.IsRunning("Import"),
-            Description = "Choose a map from OpenSCCT-Content, download it and open it for editing",
+            Description = "Download a community map and open it for editing",
         });
+        if (!OpenScct.Editor.Core.Updates.EditorRelease.IsDevBuild &&
+            OpenScct.Editor.Core.Services.EditorServices.ContentRoot is null && Godot.DisplayServer.GetName() != "headless")
+            Godot.Callable.From(() => Open()).CallDeferred();
     }
 
     /// <summary>Shows the catalogue, optionally searching for a map code.</summary>
