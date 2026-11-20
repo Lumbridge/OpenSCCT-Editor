@@ -2,7 +2,7 @@
 {{UNDERLINE}}
 
 A map editor for Splinter Cell: Chaos Theory Versus maps and OpenSCCT.
-https://github.com/Lumbridge/OpenSCCT-Editor
+https://github.com/OpenSCCT/OpenSCCT-Editor
 
 
 Running it
@@ -51,7 +51,7 @@ Your maps:           wherever you save them (.osmap folders)
 Settings, autosaves: %APPDATA%\OpenSCCT Editor
 Editor data:         %LOCALAPPDATA%\OpenSCCT-Editor (imports, caches, downloaded updates)
 
-The editor needs OpenSCCT installed with its launcher (https://github.com/Lumbridge/OpenSCCT),
+The editor needs OpenSCCT installed with its launcher (https://github.com/OpenSCCT/OpenSCCT),
 version 0.8.116 or newer. It uses the content the launcher installs (class data, converted maps,
 materials and meshes) and the game itself (for Play and test rounds). Importing a map from, or
 exporting one for, the original game reads your own copy of SCCT Versus.

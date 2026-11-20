@@ -15,7 +15,7 @@ namespace OpenScctEditor.Shell;
 public static class AboutDialog
 {
     public const string ProjectPage = "https://github.com/" + EditorRelease.Owner + "/" + EditorRelease.Repo;
-    public const string OpenScctPage = "https://github.com/Lumbridge/OpenSCCT";
+    public const string OpenScctPage = "https://github.com/OpenSCCT/OpenSCCT";
 
     /// <summary>The disclaimer, worded as OpenSCCT's README words it.</summary>
     public const string Disclaimer = "OpenSCCT Editor is a fan project, not affiliated with or endorsed by Ubisoft. "

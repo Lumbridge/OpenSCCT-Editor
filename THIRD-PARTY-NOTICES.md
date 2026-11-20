@@ -4,7 +4,7 @@ OpenSCCT Editor includes the components below. Release packages also include the
 third-party components) and the .NET runtime (MIT); their full notices are added to `THIRD-PARTY-NOTICES.txt` in
 each release.
 
-The editor is built with libraries from [OpenSCCT](https://github.com/Lumbridge/OpenSCCT), the same project. Through
+The editor is built with libraries from [OpenSCCT](https://github.com/OpenSCCT/OpenSCCT), the same project. Through
 them it also includes the packages BouncyCastle.Cryptography, Concentus and LiteNetLib, listed below.
 
 ## libwebp
@@ -56,7 +56,7 @@ belt model (`ConveyorModel.h`) and its limits. `src/OpenScct.Editor.Core/Assets/
 list draws on RE+'s `tools/asset_names/fr-en.txt`, and `src/OpenScct.Editor.Core/Gameplay/CameraNetworks.cs` follows
 RE+'s camera network model (`CameraNetworkModel.h`). The emitter catalogue metadata in
 `src/OpenScct.Editor.Core/Emitters/StockEmitters.json` follows `tools/emitter_library/defaults_manifest.json`. The
-editor reads the particle data and textures from installed OpenSCCT content. RE+ ([source](https://github.com/Lumbridge/SCCT_Versus_Reloaded_Editor))
+editor reads the particle data and textures from installed OpenSCCT content. RE+ ([source](https://github.com/OpenSCCT/SCCT_Versus_Reloaded_Editor))
 is distributed under this licence:
 
 ```

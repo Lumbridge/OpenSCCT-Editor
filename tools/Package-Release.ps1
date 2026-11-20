@@ -74,7 +74,7 @@ $platform = 'win-x64'
 $folderName = 'OpenSCCT Editor'
 $exeName = 'OpenSCCT Editor.exe'
 $dataName = 'data_OpenScctEditor_windows_x86_64'
-$owner = 'Lumbridge/OpenSCCT-Editor'
+$owner = 'OpenSCCT/OpenSCCT-Editor'
 $templateVersion = '4.7.2.stable.mono'
 
 function Fail([string]$message) { throw "Package-Release: $message" }

@@ -1,7 +1,7 @@
 # Feature parity
 
 The feature checklist. Every feature of the stock ChaosTheory_Editor and of
-[RE+](https://github.com/Lumbridge/SCCT_Versus_Reloaded_Editor) has a row, plus design, analysis and scripting features
+[RE+](https://github.com/OpenSCCT/SCCT_Versus_Reloaded_Editor) has a row, plus design, analysis and scripting features
 neither has. Each row says where the feature lives in the new editor, whether it is built yet, and what it does better.
 
 ## How to read the tables

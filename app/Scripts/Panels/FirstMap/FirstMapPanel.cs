@@ -242,7 +242,7 @@ public partial class FirstMapPanel : EditorPanel
         dialog.AddChild(body);
         PanelUi.Caption(body, PrerequisiteProblem() ?? "The game and shared content are available.");
         PanelUi.Caption(body, "Use the OpenSCCT launcher to install or update the game and shared content. Use Get Packs in Assets for map asset libraries. Restart the editor after installing the game if it is not found yet.");
-        PanelUi.Button(body, "Get OpenSCCT", "Open the OpenSCCT download and installation page", () => ExternalPrograms.Open("https://github.com/Lumbridge/OpenSCCT#play"));
+        PanelUi.Button(body, "Get OpenSCCT", "Open the OpenSCCT download and installation page", () => ExternalPrograms.Open("https://github.com/OpenSCCT/OpenSCCT#play"));
         if (ContextForSetup().FindAction("content.packs") is not null)
             PanelUi.Button(body, "Get content packs", "Open the editor's content pack installer", () => ContextForSetup().Run("content.packs"));
         MainWindow.Instance!.AddChild(dialog); dialog.PopupCentered(); dialog.Confirmed += dialog.QueueFree; dialog.Canceled += dialog.QueueFree;

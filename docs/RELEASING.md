@@ -1,6 +1,6 @@
 # Releases and updates
 
-Releases are published at [github.com/Lumbridge/OpenSCCT-Editor/releases](https://github.com/Lumbridge/OpenSCCT-Editor/releases).
+Releases are published at [github.com/OpenSCCT/OpenSCCT-Editor/releases](https://github.com/OpenSCCT/OpenSCCT-Editor/releases).
 Each is one zip people download and the editor updates itself from. There is no installer.
 
 ## What a release holds
@@ -195,7 +195,7 @@ both launcher-driven and in-editor updates before distributing the integrated la
 `OSE_UPDATE_API` replaces `https://api.github.com` in the updater's requests (for example
 `http://127.0.0.1:8770`; only a loopback address is accepted, and its answers are cached apart from GitHub's), so a
 local server can play the release feed: it answers
-`/repos/Lumbridge/OpenSCCT-Editor/releases` with release JSON whose download links point back at it. With two `-Local`
+`/repos/OpenSCCT/OpenSCCT-Editor/releases` with release JSON whose download links point back at it. With two `-Local`
 packages (say 0.1.0 and 0.1.1) and `OSE_DATA` set to a scratch folder:
 
 ```

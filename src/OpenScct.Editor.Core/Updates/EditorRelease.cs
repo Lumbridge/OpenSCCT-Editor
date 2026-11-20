@@ -5,14 +5,14 @@ using OpenScct.Launcher.Versioning;
 namespace OpenScct.Editor.Core.Updates;
 
 /// <summary>
-/// The editor's releases (docs/RELEASING.md): tags <c>v&lt;semver&gt;</c> on github.com/Lumbridge/OpenSCCT-Editor, each
+/// The editor's releases (docs/RELEASING.md): tags <c>v&lt;semver&gt;</c> on github.com/OpenSCCT/OpenSCCT-Editor, each
 /// with one archive per platform (<c>OpenSCCT-Editor-0.2.0-win-x64.zip</c>) and its checksum file (<c>.sha256</c>).
 /// The archive holds one folder, <see cref="FolderName"/>, with the editor's exe, Godot's data folder, <c>ose</c> and
 /// <c>version.json</c> (<see cref="InstallInfo"/>). Also the version this build carries.
 /// </summary>
 public static class EditorRelease
 {
-    public const string Owner = "Lumbridge";
+    public const string Owner = "OpenSCCT";
     public const string Repo = "OpenSCCT-Editor";
     public const string Product = "OpenSCCT Editor";
 

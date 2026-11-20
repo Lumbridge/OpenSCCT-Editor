@@ -34,7 +34,7 @@ if (-not $OpenScctGit) {
     }
 }
 if (-not (Test-Path (Join-Path $OpenScctGit '.git'))) {
-    throw "No OpenSCCT clone at $OpenScctGit. Clone https://github.com/Lumbridge/OpenSCCT there, or set OSE_OPENSCCT_GIT."
+    throw "No OpenSCCT clone at $OpenScctGit. Clone https://github.com/OpenSCCT/OpenSCCT there, or set OSE_OPENSCCT_GIT."
 }
 
 function Invoke-Git([string]$dir) { & git.exe -C $dir @args; if ($LASTEXITCODE -ne 0) { throw "git $args failed in $dir" } }

@@ -3,18 +3,23 @@
 # OpenSCCT Editor<br clear="right">
 
 **A map and animation editor for Splinter Cell: Chaos Theory Versus.** OpenSCCT Editor makes and edits spies-vs-mercs maps
-for [OpenSCCT](https://github.com/Lumbridge/OpenSCCT), the community rewrite of the game, and for the original game.
+for [OpenSCCT](https://github.com/OpenSCCT/OpenSCCT), the community rewrite of the game, and for the original game.
 
-[![Latest release](https://img.shields.io/github/v/release/Lumbridge/OpenSCCT-Editor)](https://github.com/Lumbridge/OpenSCCT-Editor/releases/latest)
-[![Last commit](https://img.shields.io/github/last-commit/Lumbridge/OpenSCCT-Editor/main)](https://github.com/Lumbridge/OpenSCCT-Editor/commits/main/)
+[![Latest release](https://img.shields.io/github/v/release/OpenSCCT/OpenSCCT-Editor)](https://github.com/OpenSCCT/OpenSCCT-Editor/releases/latest)
+[![Last commit](https://img.shields.io/github/last-commit/OpenSCCT/OpenSCCT-Editor/main)](https://github.com/OpenSCCT/OpenSCCT-Editor/commits/main/)
 
-[Download](https://github.com/Lumbridge/OpenSCCT-Editor/releases/latest) ·
+[Download](https://github.com/OpenSCCT/OpenSCCT-Editor/releases/latest) ·
 [Features](docs/PARITY.md) ·
 [Command line](docs/CLI.md) ·
 [Scripting](docs/SCRIPTING.md) ·
 [Animation Studio](docs/ANIMATION-STUDIO.md) ·
-[OpenSCCT](https://github.com/Lumbridge/OpenSCCT) ·
-[Report a bug](https://github.com/Lumbridge/OpenSCCT-Editor/issues)
+[OpenSCCT](https://github.com/OpenSCCT/OpenSCCT) ·
+[Report a bug](https://github.com/OpenSCCT/OpenSCCT-Editor/issues)
+
+The [OpenSCCT project directory](https://github.com/OpenSCCT/OpenSCCT) covers the PS2, PC/Steam
+and modern Unreal editions. In this editor, export a Versus map as `.sdc` for the original PC game
+or build an SVMap and choose **Play in Unreal** for the [Unreal client](https://github.com/OpenSCCT/OpenSCCT-Unreal).
+The [command-line guide](docs/CLI.md) lists the build targets and their inputs.
 
 ## Get it
 
@@ -25,11 +30,11 @@ editor is optional for players. This requires launcher and editor releases that 
 
 For a standalone installation:
 
-1. Install [OpenSCCT](https://github.com/Lumbridge/OpenSCCT#play) with its launcher (game version 0.8.158 or newer). The
+1. Install [OpenSCCT](https://github.com/OpenSCCT/OpenSCCT#play) with its launcher (game version 0.8.158 or newer). The
    editor uses the content the launcher installs (class data, the converted maps, their materials and meshes) and
    starts the game for Play and test rounds.
 2. Download `OpenSCCT-Editor-<version>-win-x64.zip` from the
-   [latest release](https://github.com/Lumbridge/OpenSCCT-Editor/releases/latest) and extract it to a folder your
+   [latest release](https://github.com/OpenSCCT/OpenSCCT-Editor/releases/latest) and extract it to a folder your
    account can write to (Documents, a games folder). There is no installer.
 3. Double-click **OpenSCCT Editor.exe**. Keep the folder together: it also holds the editor's data folder and `ose`,
    the command line tool.
@@ -63,7 +68,7 @@ are **S** Select, **M** Move, **R** Rotate, **Shift+S** Scale and **Shift+M** Me
 preset assignments take precedence. Shared initials use Shift for the secondary tool.
 
 The editor is usable for blockout and gameplay work, with gaps. [docs/PARITY.md](docs/PARITY.md) has every feature of
-the stock ChaosTheory_Editor and of [RE+](https://github.com/Lumbridge/SCCT_Versus_Reloaded_Editor) with where it
+the stock ChaosTheory_Editor and of [RE+](https://github.com/OpenSCCT/SCCT_Versus_Reloaded_Editor) with where it
 lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what comes next.
 
 - **Projects.** `.osmap` project folders made for version control, undo and redo, autosave, crash recovery and
@@ -145,7 +150,7 @@ lives here and whether it is built; [docs/ROADMAP.md](docs/ROADMAP.md) has what 
   mesh import with generated collision, and 42 built-in prefabs with shaded previews, category/library filters,
   favourites and remembered settings. The common furniture, storage and industrial kit includes its own finishes.
   Use **Get Packs…** in Assets to download
-  shared data and map asset libraries from [OpenSCCT-Content](https://github.com/Lumbridge/OpenSCCT-Content). The editor
+  shared data and map asset libraries from [OpenSCCT-Content](https://github.com/OpenSCCT/OpenSCCT-Content). The editor
   indexes the new assets as soon as installation finishes. Open **Tools > Emitter Library** to browse,
   preview and place the 37 RE+ stock effects from installed OpenSCCT maps, save your own effects or import RE+ effect packs.
   Placed effects animate in the perspective viewport; **View > Show** includes particle visibility, pause and replay.
@@ -174,8 +179,8 @@ editor builds against the Godot-free libraries of OpenSCCT at the commit in `ope
 public `main`. Clone both repositories side by side:
 
 ```
-git clone https://github.com/Lumbridge/OpenSCCT-Editor
-git clone https://github.com/Lumbridge/OpenSCCT
+git clone https://github.com/OpenSCCT/OpenSCCT-Editor
+git clone https://github.com/OpenSCCT/OpenSCCT
 pwsh OpenSCCT/tools/Get-Godot.ps1
 ```
 
@@ -205,7 +210,7 @@ format, [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) the background mode and scree
 
 Bug reports, testing, clearer docs and code changes all help. Read [CONTRIBUTING.md](CONTRIBUTING.md) before sending a
 pull request. Original game files, converted maps and assets, and decompiled code stay outside Git (see OpenSCCT's
-[provenance rules](https://github.com/Lumbridge/OpenSCCT/blob/main/re/PROVENANCE.md)).
+[provenance rules](https://github.com/OpenSCCT/OpenSCCT/blob/main/re/PROVENANCE.md)).
 
 ### App command line
 
