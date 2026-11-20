@@ -38,9 +38,7 @@ public static class GameLauncher
                 throw new InvalidOperationException("Set OSE_UNREAL_PROJECT to the built OpenSCCTUnreal.uproject when launching through UnrealEditor.exe.");
             args.InsertRange(0, [Path.GetFullPath(unrealProject), "-game"]);
         }
-        string packs = Path.Combine(GameExe.LauncherRoot, "packs");
-        if (string.IsNullOrEmpty(content) && File.Exists(Path.Combine(packs, "shared", "classes.json")))
-            content = packs;
+        content ??= EditorSteamContent.ActiveRoot;
         if (!string.IsNullOrEmpty(content))
             args.Add("--svm-content=" + Path.GetFullPath(content));
         if (play.Smoke is "volumetric-fast" or "volumetric-full")

@@ -8,7 +8,7 @@ using OpenScctEditor.Shell;
 
 namespace OpenScctEditor.Assets;
 
-/// <summary>A catalogue of map asset libraries and shared packs, or maps to download and open for editing.</summary>
+/// <summary>Build the local Steam asset library and browse optional community maps.</summary>
 public sealed partial class ContentPacksWindow : AcceptDialog
 {
     private const int TextWidth = 600;
@@ -48,9 +48,9 @@ public sealed partial class ContentPacksWindow : AcceptDialog
         var body = new VBoxContainer { CustomMinimumSize = new Vector2(TextWidth, 0) };
         body.AddThemeConstantOverride("separation", EditorTheme.SpaceS);
         AddChild(body);
-        PanelUi.Caption(body, openMaps ? "Choose a map from OpenSCCT-Content to download and open in the editor."
-            : "Download map asset libraries and shared game data for use in the editor.", wrap: false);
-        PanelUi.Caption(body, "Map downloads can include required shared packs.", wrap: false);
+        var setup = PanelUi.Toolbar(body);
+        PanelUi.Button(setup, "Build from Steam…", "Build the original maps and game assets from your installed PC game", ChooseSteam);
+        PanelUi.Caption(body, "Stock maps and assets come from your Steam installation. Community downloads appear below.");
         if (openMaps) PanelUi.Caption(body, "Maps open as unsaved projects. Use Save As to keep your edits.", wrap: false);
         Label location = PanelUi.Caption(body, "", wrap: false);
         location.ClipText = true;
@@ -69,7 +69,7 @@ public sealed partial class ContentPacksWindow : AcceptDialog
         _states.AddItem("All Statuses");
         foreach (ContentPackState state in Enum.GetValues<ContentPackState>()) _states.AddItem(StateName(state), (int)state + 1);
         _states.ItemSelected += _ => Fill();
-        _refresh = PanelUi.Button(filters, "Refresh", "Read the latest OpenSCCT-Content catalogue", () => Refresh());
+        _refresh = PanelUi.Button(filters, "Refresh", "Load community maps available for download", () => Refresh());
         _count = PanelUi.Caption(body, "", wrap: false);
 
         _tree = new Tree
@@ -122,7 +122,42 @@ public sealed partial class ContentPacksWindow : AcceptDialog
         _search.GrabFocus();
         _search.Edit();
         _search.SelectAll();
-        if (_catalog is null && _operation is null) Refresh();
+        if (_catalog is null && _operation is null)
+        {
+            if (EditorServices.ContentRoot is null) _status.Text = "Choose Build from Steam to set up the stock asset library.";
+            else Refresh();
+        }
+    }
+
+    private void ChooseSteam()
+    {
+        if (_operation is not null) return;
+        Dialogs.OpenFolder("Choose your installed Steam copy of Splinter Cell Chaos Theory", BuildFromSteam, EditorSteamContent.FindSource());
+    }
+
+    private void BuildFromSteam(string source)
+    {
+        if (_operation is not null) return;
+        _installing = true;
+        _status.Text = "Building stock maps and assets from Steam…";
+        _progress.Value = 0;
+        _cancel.Text = "Cancel build";
+        var progress = new Progress<OpenScct.Launcher.Content.ContentProgress>(value => BackgroundJobs.Post(() =>
+        {
+            if (!_installing) return;
+            _progress.Value = 100.0 * value.Done / Math.Max(1, value.Total);
+            _status.Text = value.Running.Count == 0 ? "Building stock content…" : string.Join(", ", value.Running);
+        }));
+        Run(token => EditorSteamContent.BuildAsync(source, progress, token), root =>
+        {
+            AssetService.Instance.ContentPacksChanged(root);
+            _status.Text = "Steam content is ready. File > Import SVMap Folder opens a converted stock map.";
+            _cancel.Text = "Cancel Download";
+        }, error =>
+        {
+            _status.Text = error is OperationCanceledException ? "Build cancelled." : error.Message;
+            _cancel.Text = "Cancel Download";
+        });
     }
 
     private void Refresh(string? notice = null)
@@ -176,7 +211,8 @@ public sealed partial class ContentPacksWindow : AcceptDialog
             row.SetText(2, CategoryName(pack.Category));
             row.SetText(3, UpdateChecker.Size(pack.Size));
             row.SetText(4, StateName(pack.State));
-            row.SetTooltipText(0, $"{pack.Title} ({pack.Code})\nPack version {pack.Version}");
+            string delivery = pack.BuildFromSteam ? "Builds locally from community source files and your Steam game." : "Community-authored map archive.";
+            row.SetTooltipText(0, $"{pack.Title} ({pack.Code})\nPack version {pack.Version}\n{delivery}");
             row.SetTooltipText(4, StateDetail(pack.State));
             if (pack.State == ContentPackState.UpdateAvailable) row.SetCustomColor(4, EditorTheme.Accent);
             if (pack.Id == selected) retained = row;
@@ -216,6 +252,8 @@ public sealed partial class ContentPacksWindow : AcceptDialog
             ContentPackState.UpdateAvailable => "Update & Open",
             _ => "Download & Open",
         } : selected?.State == ContentPackState.UpdateAvailable ? "Update" : "Download";
+        if (selected?.BuildFromSteam == true && CanDownload(selected))
+            _download.Text = _openMaps ? "Build & Open" : "Download & Build";
         _download.TooltipText = _openMaps && selected?.State == ContentPackState.Local
             ? "Local files occupy this map's download folder. Use File > Import SVMap Folder to open the local copy." : "";
         _cancel.Visible = _installing;
@@ -246,7 +284,8 @@ public sealed partial class ContentPacksWindow : AcceptDialog
             });
         }), cancel), result =>
         {
-            if (_openMaps || result.Changed || _service.Revision != revision) AssetService.Instance.ContentPacksChanged(_service.Root);
+            if ((_openMaps || result.Changed || _service.Revision != revision) && EditorServices.ContentRoot is { } stock)
+                AssetService.Instance.ContentPacksChanged(stock);
             foreach (string warning in result.Warnings) Context.Log($"Content Packs: {warning}", Severity.Warning);
             string message = $"Installed {result.Pack.Title}.";
             if (result.Warnings.FirstOrDefault() is { } warningText) message += $" {warningText}";
@@ -272,7 +311,7 @@ public sealed partial class ContentPacksWindow : AcceptDialog
         if (_service.Revision != revision)
         {
             // An earlier dependency finished while this pack failed or was cancelled.
-            AssetService.Instance.ContentPacksChanged(_service.Root);
+            if (EditorServices.ContentRoot is { } stock) AssetService.Instance.ContentPacksChanged(stock);
             Refresh(_status.Text);
         }
     }

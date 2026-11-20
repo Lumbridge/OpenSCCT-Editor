@@ -9,14 +9,17 @@ internal static class ContentPackCommands
     [CliProvider]
     public static IEnumerable<CliCommand> Provide() =>
     [
-        new("content-packs", "content-packs list | install <id-or-map-code> [--content folder]",
-            "Lists the OpenSCCT-Content catalogue or installs a pack and its required shared data. Prints JSON.", Run),
+        new("content-packs", "content-packs build [--steam folder] | list | install <id-or-map-code> [--content folder]",
+            "Build stock content from your Steam installation, list community maps, or install a community map. Prints JSON.", Run),
     ];
 
     private static async Task<int> Run(CliArgs a)
     {
         GeometryCliSupport.EnsureServices();
-        var service = new ContentPacks(a.Get("content"));
+        string? destination = a.Get("content");
+        var service = new ContentPacks(destination);
+        if (destination is not null && string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENSCCT_GODOT_CONTENT_DIR")))
+            Environment.SetEnvironmentVariable("OPENSCCT_GODOT_CONTENT_DIR", EditorSteamContent.Layout.Content);
         using var cancel = new CancellationTokenSource();
         ConsoleCancelEventHandler onCancel = (_, e) =>
         {
@@ -28,6 +31,7 @@ internal static class ContentPackCommands
         {
             SvJsonNode result = a.Positional(0) switch
             {
+                "build" => ApiJson.Obj(("root", ApiJson.Str(await EditorSteamContent.BuildAsync(a.Get("steam"), null, cancel.Token)))),
                 "list" => ApiJson.Obj(("root", ApiJson.Str(service.Root)),
                     ("packs", ApiJson.Arr((await service.ListAsync(cancel.Token)).Select(Describe)))),
                 "install" => await Install(a, service, cancel.Token),
@@ -62,5 +66,6 @@ internal static class ContentPackCommands
     private static SvJsonNode Describe(ContentPackEntry entry) => ApiJson.Obj(
         ("id", ApiJson.Str(entry.Id)), ("code", ApiJson.Str(entry.Code)), ("title", ApiJson.Str(entry.Title)),
         ("category", ApiJson.Str(entry.Category)), ("version", ApiJson.Str(entry.Version)),
-        ("bytes", SvJsonNode.Integer(entry.Size)), ("state", ApiJson.Str(entry.State.ToString())));
+        ("bytes", SvJsonNode.Integer(entry.Size)), ("state", ApiJson.Str(entry.State.ToString())),
+        ("buildFromSteam", SvJsonNode.Bool(entry.BuildFromSteam)));
 }

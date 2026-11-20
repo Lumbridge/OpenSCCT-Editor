@@ -141,7 +141,7 @@ public static class Ps2ObjectivePresets
         IReadOnlyList<string> selected, IClassCatalog catalog)
     {
         if (Ps2ObjectiveAssets.Bundled is null)
-            throw new InvalidOperationException("The PS2 objective models are missing. Keep the Editor's Data folder beside the application.");
+            throw new InvalidOperationException("The PS2 objective models are missing. Set OSE_PS2_OBJECTIVES to a library converted from your own PS2 game.");
         bool carry = entry.PresetId == Vial;
         int mode = (int)(carry ? EGameMode.GM_Extraction : EGameMode.GM_Neutralization);
         string modeName = carry ? "Extraction" : "Neutralization";

@@ -42,8 +42,23 @@ internal static class Program
             string v1 = Game(root, "0.8.112"), v2 = Game(root, "0.8.113");
             File.WriteAllText(Path.Combine(root, "install.json"), "{\"Current\":\"0.8.112\"}");
             Check(GameExe.Find() == v1, "managed root beats an inherited stale executable");
-            Check(ContentLocator.FindContentRoot() == packs, "managed content uses packs");
-            Check(GameExe.LauncherContent(v1) == packs, "headless content uses packs");
+            Check(ContentLocator.FindContentRoot() is null && GameExe.LauncherContent(v1) is null, "legacy downloaded stock files do not satisfy setup");
+            string generationId = Guid.NewGuid().ToString("N");
+            string content = Path.Combine(root, "content");
+            string generation = Path.Combine(content, OpenScct.Maps.SteamContentInstall.BuildsDirectory, generationId);
+            foreach (string relative in OpenScct.Maps.SteamContentInstall.RequiredFiles())
+            {
+                string file = Path.Combine(generation, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(file)!);
+                File.WriteAllText(file, "{}");
+            }
+            File.WriteAllText(Path.Combine(content, OpenScct.Maps.SteamContentInstall.PointerFile), JsonSerializer.Serialize(new { format = 1, build = generationId }));
+            Check(ContentLocator.FindContentRoot() == generation && GameExe.LauncherContent(v1) == generation, "Editor and Play share the Steam-built generation");
+            string optional = Path.Combine(packs, "svmap", "MyOriginalMap");
+            Directory.CreateDirectory(optional);
+            File.WriteAllText(Path.Combine(optional, "manifest.json"), "{}");
+            var library = OpenScct.Editor.Core.Assets.ContentLibrary.For(generation);
+            Check(library.MapFolder("MyOriginalMap") == optional && library.MapDirs().Contains(optional), "community maps remain in the separate library");
             File.WriteAllText(Path.Combine(root, "install.json"), "{\"Current\":\"0.8.113\"}");
             Check(GameExe.Find() == v2, "game is resolved again after version switch");
             Check(SvmbuildRunner.InstalledBuild() == Path.GetDirectoryName(v2), "builder follows the same root/version");

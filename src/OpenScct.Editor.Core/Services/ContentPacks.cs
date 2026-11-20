@@ -1,5 +1,4 @@
 using System.Net.Http;
-using System.Security.Cryptography;
 using OpenScct.Maps;
 
 namespace OpenScct.Editor.Core.Services;
@@ -12,13 +11,14 @@ public enum ContentPackState
     Local,
 }
 
-public sealed record ContentPackEntry(string Id, string Code, string Title, string Category, string Version, long Size, ContentPackState State);
+public sealed record ContentPackEntry(string Id, string Code, string Title, string Category, string Version, long Size, ContentPackState State,
+    bool BuildFromSteam);
 
 public readonly record struct ContentPackProgress(string Title, long Received, long Total, bool Extracting);
 
 public sealed record ContentPackInstall(ContentPackEntry Pack, bool Changed, IReadOnlyList<string> Warnings);
 
-/// <summary>Official converted asset packs, using the same index and verified installer as OpenSCCT.</summary>
+/// <summary>Official converted asset packs, using the shared, provenance-checked community catalog.</summary>
 public sealed class ContentPacks
 {
     private static readonly HttpClient s_http = new();
@@ -27,15 +27,13 @@ public sealed class ContentPacks
 
     public ContentPacks(string? root = null, HttpClient? http = null)
     {
-        string? explicitContent = GameExe.ManagedLauncherRoot is null ? Environment.GetEnvironmentVariable("OSE_CONTENT") : null;
-        string destination = root ?? (string.IsNullOrWhiteSpace(explicitContent) ? null : explicitContent)
-            ?? EditorServices.ContentRoot ?? Path.Combine(GameExe.LauncherRoot, "packs");
+        string destination = root ?? EditorSteamContent.Layout.Packs;
         _store = new ContentStore(destination, http ?? s_http);
     }
 
     public string Root => _store.Root;
 
-    /// <summary>Changes after extraction starts. A dependency can change it even if a later download fails.</summary>
+    /// <summary>Changes after a community map has begun installing.</summary>
     public int Revision => Volatile.Read(ref _revision);
 
     public async Task<IReadOnlyList<ContentPackEntry>> ListAsync(CancellationToken cancel)
@@ -43,8 +41,7 @@ public sealed class ContentPacks
         using FileStream guard = await LockAsync(cancel).ConfigureAwait(false);
         ContentIndex index = await ReadIndexAsync(cancel).ConfigureAwait(false);
         IReadOnlyList<InstalledContent> installed = Installed();
-        return index.Shared.Where(HasSafeContents).Select(pack => SharedEntry(pack, installed))
-            .Concat(index.Maps.Where(HasSafeMap).Select(map => MapEntry(map, installed))).ToList();
+        return index.Maps.Where(HasSafeMap).Select(map => MapEntry(map, installed)).ToList();
     }
 
     public async Task<ContentPackInstall> InstallAsync(string id, IProgress<ContentPackProgress>? progress, CancellationToken cancel)
@@ -54,20 +51,6 @@ public sealed class ContentPacks
         ContentIndex index = await ReadIndexAsync(cancel).ConfigureAwait(false);
         IReadOnlyList<InstalledContent> installed = Installed();
         int before = Revision;
-        if (id.StartsWith("shared/", StringComparison.OrdinalIgnoreCase))
-        {
-            ContentSharedPack shared = index.FindShared(id["shared/".Length..])
-                ?? throw new ArgumentException($"No content pack named '{id}'.", nameof(id));
-            ContentPackEntry entry = SharedEntry(shared, installed);
-            if (entry.State != ContentPackState.Installed)
-            {
-                EnsureWritable(entry);
-                await InstallSharedAsync(shared, progress, cancel).ConfigureAwait(false);
-            }
-
-            return new ContentPackInstall(entry with { State = ContentPackState.Installed }, before != Revision, []);
-        }
-
         ContentMap map = index.Maps.FirstOrDefault(m => m.Id.Equals(id, StringComparison.OrdinalIgnoreCase))
             ?? index.FindMap(id) ?? throw new ArgumentException($"No content pack named '{id}'.", nameof(id));
         if (!HasSafeMap(map))
@@ -77,12 +60,6 @@ public sealed class ContentPacks
 
         ContentPackEntry mapEntry = MapEntry(map, installed);
         EnsureWritable(mapEntry);
-        var warnings = new List<string>();
-        foreach (ContentSharedPack dependency in Dependencies(index, map, installed, warnings))
-        {
-            await InstallSharedAsync(dependency, progress, cancel).ConfigureAwait(false);
-        }
-
         if (mapEntry.State != ContentPackState.Installed)
         {
             InstalledContent written = await InstallAsync(mapEntry.Title, progress, report => _store.InstallMapAsync(map, ContentKind.Full, report, cancel))
@@ -98,51 +75,7 @@ public sealed class ContentPacks
             throw new InvalidDataException($"The installed {map.DisplayTitle} pack is missing its map manifest.");
         }
 
-        return new ContentPackInstall(mapEntry with { State = ContentPackState.Installed }, before != Revision, warnings);
-    }
-
-    private IReadOnlyList<ContentSharedPack> Dependencies(ContentIndex index, ContentMap map, IReadOnlyList<InstalledContent> installed,
-        List<string> warnings)
-    {
-        var result = new List<ContentSharedPack>();
-        var packs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (ContentRequirement requirement in map.Requires)
-        {
-            string? file = RequirementFile(requirement.Pack);
-            bool localFile = file is not null && File.Exists(file);
-            if (localFile && SameHash(FileHash(file!), requirement.Sha256))
-            {
-                continue;
-            }
-
-            ContentSharedPack? shared = index.Shared.FirstOrDefault(pack =>
-                pack.Hashes.TryGetValue(requirement.Pack, out string? hash) && SameHash(hash, requirement.Sha256));
-            if (shared is null)
-            {
-                if (localFile)
-                {
-                    warnings.Add($"{map.DisplayTitle} will use the local {requirement.Pack} data. Its listed version is unavailable.");
-                    continue;
-                }
-
-                throw new InvalidDataException($"{map.DisplayTitle} requires {requirement.Pack}, which the content index does not provide.");
-            }
-
-            ContentPackEntry entry = SharedEntry(shared, installed);
-            if (entry.State == ContentPackState.Local && localFile)
-            {
-                warnings.Add($"{map.DisplayTitle} will use the local {requirement.Pack} data. It differs from the published pack.");
-                continue;
-            }
-
-            EnsureWritable(entry);
-            if ((file is not null || entry.State != ContentPackState.Installed) && packs.Add(shared.Id))
-            {
-                result.Add(shared);
-            }
-        }
-
-        return result;
+        return new ContentPackInstall(mapEntry with { State = ContentPackState.Installed }, before != Revision, []);
     }
 
     private ContentPackEntry MapEntry(ContentMap map, IReadOnlyList<InstalledContent> installed)
@@ -161,52 +94,20 @@ public sealed class ContentPacks
         }
         else
         {
-            state = entry?.Kind == ContentKind.Full && SameHash(entry.Sha256, map.Full.Sha256) && File.Exists(Path.Combine(folder, "manifest.json"))
+            state = entry?.Kind == ContentKind.Full && SameHash(entry.Sha256, map.FullInstallHash) && File.Exists(Path.Combine(folder, "manifest.json"))
                 ? ContentPackState.Installed : ContentPackState.UpdateAvailable;
         }
 
-        return new ContentPackEntry(map.Id, map.Code, map.DisplayTitle, map.Category, map.Version, map.Full.Size, state);
-    }
-
-    private ContentPackEntry SharedEntry(ContentSharedPack pack, IReadOnlyList<InstalledContent> installed)
-    {
-        if (!HasSafeContents(pack))
-        {
-            throw new InvalidDataException($"The {pack.Id} shared pack does not list valid install paths.");
-        }
-
-        InstalledContent? entry = installed.FirstOrDefault(c => c.IsShared && string.Equals(c.Code, pack.Id, StringComparison.OrdinalIgnoreCase));
-        string[] files = pack.Contents.Select(name => Path.Combine(_store.SharedRoot, name)).ToArray();
-        ContentPackState state;
-        if (files.Any(IsLink) || (entry is null && files.Any(Exists)))
-        {
-            state = ContentPackState.Local;
-        }
-        else if (entry is null)
-        {
-            state = ContentPackState.Available;
-        }
-        else
-        {
-            state = SameHash(entry.Sha256, pack.Download.Sha256) && SharedProblem(pack) is null
-                ? ContentPackState.Installed : ContentPackState.UpdateAvailable;
-        }
-
-        string title = pack.Title.Length > 0 ? pack.Title : pack.Id;
-        return new ContentPackEntry("shared/" + pack.Id, pack.Id, title, "shared", pack.Version, pack.Download.Size, state);
+        return new ContentPackEntry(map.Id, map.Code, map.DisplayTitle, map.Category, map.Version, map.DownloadSize(ContentKind.Full), state,
+            map.SteamRecipe is not null);
     }
 
     private IReadOnlyList<InstalledContent> Installed() => _store.Installed()
         .Where(entry => entry is { Id.Length: > 0, Code.Length: > 0 }).ToList();
 
-    private static bool HasSafeMap(ContentMap map) => SafeName(map.Code) && SafeHash(map.Full.Sha256);
-
-    private static bool HasSafeContents(ContentSharedPack pack) => SafeName(pack.Id) && SafeHash(pack.Download.Sha256) &&
-        pack.Contents.Count > 0 && pack.Contents.All(SafeName);
+    private static bool HasSafeMap(ContentMap map) => map.CanDistribute && !SteamVersusMaps.Contains(map.Code) && SafeName(map.Code);
 
     private static bool SafeName(string name) => ContentIndex.IsSafeCode(name) && !name.EndsWith('.');
-
-    private static bool SafeHash(string hash) => hash.Length == 64 && hash.All(char.IsAsciiHexDigit);
 
     private static void EnsureWritable(ContentPackEntry entry)
     {
@@ -220,44 +121,6 @@ public sealed class ContentPacks
     {
         ContentIndex index = await _store.FetchIndexAsync(cancel).ConfigureAwait(false);
         return index.Problem is null ? index : throw new InvalidDataException(index.Problem);
-    }
-
-    private string? RequirementFile(string key) => key.ToLowerInvariant() switch
-    {
-        "classes" => Path.Combine(_store.SharedRoot, "classes.json"),
-        "audio" => Path.Combine(_store.SharedRoot, "audio", "audio.json"),
-        _ => null,
-    };
-
-    private async Task InstallSharedAsync(ContentSharedPack pack, IProgress<ContentPackProgress>? progress, CancellationToken cancel)
-    {
-        await InstallAsync(pack.Title.Length > 0 ? pack.Title : pack.Id, progress, report => _store.InstallSharedAsync(pack, report, cancel))
-            .ConfigureAwait(false);
-        if (SharedProblem(pack) is { } problem)
-        {
-            throw new InvalidDataException(problem);
-        }
-    }
-
-    private string? SharedProblem(ContentSharedPack pack)
-    {
-        foreach (string name in pack.Contents)
-        {
-            if (!Exists(Path.Combine(_store.SharedRoot, name)))
-            {
-                return $"The {pack.Id} pack is missing {name}.";
-            }
-        }
-
-        foreach ((string key, string hash) in pack.Hashes)
-        {
-            if (RequirementFile(key) is { } file && (!File.Exists(file) || !SameHash(FileHash(file), hash)))
-            {
-                return $"The installed {pack.Id} pack's {key} data differs from the content index.";
-            }
-        }
-
-        return null;
     }
 
     private async Task<InstalledContent> InstallAsync(string title, IProgress<ContentPackProgress>? progress,
@@ -329,8 +192,6 @@ public sealed class ContentPacks
         }
     }
 
-    private static bool Exists(string path) => File.Exists(path) || Directory.Exists(path);
-
     private static bool IsLink(string path)
     {
         try
@@ -344,12 +205,6 @@ public sealed class ContentPacks
     }
 
     private static bool SameHash(string? left, string? right) => string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
-
-    private static string FileHash(string path)
-    {
-        using FileStream file = File.OpenRead(path);
-        return Convert.ToHexStringLower(SHA256.HashData(file));
-    }
 
     private sealed class PackReporter(Action<PackProgress> report) : IProgress<PackProgress>
     {

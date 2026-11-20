@@ -57,7 +57,7 @@ public static class Ps2ObjectiveAssets
         if (!Used(project)) return;
         ProjectAssets target = ProjectAssets.For(projectFolder);
         if (target.Manifest["ps2Objectives"] is JsonObject) return;
-        ProjectAssets source = Bundled ?? throw new InvalidDataException("PS2 objective assets are unavailable. Keep the Editor's Data folder with the application.");
+        ProjectAssets source = Bundled ?? throw new InvalidDataException("PS2 objective assets are unavailable. Set OSE_PS2_OBJECTIVES to a library converted from your own PS2 game.");
         JsonObject manifest = target.Edit();
         foreach (string section in new[] { "materials", "meshes", "skeletalMeshes", "textures", "sounds" })
             if (manifest[section] is JsonObject existing)
